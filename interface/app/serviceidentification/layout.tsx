@@ -1,4 +1,4 @@
-export default function PricingLayout({
+export default function ServiceIdentificationLayout({
   children,
 }: {
   children: React.ReactNode;

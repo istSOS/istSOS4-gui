@@ -13,11 +13,11 @@ export const siteConfig = {
     },
     {
       label: "Service provider",
-      href: "/Service-provider",
+      href: "/serviceprovider",
     },
     {
       label: "Service identification",
-      href: "/Service-identification",
+      href: "/serviceidentification",
     },
 
 

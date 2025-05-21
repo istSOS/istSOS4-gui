@@ -1,4 +1,4 @@
-export default function AboutLayout({
+export default function ServiceProviderLayout({
   children,
 }: {
   children: React.ReactNode;
