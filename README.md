@@ -1,52 +1,45 @@
-# istSOS4-gui
+# Getting Started
 
-**Web Administration Interface for istSOS**
+To visualize the current version of the application locally, follow these steps:
 
-## 📌 Project Summary
+1. Install Node.js (LTS version)  
+   Download and install Node.js (LTS so `npm` is included too):  
+   https://nodejs.org/  
 
-**istSOS4-gui** -> a project for modern web-based administration interface for istSOS, designed to simplify the management and monitoring of SensorThings API components.
+2. Clone the repository  
+   Clone the project wherever you prefer by running:
+   ```shell
+   git clone https://github.com/LucaBTE/istSOS4-gui.git
+   ```
 
-The primary goals of the project are:
+3. Navigate to the project folder  
+   Move into the project directory and then into the `interface` folder:
+   ```shell
+   cd istSOS4-gui/interface
+   ```
 
-- 📡 **Sensor Management**: Provide an intuitive way to log new sensors and devices.
-- 🛠 **Metadata Configuration**: Easily configure and update sensor metadata.
-- 📈 **Real-time Monitoring**: Track key metrics such as data reception, transmission delays, and system performance.
-- 🧑‍💻 **User-Friendly Design**: Eliminate complex API interactions to make istSOS more accessible for researchers, engineers, and IoT enthusiasts.
-- 🎨 **Modern UI**: Redesign the outdated interface to meet contemporary software design standards.
-- 📚 **Maintainability**: Code will be well-commented and documented to facilitate future maintenance and contributions.
+4. Check Node and npm installation  
+   Make sure Node.js and npm are correctly installed by running:
+   ```shell
+   node -v  
+   npm -v
+   ```
+   If both commands return a version number, you're good to go.
 
-## 📅 Project Schedule
+5. Install project dependencies  
+   Inside the `/interface` folder, run:
+   ```shell
+   npm install
+   ```
+   
 
-All times are in **Europe/Rome** timezone.
+6. Start the development server  
+   Launch the app locally by running:
+   ```shell
+   npm run dev
+   ```
 
-| Date Range                          | Evaluation Type           | Deadline           |
-|------------------------------------|---------------------------|--------------------|
-| July 14, 2025 – July 18, 2025      | Contributor Midterm Eval | Jul 18, 2025 – 8:00 PM |
-| July 14, 2025 – July 18, 2025      | Mentor Midterm Eval      | Jul 18, 2025 – 8:00 PM |
-| August 25, 2025 – September 01, 2025 | Contributor Final Submission | Sep 01, 2025 – 8:00 PM |
-| September 01, 2025 – September 08, 2025 | Mentor Final Evaluation    | Sep 08, 2025 – 8:00 PM |
-
-## 🛠 Technologies Used
-
-- **Python**
-- **JavaScript**
-- **React**
-- **Node.js**
-
-## 📚 Topics Covered
-
-- UI/UX Design
-- Web Interface Development
-- IoT Data Management
-- OGC SensorThings API
-
-## 👤 Contributor
-
-**Luca Abate**  
-*Italy*
-
-## 👤👤👤Mentors
-
-- Maxi  
-- danistrigaro  
-- Claudio Primerano
+7. Open in browser  
+   Once the server is running, open your browser and go to:  
+   http://localhost:3000  
+   You should now see the current state of the project.
