@@ -4,11 +4,9 @@ const fetchData = async (endpoint: string, token: string) => {
 
     try {
         const response = await fetch(endpoint, {
-
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
-                
             },
         });
 
