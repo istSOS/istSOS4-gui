@@ -20,6 +20,7 @@ export default function Page() {
         login.access_token
       );
       console.log(locationData);
+      console.log("AAAAAAAAAAA");
     }
 
     getData();
