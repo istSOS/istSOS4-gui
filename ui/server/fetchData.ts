@@ -13,7 +13,9 @@ const fetchData = async (endpoint: string, token: string) => {
         if (!response.ok) {
             throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
         }
-        const data = await response.json();
+        const text = await response.text();
+        console.log("RESPONSE TEXT:", text);
+        const data = JSON.parse(text);
         return data;
     } catch (error) {
         console.error('Error fetching data:', error);
