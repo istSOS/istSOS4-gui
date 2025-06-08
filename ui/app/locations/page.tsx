@@ -61,13 +61,25 @@ export default function Locations() {
         const first = filteredLocations[0]?.location?.coordinates;
         const center = first ? [first[1], first[0]] : [45, 10];
 
-        const leafletMap = L.map(mapContainerRef.current).setView(center, 4);
+        const leafletMap = L.map(mapContainerRef.current, {
+          worldCopyJump: false,
+          maxBounds: [
+            [-90, -180],
+            [90, 180]
+          ],
+          maxBoundsViscosity: 1.0,
+        }
+        ).setView(center, 4);
         mapInstanceRef.current = leafletMap;
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: '&copy; OpenStreetMap contributors',
         }).addTo(leafletMap);
       }
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize();
+      }, 200);
+
 
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
@@ -75,7 +87,14 @@ export default function Locations() {
       filteredLocations.forEach((loc) => {
         const coords = loc.location?.coordinates;
         if (Array.isArray(coords)) {
-          const marker = L.marker([coords[1], coords[0]])
+          const marker = L.circleMarker([coords[1], coords[0]], {
+            radius: 6,
+            fillColor: "red",
+            color: "red",
+            weight: 1,
+            opacity: 1,
+            fillOpacity: 0.8,
+          })
             .addTo(mapInstanceRef.current)
             .bindPopup(`<pre>${JSON.stringify(loc, null, 2)}</pre>`);
           markersRef.current.push(marker);
@@ -123,7 +142,7 @@ export default function Locations() {
         Locations
       </h1>
       <div className="overflow-x-auto mb-6">
-        <table className="min-w-max table-auto border border-gray-300">
+        <table className="min-w-max table-auto border border-gray-300 bg-white">
           <thead>
             <tr className="bg-gray-100">
               {columns.map((col) => (
@@ -157,7 +176,7 @@ export default function Locations() {
         </table>
       </div>
 
-  
+
       <div
         id="resizable-map-wrapper"
         className="fixed left-0 right-0 z-50"
@@ -182,12 +201,12 @@ export default function Locations() {
           onMouseDown={() => setIsResizing(true)}
           title="Drag to resize map"
         />
-   
+
         <div
           ref={mapContainerRef}
           className="w-full border border-gray-300 shadow bg-white"
           style={{
-            
+
             minHeight: 0,
             borderRadius: "0 0 8px 8px",
             overflow: "hidden",

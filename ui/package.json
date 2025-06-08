@@ -3,7 +3,7 @@
   "scripts": {
 
     "dev": "next dev",
-
+    
     "build": "next build",
 
     "start": "next start",
@@ -41,6 +41,8 @@
     "typescript": "5.8.3"
 
   }
+
+  
 
 }
 
