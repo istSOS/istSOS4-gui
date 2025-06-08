@@ -183,7 +183,7 @@ export default function Locations() {
         style={{
           bottom: 0,
           height: mapHeight,
-          minHeight: 300,
+          minHeight: 100,
           pointerEvents: "none",
         }}
       >

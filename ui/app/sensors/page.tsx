@@ -62,7 +62,7 @@ export default function Sensors() {
         <p>No available sensors.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-max table-auto border border-gray-300">
+          <table className="min-w-max table-auto border border-gray-300 bg-white">
             <thead>
               <tr className="bg-gray-100">
                 {columns.map((col) => (
