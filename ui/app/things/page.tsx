@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
+import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import fetchLogin from "../../server/fetchLogin";
 
@@ -13,6 +14,7 @@ export default function Things() {
   const [things, setThings] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState("");
 
   React.useEffect(() => {
     async function getData() {
@@ -34,10 +36,13 @@ export default function Things() {
     getData();
   }, []);
 
-  // Colonne dinamiche in base ai dati ricevuti
   const columns = React.useMemo(
     () => (things.length > 0 ? Object.keys(things[0]) : []),
     [things]
+  );
+
+  const filteredThings = things.filter(thing =>
+    JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) return <p>Loading...</p>;
@@ -45,6 +50,11 @@ export default function Things() {
 
   return (
     <div className="p-4">
+      <SecNavbar
+        searchValue={search}
+        onSearchChange={setSearch}
+        placeholder="Search things..."
+      />
       <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
         Things
       </h1>
@@ -52,7 +62,7 @@ export default function Things() {
         <p>No available things.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-max table-auto border border-gray-300">
+          <table className="min-w-max table-auto border border-gray-300 bg-white">
             <thead>
               <tr className="bg-gray-100">
                 {columns.map((col) => (
@@ -63,7 +73,7 @@ export default function Things() {
               </tr>
             </thead>
             <tbody>
-              {things.map((obs, index) => (
+              {filteredThings.map((obs, index) => (
                 <tr key={index} className="hover:bg-gray-50">
                   {columns.map((col) => (
                     <td key={col} className="px-4 py-2 border">

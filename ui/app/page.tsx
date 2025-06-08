@@ -19,8 +19,7 @@ export default function Page() {
         "http://api:5000/istsos4/v1.1/Locations",
         login.access_token
       );
-      console.log(locationData);
-      console.log("AAAAAAAAAAA");
+      //console.log(locationData);
     }
 
     getData();
