@@ -3,7 +3,7 @@
   "scripts": {
 
     "dev": "next dev",
-
+    
     "build": "next build",
 
     "start": "next start",
@@ -17,6 +17,8 @@
     "@heroui/react": "^2.7.9",
 
     "framer-motion": "^12.16.0",
+
+    "leaflet": "^1.9.4",
 
     "next": "^15.3.3",
 
@@ -39,6 +41,8 @@
     "typescript": "5.8.3"
 
   }
+
+  
 
 }
 

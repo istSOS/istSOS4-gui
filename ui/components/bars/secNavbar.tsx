@@ -15,7 +15,7 @@ export function SecNavbar({
   const router = useRouter();
 
   return (
-    <div className="flex items-center justify-between bg-white shadow px-4 py-2 mb-4 rounded">
+    <div className="sticky top-10 z-10 flex items-center justify-between bg-white shadow px-4 py-2 mb-4 rounded">
       <button
         onClick={() => router.push("/")}
         className="text-teal-700 hover:text-teal-900 font-semibold flex items-center"
