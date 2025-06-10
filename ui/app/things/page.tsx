@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
@@ -10,6 +11,7 @@ import fetchLogin from "../../server/fetchLogin";
 export const mainColor = siteConfig.main_color;
 
 export default function Things() {
+  const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [things, setThings] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -18,11 +20,11 @@ export default function Things() {
 
   React.useEffect(() => {
     async function getData() {
+      if (!token || authLoading) return;
       try {
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
         const thingData = await fetchData(
           "http://api:5000/istsos4/v1.1/Things",
-          login.access_token
+          token
         );
         setThings(thingData?.value || []);
       } catch (err) {
@@ -34,7 +36,7 @@ export default function Things() {
     }
 
     getData();
-  }, []);
+  }, [token, authLoading]);
 
   const columns = React.useMemo(
     () => (things.length > 0 ? Object.keys(things[0]) : []),

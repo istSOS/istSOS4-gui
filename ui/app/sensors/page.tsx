@@ -2,14 +2,17 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../context/AuthContext";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import fetchLogin from "../../server/fetchLogin";
+import { t } from "framer-motion/dist/types.d-CtuPurYT";
 
 export const mainColor = siteConfig.main_color;
 
 export default function Sensors() {
+  const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [sensors, setSensors] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -19,10 +22,10 @@ export default function Sensors() {
   React.useEffect(() => {
     async function getData() {
       try {
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
+        
         const sensorData = await fetchData(
           "http://api:5000/istsos4/v1.1/Sensors",
-          login.access_token
+          token
         );
         setSensors(sensorData?.value || []);
       } catch (err) {
@@ -34,7 +37,7 @@ export default function Sensors() {
     }
 
     getData();
-  }, []);
+  }, [token, authLoading]);
 
   const columns = React.useMemo(
     () => (sensors.length > 0 ? Object.keys(sensors[0]) : []),
