@@ -1,10 +1,41 @@
-import { heroui, HeroUIProvider } from "@heroui/react";
+"use client";
+import React from "react";
+import { heroui, HeroUIProvider, Button } from "@heroui/react";
 import { CustomNavbar } from "../components/bars/customNavbar";
+import UserBar from "../components/bars/userbar";
 import { siteConfig } from "../config/site";
+import { AuthProvider, useAuth } from "../context/AuthContext";
+import LoginModal from "../components/LoginModal";
 
 import "./globals.css";
 
 export const mainColor = siteConfig.main_color;
+
+function LayoutContent({ children }: { children: React.ReactNode }) {
+  const [loginOpen, setLoginOpen] = React.useState(false);
+  const { token } = useAuth();
+
+  const handleCreateUser = () => {
+
+    alert("to implement");
+  };
+
+
+  return (
+    <>
+
+      <CustomNavbar />
+      <UserBar
+        onLoginClick={() => setLoginOpen(true)}
+        onCreateUserClick={handleCreateUser}
+      />
+      <HeroUIProvider>
+        <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+        {children}
+      </HeroUIProvider>
+    </>
+  );
+}
 
 export default function RootLayout({
   children,
@@ -14,8 +45,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ backgroundColor: mainColor }}>
-        <CustomNavbar />
-        {children}
+        <AuthProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </AuthProvider>
       </body>
     </html>
   );

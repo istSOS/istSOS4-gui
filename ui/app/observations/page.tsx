@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
-import fetchLogin from "../../server/fetchLogin";
+import { useAuth } from "../../context/AuthContext";
 
 export const mainColor = siteConfig.main_color;
 
 export default function Observations() {
+  const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [observations, setObservations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -17,12 +18,12 @@ export default function Observations() {
   const [search, setSearch] = React.useState("");
 
   React.useEffect(() => {
+    if (!token || authLoading) return;
     async function getData() {
       try {
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
         const observationData = await fetchData(
           "http://api:5000/istsos4/v1.1/Observations",
-          login.access_token
+          token
         );
         setObservations(observationData?.value || []);
       } catch (err) {
@@ -34,7 +35,7 @@ export default function Observations() {
     }
 
     getData();
-  }, []);
+  }, [token, authLoading]);
 
   const columns = React.useMemo(
     () => (observations.length > 0 ? Object.keys(observations[0]) : []),

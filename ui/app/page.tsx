@@ -4,26 +4,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../config/site";
 
-import fetchData from "../server/fetchData";
-import fetchLogin from "../server/fetchLogin";
-
 export const mainColor = siteConfig.main_color;
 
 export default function Page() {
   const router = useRouter();
-
-  React.useEffect(() => {
-    async function getData() {
-      const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
-      const locationData = await fetchData(
-        "http://api:5000/istsos4/v1.1/Locations",
-        login.access_token
-      );
-      //console.log(locationData);
-    }
-
-    getData();
-  }, []);
 
   return (
     <div className="min-h-screen py-16 px-4 sm:px-6 lg:px-8">

@@ -1,16 +1,16 @@
 "use client";
 
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
-import fetchLogin from "../../server/fetchLogin";
+import { useAuth } from "../../context/AuthContext";
 import "leaflet/dist/leaflet.css";
 
 export const mainColor = siteConfig.main_color;
 
 export default function Locations() {
+  const { token, loading: authLoading } = useAuth();
   const [locations, setLocations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -23,12 +23,12 @@ export default function Locations() {
   const markersRef = React.useRef<any[]>([]);
 
   React.useEffect(() => {
+    if (!token || authLoading) return;
     async function getData() {
       try {
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
         const locationData = await fetchData(
           "http://api:5000/istsos4/v1.1/Locations",
-          login.access_token
+          token
         );
         setLocations(locationData?.value || []);
       } catch (err) {
@@ -39,7 +39,7 @@ export default function Locations() {
       }
     }
     getData();
-  }, []);
+  }, [token, authLoading]);
 
   const columns = React.useMemo(
     () =>
