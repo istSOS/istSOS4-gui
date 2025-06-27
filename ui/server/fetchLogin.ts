@@ -1,28 +1,22 @@
 'use server'
 
-const fetchLogin = async (endpoint: string,
-    username: string,
-    password: string) => {
-
+const fetchLogin = async (endpoint: string) => {
     const data = new URLSearchParams({
-        username,
-        password,
+        username: "admin",
+        password: "admin",
         grant_type: 'password',
     });
 
     console.log("Invio login:", data.toString()); //debug only, to remove
     
-
     const requestOptions: RequestInit = {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: data.toString(),
     };
 
-
     try {
         const response = await fetch(endpoint, requestOptions);
-
         if (!response.ok) {
             throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
         }

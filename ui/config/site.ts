@@ -4,6 +4,19 @@ export const siteConfig = {
   name: "istSOS4 admin ui",
   main_color: "#008374",
   secondary_color: "#007668",
+
+  //HARDCODED PLACEHOLDER NETWORKS
+  networks: [
+    {
+      label: "Network 1",
+      href: "network",
+    },
+    {
+      label: "Network 2",
+      href: "network",
+    }
+  ],
+
   items: [
 
     {
@@ -29,6 +42,10 @@ export const siteConfig = {
     {
       label: "Observations",
       href: "/observations",
+    },
+    {
+      label: "Network",
+      href: "/network",
     },
 
   ],
