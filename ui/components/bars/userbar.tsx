@@ -3,6 +3,9 @@ import { Button } from "@heroui/react";
 import { useAuth } from "../../context/AuthContext";
 import { withRouter } from "next/router";
 import fetchUserRole from "../../server/fetchUser";
+import { siteConfig } from "../../config/site";
+
+export const mainColor = siteConfig.main_color;
 
 
 export default function UserBar({
@@ -34,8 +37,8 @@ export default function UserBar({
         <div
             style={{
                 width: "100%",
-                background: "#fff",
-                color: "#222",
+                background: mainColor,
+                color: "#fff",
                 padding: "6px 16px",
                 display: "flex",
                 alignItems: "center",

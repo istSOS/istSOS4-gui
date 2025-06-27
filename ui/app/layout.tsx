@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { heroui, HeroUIProvider, Button } from "@heroui/react";
+import { heroui, HeroUIProvider, Divider, Button } from "@heroui/react";
 import { CustomNavbar } from "../components/bars/customNavbar";
 import UserBar from "../components/bars/userbar";
 import { siteConfig } from "../config/site";
@@ -29,10 +29,17 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         onLoginClick={() => setLoginOpen(true)}
         onCreateUserClick={handleCreateUser}
       />
+      
+      <Divider
+        style={{backgroundColor: "white", height: 1, margin: "8px 0",}}
+        ></Divider>
+        
       <HeroUIProvider>
         <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
         {children}
       </HeroUIProvider>
+
+      
     </>
   );
 }
@@ -45,9 +52,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ backgroundColor: mainColor }}>
+        
         <AuthProvider>
           <LayoutContent>{children}</LayoutContent>
         </AuthProvider>
+
       </body>
     </html>
   );

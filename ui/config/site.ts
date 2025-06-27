@@ -1,9 +1,12 @@
 export type SiteConfig = typeof siteConfig;
 
+const api_root = "http://api:5000/istsos4/v1.1/";
+
 export const siteConfig = {
   name: "istSOS4 admin ui",
   main_color: "#008374",
   secondary_color: "#007668",
+  
 
   //HARDCODED PLACEHOLDER NETWORKS
   networks: [
@@ -22,30 +25,32 @@ export const siteConfig = {
     {
       label: "Users",
       href: "/users",
+      fetch: api_root + "Users",
     },
     {
       label: "Locations",
       href: "/locations",
+      fetch: api_root + "Locations",
     },
         {
       label: "Datastreams",
       href: "/datastreams",
+      fetch: api_root + "Datastreams",
     },
     {
       label: "Things",
       href: "/things",
+      fetch: api_root + "Things",
     },
     {
       label: "Sensors",
       href: "/sensors",
+      fetch: api_root + "Sensors",
     },
     {
       label: "Observations",
       href: "/observations",
-    },
-    {
-      label: "Network",
-      href: "/network",
+      fetch: api_root + "Observations",
     },
 
   ],

@@ -1,9 +1,11 @@
 'use server'
 
-const fetchLogin = async (endpoint: string) => {
+const fetchLogin = async (endpoint: string, 
+    username: string, 
+    password: string) => {
     const data = new URLSearchParams({
-        username: "admin",
-        password: "admin",
+        username,
+        password,
         grant_type: 'password',
     });
 
