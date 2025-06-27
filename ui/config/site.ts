@@ -5,13 +5,18 @@ export const siteConfig = {
   main_color: "#008374",
   secondary_color: "#007668",
   items: [
+
     {
-      label: "Home",
-      href: "/",
+      label: "Users",
+      href: "/users",
     },
     {
       label: "Locations",
       href: "/locations",
+    },
+        {
+      label: "Datastreams",
+      href: "/datastreams",
     },
     {
       label: "Things",
@@ -28,9 +33,13 @@ export const siteConfig = {
 
   ],
   navMenuItems: [
-      {
+    {
       label: "Home",
       href: "/",
+    },
+    {
+      label: "Users",
+      href: "/users",
     },
     {
       label: "Locations",
