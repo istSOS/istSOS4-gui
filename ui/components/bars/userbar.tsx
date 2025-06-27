@@ -2,9 +2,11 @@ import React from "react";
 import { Button } from "@heroui/react";
 import { useAuth } from "../../context/AuthContext";
 import { withRouter } from "next/router";
+import fetchUserRole from "../../server/fetchUser";
 
 
 export default function UserBar({
+    
     onLoginClick,
     onCreateUserClick,
 }: {
@@ -13,10 +15,9 @@ export default function UserBar({
 }) {
     const { token, setToken } = useAuth();
 
-    console.log("token:", token);
-
     let username = "User";
     let isAdmin = false;
+
     if (token) {
         try {
             const payload = JSON.parse(atob(token.split(".")[1]));
@@ -26,10 +27,9 @@ export default function UserBar({
             console.error("Error parsing token:", e);
             username = "User";
             isAdmin = false;
-
         }
     }
-
+    
     return (
         <div
             style={{
