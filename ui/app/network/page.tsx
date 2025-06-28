@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Card, Button, Spinner, Divider } from "@heroui/react";
+import { Card, Spinner, Divider } from "@heroui/react";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
@@ -15,6 +15,7 @@ export default function Page() {
   const { token, loading: authLoading } = useAuth();
   const [countsMap, setCountsMap] = React.useState<Record<string, number>>({});
   const [loading, setLoading] = React.useState(true);
+  const [hovered, setHovered] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!token || authLoading) return;
@@ -41,34 +42,54 @@ export default function Page() {
     }
     getCounts();
   }, [token, authLoading]);
-  
 
   return (
-    
-    <div className="min-h-screen py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-
+    <div className="min-h-screen py-4 px-8 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
         {siteConfig.items.map((item) => (
-          <div
+          <Card
             key={item.href}
-            onClick={() => router.push(item.href)}
-            
-            className="cursor-pointer bg-teal-700 hover:bg-teal-600 transition-colors duration-200 text-white rounded-2xl shadow-lg p-9 flex flex-col"
+            isPressable
+            isHoverable
+            onPress={() => router.push(item.href)}
+            onMouseEnter={() => setHovered(item.label)}
+            onMouseLeave={() => setHovered(null)}
+            className={`!p-0 !items-stretch !items-start cursor-pointer transition-all duration-300 transform hover:scale-[1.02] text-white rounded-2xl shadow-lg flex flex-col ${layoutMap[item.weight]}`}
+            style={{
+              backgroundColor: secondaryColor,
+              color: "white",
+            }}
           >
-            <h3 className="text-lg font-medium text-white mb-2">{item.label}</h3>
-            <div className="text-4xl font-bold text-white mb-4">
-              {loading
-                ? "Loading..."
-                : countsMap[item.label] !== undefined
-                ? countsMap[item.label]
-                : "0"}
+            <div className="flex flex-col items-start p-3 overflow-hidden">
+              <h3 className="text-lg font-medium mb-1">{item.label}</h3>
+              <div className="text-4xl font-bold mb-1">
+                {loading
+                  ? "Loading..."
+                  : countsMap[item.label] !== undefined
+                    ? countsMap[item.label]
+                    : "0"}
+              </div>
+              <div
+                className={`text-sm mt-1 transition-all duration-300 ease-in-out overflow-hidden ${
+                  hovered === item.label
+                    ? "opacity-100 max-h-40"
+                    : "opacity-0 max-h-0"
+                }`}
+              >
+                {item.description}
+              </div>
             </div>
-            <div className="mt-auto text-sm text-white hover:text-blue-200 self-end">
-              See more...
-            </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>
   );
 }
+
+const layoutMap = {
+  1: "col-span-1 md:col-span-2",
+  2: "col-span-1",
+  3: "col-span-1",
+  4: "col-span-1",
+};
+
