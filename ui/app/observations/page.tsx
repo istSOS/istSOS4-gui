@@ -46,14 +46,10 @@ export default function Observations() {
 
   return (
     <div className="p-4">
+
       <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search observations..."
+        title="Observations"
       />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Observations
-      </h1>
       {/* table removed, now Accordion */}
       {filtered.length === 0 ? (
         <p>No available observations.</p>

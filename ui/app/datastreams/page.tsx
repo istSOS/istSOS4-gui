@@ -46,14 +46,11 @@ export default function Datastreams() {
 
   return (
     <div className="p-4">
+
       <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search datastreams..."
+        title="Datastreams"
       />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Datastreams
-      </h1>
+      
       {filtered.length === 0 ? (
         <p>No available datastreams.</p>
       ) : (

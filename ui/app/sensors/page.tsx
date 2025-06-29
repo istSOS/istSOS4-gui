@@ -46,14 +46,10 @@ export default function Sensors() {
 
   return (
     <div className="p-4">
+
       <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search sensors..."
+        title="Sensors"
       />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Sensors
-      </h1>
       {filtered.length === 0 ? (
         <p>No available sensors.</p>
       ) : (

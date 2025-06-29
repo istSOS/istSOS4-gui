@@ -2,34 +2,32 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@heroui/react";
 
 export function SecNavbar({
-  searchValue,
-  onSearchChange,
-  placeholder = "Search...",
+  title = "",
+  showBack = true,
+  onBack,
 }: {
-  searchValue: string;
-  onSearchChange: (value: string) => void;
-  placeholder?: string;
+  title?: string;
+  showBack?: boolean;
+  onBack?: () => void;
 }) {
   const router = useRouter();
 
   return (
-    <div className="sticky top-10 z-10 flex items-center justify-between bg-white shadow px-4 py-2 mb-4 rounded">
-      <button
-        onClick={() => router.push("/network")}
-        // onClick={() => router.push("/")} DECOMMENT WHEN NETWORK PATH IS READY
-        className="text-teal-700 hover:text-teal-900 font-semibold flex items-center"
-      >
-        ← Back
-      </button>
-      <input
-        type="text"
-        value={searchValue}
-        onChange={e => onSearchChange(e.target.value)}
-        placeholder={placeholder}
-        className="border rounded px-3 py-1 w-64"
-      />
+    <div className="flex mb-4 items-center gap-4">
+      {showBack && (
+        <Button
+          isIconOnly
+          onPress={onBack ? onBack : () => window.history.back()}
+        >
+          ←
+        </Button>
+      )}
+      <h1 className="text-4xl font-bold" style={{ color: "white" }}>
+        {title}
+      </h1>
     </div>
   );
 }

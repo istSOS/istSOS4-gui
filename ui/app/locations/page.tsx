@@ -163,19 +163,11 @@ export default function Locations() {
 
   return (
     <div className="p-4">
-      <div className="flex mb-4 items-center gap-4" style={{ color: mainColor }}>
 
-        <Button
-          isIconOnly
-
-          onPress={() => window.history.back()}>
-          ←
-        </Button>
-
-        <h1 className="text-4xl font-bold" style={{ color: "white" }}>
-          Locations
-        </h1>
-      </div>
+      {/* QUESTA SECNAVBAR */}
+      <SecNavbar
+        title="Locations"
+      />
 
       <Divider
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
