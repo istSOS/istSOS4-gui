@@ -5,8 +5,9 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
+import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import "leaflet/dist/leaflet.css";
+import { secondaryColor } from "../network/page";
 
 export const mainColor = siteConfig.main_color;
 
@@ -16,16 +17,18 @@ export default function Locations() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
-  const [mapHeight, setMapHeight] = React.useState(300);
-  const [isResizing, setIsResizing] = React.useState(false);
   const [showMap, setShowMap] = React.useState(true);
   const [expanded, setExpanded] = React.useState<number | null>(null);
+
+  const [split, setSplit] = React.useState(0.5);
+  const [isSplitting, setIsSplitting] = React.useState(false);
+  const splitRef = React.useRef<HTMLDivElement>(null);
 
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
   const markersRef = React.useRef<any[]>([]);
 
-  // Used to focus a marker on the map
+  //focus a marker on the map
   const focusLocation = (coordinates: [number, number], idx?: number) => {
     setShowMap(true);
     if (typeof idx === "number") {
@@ -37,10 +40,33 @@ export default function Locations() {
     }
     setTimeout(() => {
       if (mapInstanceRef.current && coordinates) {
-        mapInstanceRef.current.setView([coordinates[1], coordinates[0]], 14, { animate: true });
+        mapInstanceRef.current.setView([coordinates[1], coordinates[0]], 6, { animate: true });
       }
     }, 200);
   };
+
+  React.useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!splitRef.current) return;
+      const rect = splitRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const newSplit = Math.min(Math.max(x / rect.width, 0.15), 0.85); // min 15%, max 85%
+      setSplit(newSplit);
+    }
+    function onMouseUp() {
+      setIsSplitting(false);
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    }
+    if (isSplitting) {
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    }
+    return () => {
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [isSplitting]);
 
   React.useEffect(() => {
     if (!token || authLoading) return;
@@ -61,20 +87,12 @@ export default function Locations() {
     getData();
   }, [token, authLoading]);
 
-  // Table columns (not used, kept for compatibility with comments)
-  const columns = React.useMemo(
-    () =>
-      locations.length > 0
-        ? Object.keys(locations[0]).filter((col) => col !== "location")
-        : [],
-    [locations]
-  );
-
+  //filter locations based on search input
   const filteredLocations = locations.filter((loc) =>
     JSON.stringify(loc).toLowerCase().includes(search.toLowerCase())
   );
 
-  // Create and update map and markers
+  //create and update map and markers
   React.useEffect(() => {
     if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
 
@@ -98,7 +116,7 @@ export default function Locations() {
         }).addTo(leafletMap);
       }
 
-      // Update markers
+      //update markers
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
@@ -125,13 +143,12 @@ export default function Locations() {
         }
       });
 
-      // Force map redraw
+      //forced map redraw
       setTimeout(() => {
         mapInstanceRef.current?.invalidateSize();
       }, 200);
     });
   }, [filteredLocations, showMap]);
-
 
   React.useEffect(() => {
     if (!showMap && mapInstanceRef.current) {
@@ -141,67 +158,75 @@ export default function Locations() {
     }
   }, [showMap]);
 
-
-  // Handle map resize
-  React.useEffect(() => {
-    function onMouseMove(e: MouseEvent) {
-      const containerTop = document
-        .getElementById("resizable-map-wrapper")
-        ?.getBoundingClientRect().top;
-      if (containerTop !== undefined) {
-        const newHeight = Math.max(100, window.innerHeight - e.clientY);
-        setMapHeight(newHeight);
-      }
-    }
-    function onMouseUp() {
-      setIsResizing(false);
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    }
-    if (isResizing) {
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-    }
-    return () => {
-      document.removeEventListener("mousemove", onMouseMove);
-      document.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [isResizing]);
-
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
   return (
-    <div className="p-4 min-h-[600px] relative" style={{ overflow: "hidden" }}>
-      <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search locations..."
-      />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Locations
-      </h1>
-      <div className="mb-4">
+    <div className="p-4">
+      <div className="flex mb-4 items-center gap-4" style={{ color: mainColor }}>
+
+        <Button
+          isIconOnly
+
+          onPress={() => window.history.back()}>
+          ←
+        </Button>
+
+        <h1 className="text-4xl font-bold" style={{ color: "white" }}>
+          Locations
+        </h1>
+      </div>
+
+      <Divider
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
+      ></Divider>
+
+      <div className="flex mb-4">
+
+        {/* search filter input */}
+        <Input
+          size="sm"
+          placeholder="Search locations..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-64"
+        />
+
+        {/* button toggle map visibility */}
         <Button
           size="sm"
-          variant="ghost"
-          onPress={() => setShowMap((v) => !v)}
+          variant="flat"
+          className="ml-auto"
+          onPress={() => setShowMap((prev) => !prev)}
+          style={{ backgroundColor: secondaryColor, color: "white" }}
         >
-          {showMap ? "Hide map" : "Show map"}
+          {showMap ? "Hide Map" : "Show Map"}
         </Button>
+
       </div>
-      <div className="flex flex-row gap-6" style={{ height: `calc(100vh - 180px)` }}>
-        {/* LEFT: Scrollable list */}
-        <div className="flex-1 min-w-0 h-full overflow-y-auto pr-2">
-          {/* table removed, now Accordion */}
+
+      <div
+        ref={splitRef}
+        className="flex flex-row gap-0"
+        style={{ height: `calc(100vh - 180px)`, position: "relative", userSelect: isSplitting ? "none" : undefined }}
+      >
+        <div
+          className="h-full overflow-y-auto pr-2"
+          style={{
+            flexBasis: showMap ? `${split * 100}%` : "100%",
+            minWidth: 150,
+            maxWidth: "100%",
+            transition: isSplitting ? "none" : "flex-basis 0.2s",
+          }}
+        >
           {filteredLocations.length === 0 ? (
             <p>No available locations.</p>
           ) : (
             <Accordion
               variant="splitted"
-              defaultValue={expanded !== null ? [expanded.toString()] : []}
-              onChange={(keys) => {
-                if (Array.isArray(keys) && keys.length > 0) setExpanded(Number(keys[0]));
+              selectedKeys={expanded !== null ? String(expanded) : undefined}
+              onSelectionChange={(key) => {
+                if (typeof key === "string" && !isNaN(Number(key))) setExpanded(Number(key));
                 else setExpanded(null);
               }}
             >
@@ -215,7 +240,7 @@ export default function Locations() {
                       <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
                     </div>
                   }
-                  value={idx}
+                  value={String(idx)}
                 >
                   <div className="mt-2 flex flex-row gap-8">
                     {/* LEFT col with self attributes */}
@@ -301,16 +326,34 @@ export default function Locations() {
             </Accordion>
           )}
         </div>
-        {/* RIGHT: Map, resizable vertically */}
+
+        {/* SPLITTER */}
+        {showMap && (
+          <>
+            <div
+              style={{
+                width: 4,
+                cursor: "col-resize",
+                background: "#eee",
+                zIndex: 20,
+                userSelect: "none",
+              }}
+              onMouseDown={() => setIsSplitting(true)}
+            />
+            <div style={{ width: 16 }} />
+          </>
+        )}
+
+        {/* RIGHT: Map */}
         {showMap && (
           <div
             id="resizable-map-wrapper"
             className="relative"
             style={{
-              width: 500,
-              minWidth: 300,
-              maxWidth: 700,
-              height: mapHeight,
+              flexBasis: `${(1 - split) * 100}%`,
+              minWidth: 150,
+              maxWidth: "85%",
+              height: 600,
               minHeight: 100,
               background: "#fff",
               borderRadius: 8,
@@ -318,22 +361,10 @@ export default function Locations() {
               display: "flex",
               flexDirection: "column",
               pointerEvents: "auto",
+              transition: isSplitting ? "none" : "flex-basis 0.2s",
+              position: "relative",
             }}
           >
-            <div
-              className="w-full h-3 cursor-row-resize bg-gray-300 hover:bg-gray-400 transition"
-              style={{
-                borderRadius: "8px 8px 0 0",
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                zIndex: 10,
-                pointerEvents: "auto",
-              }}
-              onMouseDown={() => setIsResizing(true)}
-              title="Drag to resize map"
-            />
             <div
               ref={mapContainerRef}
               className="w-full border border-gray-300 shadow bg-white"
@@ -342,7 +373,7 @@ export default function Locations() {
                 borderRadius: "0 0 8px 8px",
                 overflow: "hidden",
                 position: "absolute",
-                top: 3,
+                top: 0,
                 left: 0,
                 right: 0,
                 bottom: 0,
