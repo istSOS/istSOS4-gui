@@ -47,7 +47,7 @@ export const siteConfig = {
       weight: 3,
     },
     {
-      label: "HistoricalLocations",
+      label: "Historical Locations",
       href: "/historical-locations",
       fetch: api_root + "HistoricalLocations",
       description: "A Thing’s HistoricalLocation entity set provides the times of the current (i.e., last known) and previous locations of the Thing.",
@@ -62,7 +62,7 @@ export const siteConfig = {
       weight: 2,
     },
     {
-      label: "ObservedProperties",
+      label: "Observed Properties",
       href: "/observed-properties",
       fetch: api_root + "ObservedProperties",
       description: "An ObservedProperty specifies the phenomenon of an Observation.",
@@ -77,7 +77,7 @@ export const siteConfig = {
       weight: 2,
     },
     {
-      label: "FeaturesOfInterest",
+      label: "Features Of Interest",
       href: "/features-of-interest",
       fetch: api_root + "FeaturesOfInterest",
       description: "An Observation assigns a value to a phenomenon, which is a property of the FeatureOfInterest (FOI). In IoT, the FOI is often the Location of the Thing (e.g., a thermostat’s location is the living room). In remote sensing, the FOI can be the geographic area or volume being observed.",

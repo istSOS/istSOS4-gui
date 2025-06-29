@@ -5,6 +5,7 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
+import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
 import "leaflet/dist/leaflet.css";
 
 export const mainColor = siteConfig.main_color;
@@ -17,6 +18,7 @@ export default function Locations() {
   const [search, setSearch] = React.useState("");
   const [mapHeight, setMapHeight] = React.useState(300);
   const [isResizing, setIsResizing] = React.useState(false);
+  const [showMap, setShowMap] = React.useState(true);
 
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
@@ -54,7 +56,7 @@ export default function Locations() {
   );
 
   React.useEffect(() => {
-    if (!mapContainerRef.current || typeof window === "undefined") return;
+    if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
 
     import("leaflet").then((L) => {
       if (!mapInstanceRef.current) {
@@ -80,7 +82,6 @@ export default function Locations() {
         mapInstanceRef.current?.invalidateSize();
       }, 200);
 
-
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
@@ -101,7 +102,7 @@ export default function Locations() {
         }
       });
     });
-  }, [filteredLocations]);
+  }, [filteredLocations, showMap]);
 
   React.useEffect(() => {
     function onMouseMove(e: MouseEvent) {
@@ -141,85 +142,146 @@ export default function Locations() {
       <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
         Locations
       </h1>
-      <div className="overflow-x-auto mb-6">
-        <table className="min-w-max table-auto border border-gray-300 bg-white">
-          <thead>
-            <tr className="bg-gray-100">
-              {columns.map((col) => (
-                <th key={col} className="px-4 py-2 border">
-                  {col}
-                </th>
-              ))}
-              <th className="px-4 py-2 border">Longitude</th>
-              <th className="px-4 py-2 border">Latitude</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLocations.map((obs, index) => (
-              <tr key={index} className="hover:bg-gray-50">
-                {columns.map((col) => (
-                  <td key={col} className="px-4 py-2 border">
-                    {typeof obs[col] === "object"
-                      ? JSON.stringify(obs[col])
-                      : obs[col]?.toString() ?? "-"}
-                  </td>
-                ))}
-                <td className="px-4 py-2 border">
-                  {obs.location?.coordinates?.[0] ?? "-"}
-                </td>
-                <td className="px-4 py-2 border">
-                  {obs.location?.coordinates?.[1] ?? "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="mb-4">
+        <Button
+          size="sm"
+          variant="ghost"
+          onPress={() => setShowMap((v) => !v)}
+        >
+          {showMap ? "Hide map" : "Show map"}
+        </Button>
       </div>
-
-
-      <div
-        id="resizable-map-wrapper"
-        className="fixed left-0 right-0 z-50"
-        style={{
-          bottom: 0,
-          height: mapHeight,
-          minHeight: 100,
-          pointerEvents: "none",
-        }}
-      >
+      {/* table removed, now Accordion */}
+      {filteredLocations.length === 0 ? (
+        <p>No available locations.</p>
+      ) : (
+        <Accordion variant="splitted">
+          {filteredLocations.map((loc, idx) => (
+            <AccordionItem
+              key={loc["@iot.id"] ?? idx}
+              title={
+                <div className="flex items-baseline gap-3">
+                  <span className="font-bold text-lg text-gray-800">{loc.name ?? "-"}</span>
+                  <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
+                </div>
+              }
+            >
+              <div className="mt-2 flex flex-row gap-8">
+                {/* LEFT col with self attributes */}
+                <div className="flex-1 flex flex-col gap-2">
+                  {Object.entries(loc).map(([key, value]) =>
+                    (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[a-z]/.test(key)) ? null : (
+                      <div key={key} className="flex items-center gap-2">
+                        <label className="w-40 text-sm text-gray-700">
+                          {key.includes("@iot") ? key.split("@")[0] : key}
+                        </label>
+                        <Input
+                          size="sm"
+                          readOnly
+                          value={
+                            typeof value === "object"
+                              ? JSON.stringify(value)
+                              : value?.toString() ?? "-"
+                          }
+                          className="flex-1"
+                        />
+                      </div>
+                    )
+                  )}
+                  {/* Show coordinates in left col */}
+                  <div className="flex items-center gap-2">
+                    <label className="w-40 text-sm text-gray-700">Longitude</label>
+                    <Input
+                      size="sm"
+                      readOnly
+                      value={loc.location?.coordinates?.[0] ?? "-"}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="w-40 text-sm text-gray-700">Latitude</label>
+                    <Input
+                      size="sm"
+                      readOnly
+                      value={loc.location?.coordinates?.[1] ?? "-"}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+                {/* vertical divider */}
+                <div className="w-px bg-gray-300 mx-4" />
+                {/* RIGHT col with linked attributes */}
+                <div className="flex-1 flex flex-col gap-2">
+                  {Object.entries(loc).map(([key, value]) =>
+                    (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[A-Z]/.test(key)) ? null : (
+                      <div key={key} className="flex items-center gap-2">
+                        <label className="w-40 text-sm text-gray-700">
+                          {key.includes("@iot") ? key.split("@")[0] : key}
+                        </label>
+                        <Button
+                          size="sm"
+                          variant="solid"
+                          onPress={() => {
+                            alert(`Go to ${value}`);
+                          }}
+                        >
+                          {typeof value === "object"
+                            ? JSON.stringify(value)
+                            : String(value).split("/").pop() || String(value)}
+                        </Button>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
+      {showMap && (
         <div
-          className="w-full h-3 cursor-row-resize bg-gray-300 hover:bg-gray-400 transition"
+          id="resizable-map-wrapper"
+          className="fixed left-0 right-0 z-50"
           style={{
-            borderRadius: "8px 8px 0 0",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            pointerEvents: "auto",
-          }}
-          onMouseDown={() => setIsResizing(true)}
-          title="Drag to resize map"
-        />
-
-        <div
-          ref={mapContainerRef}
-          className="w-full border border-gray-300 shadow bg-white"
-          style={{
-
-            minHeight: 0,
-            borderRadius: "0 0 8px 8px",
-            overflow: "hidden",
-            position: "absolute",
-            top: 3,
-            left: 0,
-            right: 0,
             bottom: 0,
-            zIndex: 5,
-            pointerEvents: "auto",
+            height: mapHeight,
+            minHeight: 100,
+            pointerEvents: "none",
           }}
-        />
-      </div>
+        >
+          <div
+            className="w-full h-3 cursor-row-resize bg-gray-300 hover:bg-gray-400 transition"
+            style={{
+              borderRadius: "8px 8px 0 0",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              pointerEvents: "auto",
+            }}
+            onMouseDown={() => setIsResizing(true)}
+            title="Drag to resize map"
+          />
+
+          <div
+            ref={mapContainerRef}
+            className="w-full border border-gray-300 shadow bg-white"
+            style={{
+              minHeight: 0,
+              borderRadius: "0 0 8px 8px",
+              overflow: "hidden",
+              position: "absolute",
+              top: 3,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 5,
+              pointerEvents: "auto",
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
