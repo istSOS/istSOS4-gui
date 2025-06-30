@@ -6,6 +6,7 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
+import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
 
 export const mainColor = siteConfig.main_color;
 
@@ -21,11 +22,11 @@ export default function Datastreams() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const datastreamsData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Datastreams",
-          token
-        );
-        setDatastreams(datastreamsData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Datastreams");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setDatastreams(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");
@@ -33,17 +34,11 @@ export default function Datastreams() {
         setLoading(false);
       }
     }
-
     getData();
   }, [token, authLoading]);
 
-  const columns = React.useMemo(
-    () => (datastreams.length > 0 ? Object.keys(datastreams[0]) : []),
-    [datastreams]
-  );
-
-  const filteredObservations = datastreams.filter(obs =>
-    JSON.stringify(obs).toLowerCase().includes(search.toLowerCase())
+  const filtered = datastreams.filter(ds =>
+    JSON.stringify(ds).toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) return <p>Loading...</p>;
@@ -51,45 +46,82 @@ export default function Datastreams() {
 
   return (
     <div className="p-4">
+
       <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search datastrams..."
+        title="Datastreams"
       />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Observations
-      </h1>
-      {datastreams.length === 0 ? (
-        <p>No available observations.</p>
+
+      {filtered.length === 0 ? (
+        <p>No available datastreams.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-max table-auto border border-gray-300 bg-white">
-            <thead>
-              <tr className="bg-gray-100">
-                {columns.map((col) => (
-                  <th key={col} className="px-4 py-2 border">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredObservations.map((obs, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  {columns.map((col) => (
-                    <td key={col} className="px-4 py-2 border">
-                      {typeof obs[col] === "object"
-                        ? JSON.stringify(obs[col])
-                        : obs[col]?.toString() ?? "-"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+
+        <Accordion variant="splitted">
+          {filtered.map((ds, idx) => (
+            <AccordionItem
+              key={ds["@iot.id"] ?? idx}
+              title={
+                <div className="flex items-baseline gap-3">
+                  <span className="font-bold text-lg text-gray-800">{ds.name ?? "-"}</span>
+                  <span className="text-xs text-gray-500">{ds.description ?? "-"}</span>
+                </div>
+              }
+            >
+              <div className="mt-2 flex flex-row gap-8">
+
+                {/* SX col with self attributes */}
+                <div className="flex-1 flex flex-col gap-2">
+                  {Object.entries(ds).map(([key, value]) =>
+                    (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
+                      <div key={key} className="flex items-center gap-2">
+                        <label className="w-40 text-sm text-gray-700">
+                          {key.includes("@iot") ? key.split("@")[0] : key}
+                        </label>
+                        <Input
+                          size="sm"
+                          readOnly
+                          value={
+                            typeof value === "object"
+                              ? JSON.stringify(value)
+                              : value?.toString() ?? "-"
+                          }
+                          className="flex-1"
+                        />
+                      </div>
+                    )
+                  )}
+                </div>
+
+                {/* vertical divider */}
+                <div className="w-px bg-gray-300 mx-4" />
+
+                {/* DX col with linked attributes */}
+                <div className="flex-1 flex flex-col gap-2">
+                  {Object.entries(ds).map(([key, value]) =>
+                    (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[A-Z]/.test(key)) ? null : (
+                      <div key={key} className="flex items-center gap-2">
+                        <label className="w-40 text-sm text-gray-700">
+                          {key.includes("@iot") ? key.split("@")[0] : key}
+                        </label>
+                        <Button
+                          size="sm"
+                          variant="solid"
+                          onPress={() => {
+                            alert(`Go to ${value}`);
+                          }}
+                        >
+                          {typeof value === "object"
+                            ? JSON.stringify(value)
+                            : String(value).split("/").pop() || String(value)}
+                        </Button>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </AccordionItem>
+          ))}
+        </Accordion>
       )}
     </div>
   );
-
 }

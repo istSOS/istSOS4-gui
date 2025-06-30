@@ -12,13 +12,13 @@ export default function Page() {
   return (
     <div className="min-h-screen py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
-        {siteConfig.items.map((item) => (
+        {siteConfig.networks.map((network) => (
           <div
-            key={item.href}
-            onClick={() => router.push(item.href)}
+            key={network.href}
+            onClick={() => router.push(network.href)}
             className="cursor-pointer bg-teal-700 hover:bg-teal-600 transition-colors duration-200 text-white rounded-2xl shadow-lg p-9 flex flex-col items-center justify-center"
           >
-            <h3 className="text-xl font-semibold">{item.label}</h3>
+            <h3 className="text-xl font-semibold">{network.label}</h3>
           </div>
         ))}
       </div>
