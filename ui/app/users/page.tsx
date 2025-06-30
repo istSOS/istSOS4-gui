@@ -18,15 +18,14 @@ export default function Users() {
   const [search, setSearch] = React.useState("");
 
   React.useEffect(() => {
+    if (!token || authLoading) return;
     async function getData() {
       try {
-        
-        const userData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Users",
-          token
-        );
-
-        setUsers(userData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Users");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setUsers(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");
@@ -34,7 +33,6 @@ export default function Users() {
         setLoading(false);
       }
     }
-
     getData();
   }, [token, authLoading]);
 
@@ -52,11 +50,16 @@ export default function Users() {
 
   return (
     <div className="p-4">
-      <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search users..."
-      />
+      <SecNavbar />
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search users..."
+          className="border rounded px-3 py-2 w-full"
+        />
+      </div>
       <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
         Sensors
       </h1>

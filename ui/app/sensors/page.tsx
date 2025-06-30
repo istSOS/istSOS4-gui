@@ -22,11 +22,11 @@ export default function Sensors() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const sensorsData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Sensors",
-          token
-        );
-        setSensors(sensorsData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Sensors");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setSensors(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");

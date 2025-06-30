@@ -22,11 +22,11 @@ export default function Datastreams() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const datastreamsData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Datastreams",
-          token
-        );
-        setDatastreams(datastreamsData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Datastreams");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setDatastreams(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");
@@ -50,7 +50,7 @@ export default function Datastreams() {
       <SecNavbar
         title="Datastreams"
       />
-      
+
       {filtered.length === 0 ? (
         <p>No available datastreams.</p>
       ) : (

@@ -22,11 +22,11 @@ export default function Observations() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const observationsData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Observations",
-          token
-        );
-        setObservations(observationsData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Observations");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setObservations(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");

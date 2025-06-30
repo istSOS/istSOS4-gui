@@ -17,6 +17,7 @@ export default function Page() {
   const [loading, setLoading] = React.useState(true);
   const [hovered, setHovered] = React.useState<string | null>(null);
 
+  //fetch every iem in siteConfig.items and get the count of items
   React.useEffect(() => {
     if (!token || authLoading) return;
     async function getCounts() {

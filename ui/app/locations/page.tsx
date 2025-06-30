@@ -72,11 +72,11 @@ export default function Locations() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const locationData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Locations",
-          token
-        );
-        setLocations(locationData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Locations");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setLocations(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");
@@ -132,12 +132,19 @@ export default function Locations() {
             fillOpacity: 0.8,
           })
             .addTo(mapInstanceRef.current)
+            //when a point is clicked, its details are expanded in the list
             .on("click", () => {
-              setExpanded(idx);
+              setExpanded(idx + 1);
               setTimeout(() => {
                 const el = document.getElementById(`location-accordion-item-${idx}`);
                 if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
               }, 100);
+            })
+            .on("mouseover", function () {
+              marker.bindPopup(loc.name ?? "-").openPopup();
+            })
+            .on("mouseout", function () {
+              marker.closePopup();
             });
           markersRef.current.push(marker);
         }
@@ -164,7 +171,6 @@ export default function Locations() {
   return (
     <div className="p-4">
 
-      {/* QUESTA SECNAVBAR */}
       <SecNavbar
         title="Locations"
       />
@@ -280,7 +286,7 @@ export default function Locations() {
                         <Button
                           size="sm"
                           variant="flat"
-                          onPress={() => focusLocation(loc.location?.coordinates, idx)}
+                          onPress={() => focusLocation(loc.location?.coordinates, idx + 1)}
                           disabled={!loc.location?.coordinates}
                         >
                           View in map

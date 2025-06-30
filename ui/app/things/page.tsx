@@ -22,11 +22,11 @@ export default function Things() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const thingsData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Things",
-          token
-        );
-        setThings(thingsData?.value || []);
+        //search for item in siteConfig
+        const item = siteConfig.items.find(i => i.label === "Things");
+        if (!item) throw new Error("Not found");
+        const data = await fetchData(item.fetch, token);
+        setThings(data?.value || []);
       } catch (err) {
         console.error(err);
         setError("Error during data loading.");
