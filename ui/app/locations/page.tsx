@@ -36,13 +36,13 @@ export default function Locations() {
       setTimeout(() => {
         const el = document.getElementById(`location-accordion-item-${idx}`);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 200);
+      }, 50);
     }
     setTimeout(() => {
       if (mapInstanceRef.current && coordinates) {
         mapInstanceRef.current.setView([coordinates[1], coordinates[0]], 6, { animate: true });
       }
-    }, 200);
+    }, 50);
   };
 
   React.useEffect(() => {
@@ -238,7 +238,7 @@ export default function Locations() {
                       <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
                     </div>
                   }
-                  value={String(idx)}
+                  value={String(idx + 1)}
                 >
                   <div className="mt-2 flex flex-row gap-8">
                     {/* LEFT col with self attributes */}
@@ -286,7 +286,9 @@ export default function Locations() {
                         <Button
                           size="sm"
                           variant="flat"
-                          onPress={() => focusLocation(loc.location?.coordinates, idx + 1)}
+                          onPress={() => {
+                            focusLocation(loc.location?.coordinates, idx + 1);
+                          }}
                           disabled={!loc.location?.coordinates}
                         >
                           View in map

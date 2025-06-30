@@ -2,6 +2,7 @@
 import React from "react";
 import { heroui, HeroUIProvider, Divider, Button } from "@heroui/react";
 import { CustomNavbar } from "../components/bars/customNavbar";
+import Footer from "../components/bars/footer";
 import UserBar from "../components/bars/userbar";
 import { siteConfig } from "../config/site";
 import { AuthProvider, useAuth } from "../context/AuthContext";
@@ -39,6 +40,8 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         {children}
       </HeroUIProvider>
 
+      <Footer />
+
       
     </>
   );
@@ -51,7 +54,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ backgroundColor: mainColor }}>
+      <body style={{ backgroundColor: mainColor }} className="min-h-screen">
         
         <AuthProvider>
           <LayoutContent>{children}</LayoutContent>
