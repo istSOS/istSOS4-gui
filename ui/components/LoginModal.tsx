@@ -13,7 +13,7 @@ export default function LoginModal({ open, onClose }: { open: boolean; onClose: 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login", username, password);
+        const login = await fetchLogin(username, password);
         if (login?.access_token) {
             setToken(login.access_token);
             onClose();

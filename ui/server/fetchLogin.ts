@@ -1,6 +1,7 @@
 'use server'
+const endpoint = "http://api:5000/istsos4/v1.1/Login";
 
-const fetchLogin = async (endpoint: string, 
+const fetchLogin = async ( 
     username: string, 
     password: string) => {
     const data = new URLSearchParams({
