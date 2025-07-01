@@ -4,12 +4,13 @@ import { useAuth } from "../../context/AuthContext";
 import { withRouter } from "next/router";
 import fetchUserRole from "../../server/fetchUser";
 import { siteConfig } from "../../config/site";
+import fetchLogout from "../../server/fetchLogout";
 
 export const mainColor = siteConfig.main_color;
 
 
 export default function UserBar({
-    
+
     onLoginClick,
     onCreateUserClick,
 }: {
@@ -32,7 +33,7 @@ export default function UserBar({
             isAdmin = false;
         }
     }
-    
+
     return (
         <div
             style={{
@@ -64,7 +65,10 @@ export default function UserBar({
                     <Button
                         color="danger"
                         size="sm"
-                        onClick={() => setToken(null)}
+                        onPress={async () => {
+                            if (token) await fetchLogout(token);
+                            setToken(null);
+                        }}
                         style={{ marginLeft: 8 }}
                     >
                         Logout
