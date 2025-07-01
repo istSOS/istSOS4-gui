@@ -2,12 +2,14 @@ import Sensors from "../app/sensors/page";
 
 export type SiteConfig = typeof siteConfig;
 
-const api_root = "http://api:5000/istsos4/v1.1/";
+export const api_root = "http://api:5000/istsos4/v1.1/";
 
 export const siteConfig = {
   name: "istSOS4 admin ui",
+  versioning: true,
   main_color: "#008374",
   secondary_color: "#007668",
+  api_root: api_root,
   
 
   //HARDCODED PLACEHOLDER NETWORKS

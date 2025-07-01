@@ -6,7 +6,8 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
+import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
+import { SearchBar } from "../../components/bars/searchBar";
 
 export const mainColor = siteConfig.main_color;
 
@@ -50,6 +51,17 @@ export default function Sensors() {
       <SecNavbar
         title="Sensors"
       />
+
+      <Divider
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
+      ></Divider>
+
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search sensors..."
+      />
+
       {filtered.length === 0 ? (
         <p>No available sensors.</p>
       ) : (

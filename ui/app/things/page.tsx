@@ -6,7 +6,8 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
+import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
+import { SearchBar } from "../../components/bars/searchBar";
 
 export const mainColor = siteConfig.main_color;
 
@@ -47,8 +48,18 @@ export default function Things() {
   return (
     <div className="p-4">
 
-     <SecNavbar
+      <SecNavbar
         title="Things"
+      />
+
+      <Divider
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
+      ></Divider>
+
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search things..."
       />
 
       {filtered.length === 0 ? (
@@ -116,7 +127,18 @@ export default function Things() {
                       </div>
                     )
                   )}
+
+                  <div className="flex justify-end mt-4">
+                    <Button color="warning" variant="bordered">
+                      Edit
+                      </Button>
+                    <Button color="danger" className="ml-2">
+                      Delete
+                      </Button>
+                  </div>
+
                 </div>
+
               </div>
             </AccordionItem>
           ))}

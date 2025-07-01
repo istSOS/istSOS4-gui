@@ -6,7 +6,8 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
+import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
+import { SearchBar } from "../../components/bars/searchBar";
 
 export const mainColor = siteConfig.main_color;
 
@@ -49,6 +50,15 @@ export default function Datastreams() {
 
       <SecNavbar
         title="Datastreams"
+      />
+      <Divider
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
+      ></Divider>
+      
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search datastreams..."
       />
 
       {filtered.length === 0 ? (
