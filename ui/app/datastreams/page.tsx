@@ -1,5 +1,8 @@
 "use client";
 
+
+const item = siteConfig.items.find(i => i.label === "Datastreams");
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
@@ -13,7 +16,7 @@ export const mainColor = siteConfig.main_color;
 
 export default function Datastreams() {
 
-  const item = siteConfig.items.find(i => i.label === "Datastreams");
+  
   
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();

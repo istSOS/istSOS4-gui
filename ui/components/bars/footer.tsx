@@ -10,7 +10,7 @@ export default function Footer() {
                 textAlign: "center",
                 padding: "12px 0",
                 fontSize: "1rem",
-                position: "sticky",
+                position: "initial",
                 left: 0,
                 bottom: 0,
                 width: "100%",

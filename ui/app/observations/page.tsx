@@ -1,10 +1,14 @@
 "use client";
 
+const item = siteConfig.items.find(i => i.label === "Observations");
+
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
+import DeleteButton from "../../components/customButtons/deleteButton";
 import deleteData from "../../server/deleteData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
@@ -13,10 +17,7 @@ import { SearchBar } from "../../components/bars/searchBar";
 export const mainColor = siteConfig.main_color;
 
 
-
 export default function Observations() {
-
-  const item = siteConfig.items.find(i => i.label === "Observations");
 
 
   const { token, loading: authLoading } = useAuth();
@@ -25,33 +26,6 @@ export default function Observations() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
-  const [showConfirm, setShowConfirm] = React.useState<number | null>(null);
-  const [deleting, setDeleting] = React.useState(false);
-
-
-
-  async function handleDelete(id: number) {
-    if (!token) return;
-    setDeleting(true);
-    setError(null);
-    try {
-
-      if (!item) throw new Error("Observations endpoint not found");
-
-      const endpoint = `${item.root}(${id})`;
-
-      await deleteData(endpoint, token);
-
-      setObservations(prev => prev.filter(obs => obs["@iot.id"] !== id));
-      setShowConfirm(null);
-
-    } catch (err) {
-      setError("Error during deletion.");
-      console.error(err);
-    } finally {
-      setDeleting(false);
-    }
-  }
 
 
   React.useEffect(() => {
@@ -99,6 +73,7 @@ export default function Observations() {
       ) : (
         <Accordion variant="splitted">
           {filtered.map((obs, idx) => (
+
             <AccordionItem
               key={obs["@iot.id"] ?? idx}
               title={
@@ -155,46 +130,23 @@ export default function Observations() {
                     )
                   )}
 
-                  {/* EDIT AND DELETE BUTTONS WITH CONFIRMATION */}
+
+                  
+                  {/* EDIT AND DELETE BUTTONS */}
                   <div className="flex justify-end mt-4 gap-2 relative">
-                    {showConfirm === idx && (
-                      <div className="absolute right-0 -top-24 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center">
-                        <p className="mb-2 text-sm">Are you sure?</p>
-                        <div className="flex gap-2">
-                          <Button
-                            color="danger"
-                            size="sm"
-                            onPress={() => {
-                              if (obs["@iot.id"] != null) {
-                                handleDelete(obs["@iot.id"]);
-                              }
-                            }}
-                            isLoading={deleting && showConfirm === obs["@iot.id"]}
-                          >
-                            Yes
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="bordered"
-                            onPress={() => {
-                              setShowConfirm(null);
-                            }}
-                          >
-                            No
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+
                     <Button color="warning" variant="bordered">
                       Edit
                     </Button>
-                    <Button
-                      color="danger"
 
-                      onPress={() => setShowConfirm(idx)}
-                    >
-                      Delete
-                    </Button>
+
+                    <DeleteButton
+                      endpoint={`${item.root}(${obs["@iot.id"]})`}
+                      token={token}
+                      onDeleted={() => 
+                        setObservations(prev => prev.filter(o => o["@iot.id"] 
+                          !== obs["@iot.id"]))}
+                    />
                   </div>
 
 

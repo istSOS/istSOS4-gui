@@ -1,5 +1,7 @@
 "use client";
 
+const item = siteConfig.items.find(i => i.label === "Sensors");
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
@@ -12,8 +14,6 @@ import { SearchBar } from "../../components/bars/searchBar";
 export const mainColor = siteConfig.main_color;
 
 export default function Sensors() {
-
-  const item = siteConfig.items.find(i => i.label === "Sensors");
 
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();

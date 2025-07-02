@@ -1,5 +1,7 @@
 "use client";
 
+const item = siteConfig.items.find(i => i.label === "Locations");
+
 import * as React from "react";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
@@ -7,13 +9,11 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import "leaflet/dist/leaflet.css";
-import { secondaryColor } from "../network/page";
 
 export const mainColor = siteConfig.main_color;
+export const secondaryColor = siteConfig.secondary_color;
 
 export default function Locations() {
-
-  const item = siteConfig.items.find(i => i.label === "Locations");
 
   const { token, loading: authLoading } = useAuth();
   const [locations, setLocations] = React.useState<any[]>([]);
@@ -336,6 +336,7 @@ export default function Locations() {
                 width: 4,
                 cursor: "col-resize",
                 background: "#eee",
+                
                 zIndex: 20,
                 userSelect: "none",
               }}
@@ -354,8 +355,8 @@ export default function Locations() {
               flexBasis: `${(1 - split) * 100}%`,
               minWidth: 150,
               maxWidth: "85%",
-              height: 600,
-              minHeight: 100,
+              height: "calc(100vh - 300px)",
+              
               background: "#fff",
               borderRadius: 8,
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
