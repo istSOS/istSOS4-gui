@@ -10,6 +10,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import "leaflet/dist/leaflet.css";
 import DeleteButton from "../../components/customButtons/deleteButton";
+import createData from "../../server/createData";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
@@ -22,7 +23,7 @@ export default function Locations() {
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [showMap, setShowMap] = React.useState(true);
-  const [expanded, setExpanded] = React.useState<number | null>(null);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
 
   const [split, setSplit] = React.useState(0.5);
   const [isSplitting, setIsSplitting] = React.useState(false);
@@ -32,19 +33,30 @@ export default function Locations() {
   const mapInstanceRef = React.useRef<any>(null);
   const markersRef = React.useRef<any[]>([]);
 
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [newLocation, setNewLocation] = React.useState({
+    name: "",
+    description: "",
+    latitude: "",
+    longitude: "",
+    encodingType: "application/vnd.geo+json"
+  });
+
   //focus a marker on the map
-  const focusLocation = (coordinates: [number, number], idx?: number) => {
+  const focusLocation = (coordinates: [number, number], id?: string) => {
     setShowMap(true);
-    if (typeof idx === "number") {
-      setExpanded(idx);
+    if (typeof id === "string") {
+      setExpanded(id);
       setTimeout(() => {
-        const el = document.getElementById(`location-accordion-item-${idx}`);
+        const el = document.getElementById(`location-accordion-item-${id}`);
         if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 50);
     }
     setTimeout(() => {
       if (mapInstanceRef.current && coordinates) {
-        mapInstanceRef.current.setView([coordinates[1], coordinates[0]], 6, { animate: true });
+        mapInstanceRef.current.setView([coordinates[0], coordinates[1]], 6, { animate: true });
       }
     }, 50);
   };
@@ -101,7 +113,7 @@ export default function Locations() {
     import("leaflet").then((L) => {
       if (!mapInstanceRef.current) {
         const first = filteredLocations[0]?.location?.coordinates;
-        const center = first ? [first[1], first[0]] : [45, 10];
+        const center = first ? [first[0], first[1]] : [45, 10];
 
         const leafletMap = L.map(mapContainerRef.current, {
           worldCopyJump: false,
@@ -122,10 +134,11 @@ export default function Locations() {
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
 
-      filteredLocations.forEach((loc, idx) => {
+      filteredLocations.forEach((loc) => {
         const coords = loc.location?.coordinates;
+        const id = String(loc["@iot.id"]);
         if (Array.isArray(coords)) {
-          const marker = L.circleMarker([coords[1], coords[0]], {
+          const marker = L.circleMarker([coords[0], coords[1]], {
             radius: 6,
             fillColor: "red",
             color: "red",
@@ -136,9 +149,9 @@ export default function Locations() {
             .addTo(mapInstanceRef.current)
             //when a point is clicked, its details are expanded in the list
             .on("click", () => {
-              setExpanded(idx + 1);
+              setExpanded(id);
               setTimeout(() => {
-                const el = document.getElementById(`location-accordion-item-${idx}`);
+                const el = document.getElementById(`location-accordion-item-${id}`);
                 if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
               }, 100);
             })
@@ -173,9 +186,109 @@ export default function Locations() {
   return (
     <div className="p-4">
 
-      <SecNavbar
-        title="Locations"
-      />
+      <div className="flex items-center justify-between mb-2">
+        <SecNavbar
+          title="Locations"
+        />
+        <Button
+          color="primary"
+          size="sm"
+          onPress={() => setShowCreate(true)}
+          style={{ fontSize: 24, padding: "0 12px", minWidth: 0 }}
+          aria-label="Add Location"
+        >
+          +
+        </Button>
+      </div>
+
+      {showCreate && (
+        <div className="mb-6 p-4 border rounded bg-white shadow flex flex-col gap-3 max-w-lg">
+          <h2 className="font-bold text-lg mb-2">Create Location</h2>
+          <Input
+            label="Name"
+            value={newLocation.name}
+            onChange={e => setNewLocation(l => ({ ...l, name: e.target.value }))}
+            required
+          />
+          <Input
+            label="Description"
+            value={newLocation.description}
+            onChange={e => setNewLocation(l => ({ ...l, description: e.target.value }))}
+          />
+          <div className="flex gap-2">
+            <Input
+              label="Latitude"
+              type="number"
+              value={newLocation.latitude}
+              onChange={e => setNewLocation(l => ({ ...l, latitude: e.target.value }))}
+              required
+            />
+            <Input
+              label="Longitude"
+              type="number"
+              value={newLocation.longitude}
+              onChange={e => setNewLocation(l => ({ ...l, longitude: e.target.value }))}
+              required
+            />
+          </div>
+          <Input
+            label="Encoding Type"
+            value={newLocation.encodingType}
+            onChange={e => setNewLocation(l => ({ ...l, encodingType: e.target.value }))}
+            required
+          />
+          {createError && <p className="text-red-500 text-sm">{createError}</p>}
+          <div className="flex gap-2 mt-2">
+            <Button
+              color="primary"
+              isLoading={createLoading}
+              onPress={async () => {
+                setCreateLoading(true);
+                setCreateError(null);
+                try {
+                  const payload = {
+                    name: newLocation.name,
+                    description: newLocation.description,
+                    location: {
+                      type: "Point",
+                      coordinates: [
+                        parseFloat(newLocation.longitude),
+                        parseFloat(newLocation.latitude)
+                      ]
+                    },
+                    encodingType: newLocation.encodingType
+                  };
+                  const res = await createData(item.root, token, payload);
+                  if (!res) throw new Error("Creation failed");
+                  setShowCreate(false);
+                  setNewLocation({
+                    name: "",
+                    description: "",
+                    latitude: "",
+                    longitude: "",
+                    encodingType: "application/vnd.geo+json"
+                  });
+                  const data = await fetchData(item.root, token);
+                  setLocations(data?.value || []);
+                } catch (err: any) {
+                  setCreateError(err.message || "Error creating location");
+                } finally {
+                  setCreateLoading(false);
+                }
+              }}
+            >
+              Create
+            </Button>
+            <Button
+              variant="bordered"
+              onPress={() => setShowCreate(false)}
+              disabled={createLoading}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Divider
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
@@ -224,23 +337,30 @@ export default function Locations() {
           ) : (
             <Accordion
               variant="splitted"
-              selectedKeys={expanded !== null ? String(expanded) : undefined}
+              selectedKeys={expanded ? [expanded] : []}
               onSelectionChange={(key) => {
-                if (typeof key === "string" && !isNaN(Number(key))) setExpanded(Number(key));
-                else setExpanded(null);
+                if (typeof key === "string") setExpanded(key);
+                else if (key && typeof key === "object" && "has" in key) {
+                  const arr = Array.from(key);
+                  setExpanded(arr[0] != null ? String(arr[0]) : null);
+                } else if (Array.isArray(key)) {
+                  setExpanded(key[0] ?? null);
+                } else {
+                  setExpanded(null);
+                }
               }}
             >
-              {filteredLocations.map((loc, idx) => (
+              {filteredLocations.map((loc) => (
                 <AccordionItem
-                  key={loc["@iot.id"] ?? idx}
-                  id={`location-accordion-item-${idx}`}
+                  key={loc["@iot.id"]}
+                  id={`location-accordion-item-${loc["@iot.id"]}`}
                   title={
                     <div className="flex items-baseline gap-3">
                       <span className="font-bold text-lg text-gray-800">{loc.name ?? "-"}</span>
                       <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
                     </div>
                   }
-                  value={String(idx + 1)}
+                  value={String(loc["@iot.id"])}
                 >
                   <div className="mt-2 flex flex-row gap-8">
                     {/* LEFT col with self attributes */}
@@ -266,7 +386,7 @@ export default function Locations() {
                       )}
                       {/* Show coordinates in left col */}
                       <div className="flex items-center gap-2">
-                        <label className="w-40 text-sm text-gray-700">Longitude</label>
+                        <label className="w-40 text-sm text-gray-700">Latitude</label>
                         <Input
                           size="sm"
                           readOnly
@@ -275,7 +395,7 @@ export default function Locations() {
                         />
                       </div>
                       <div className="flex items-center gap-2">
-                        <label className="w-40 text-sm text-gray-700">Latitude</label>
+                        <label className="w-40 text-sm text-gray-700">Longitude</label>
                         <Input
                           size="sm"
                           readOnly
@@ -289,7 +409,7 @@ export default function Locations() {
                           size="sm"
                           variant="flat"
                           onPress={() => {
-                            focusLocation(loc.location?.coordinates, idx + 1);
+                            focusLocation(loc.location?.coordinates, String(loc["@iot.id"]));
                           }}
                           disabled={!loc.location?.coordinates}
                         >
