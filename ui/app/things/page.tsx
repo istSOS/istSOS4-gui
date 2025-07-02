@@ -12,6 +12,9 @@ import { SearchBar } from "../../components/bars/searchBar";
 export const mainColor = siteConfig.main_color;
 
 export default function Things() {
+
+  const item = siteConfig.items.find(i => i.label === "Things");
+
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [things, setThings] = React.useState<any[]>([]);
@@ -23,10 +26,8 @@ export default function Things() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        //search for item in siteConfig
-        const item = siteConfig.items.find(i => i.label === "Things");
         if (!item) throw new Error("Not found");
-        const data = await fetchData(item.fetch, token);
+        const data = await fetchData(item.root, token);
         setThings(data?.value || []);
       } catch (err) {
         console.error(err);

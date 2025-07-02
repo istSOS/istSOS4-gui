@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
+import deleteData from "../../server/deleteData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
@@ -14,6 +15,10 @@ export const mainColor = siteConfig.main_color;
 
 
 export default function Observations() {
+
+  const item = siteConfig.items.find(i => i.label === "Observations");
+
+
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [observations, setObservations] = React.useState<any[]>([]);
@@ -23,32 +28,26 @@ export default function Observations() {
   const [showConfirm, setShowConfirm] = React.useState<number | null>(null);
   const [deleting, setDeleting] = React.useState(false);
 
-  async function handleDeleteObservation(id: number) {
+
+
+  async function handleDelete(id: number) {
+    if (!token) return;
     setDeleting(true);
+    setError(null);
     try {
-      //header with token
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-      };
 
-      const res = await fetch(`${siteConfig.api_root}Observations(${id})`, {
-        method: "DELETE",
-        headers,
-      });
+      if (!item) throw new Error("Observations endpoint not found");
 
-      //handling https error
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || "Delete failed");
-      }
+      const endpoint = `${item.root}(${id})`;
 
-      //update status and ui
+      await deleteData(endpoint, token);
+
       setObservations(prev => prev.filter(obs => obs["@iot.id"] !== id));
       setShowConfirm(null);
-    } catch (err: any) {
-      //error message
-      alert(`Error deleting observation: ${err.message}`);
+
+    } catch (err) {
+      setError("Error during deletion.");
+      console.error(err);
     } finally {
       setDeleting(false);
     }
@@ -59,9 +58,8 @@ export default function Observations() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        const item = siteConfig.items.find(i => i.label === "Observations");
         if (!item) throw new Error("Not found");
-        const data = await fetchData(item.fetch, token);
+        const data = await fetchData(item.root, token);
         setObservations(data?.value || []);
       } catch (err) {
         console.error(err);
@@ -105,7 +103,7 @@ export default function Observations() {
               key={obs["@iot.id"] ?? idx}
               title={
                 <div className="flex items-baseline gap-3">
-                  <span className="font-bold text-lg text-gray-800">{obs.name ?? "-"}</span>
+                  <span className="font-bold text-lg text-gray-800">{obs["@iot.id"] ?? "-"}</span>
                   <span className="text-xs text-gray-500">{obs.description ?? "-"}</span>
                 </div>
               }
@@ -166,9 +164,11 @@ export default function Observations() {
                           <Button
                             color="danger"
                             size="sm"
-                            onPress={() => 
-                              handleDeleteObservation(obs["@iot.id"])
-                            }
+                            onPress={() => {
+                              if (obs["@iot.id"] != null) {
+                                handleDelete(obs["@iot.id"]);
+                              }
+                            }}
                             isLoading={deleting && showConfirm === obs["@iot.id"]}
                           >
                             Yes

@@ -26,7 +26,7 @@ export default function Page() {
         const entries = await Promise.all(
           siteConfig.items.map(async (item) => {
             try {
-              const data = await fetchData(item.fetch, token);
+              const data = await fetchData(item.root, token);
               const count = Array.isArray(data?.value) ? data.value.length : 0;
               return [item.label, count] as [string, number];
             } catch {

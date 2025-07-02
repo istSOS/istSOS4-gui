@@ -24,7 +24,7 @@ export default function Users() {
         //search for item in siteConfig
         const item = siteConfig.items.find(i => i.label === "Users");
         if (!item) throw new Error("Not found");
-        const data = await fetchData(item.fetch, token);
+        const data = await fetchData(item.root, token);
         setUsers(data?.value || []);
       } catch (err) {
         console.error(err);

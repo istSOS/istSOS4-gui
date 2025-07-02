@@ -12,6 +12,9 @@ import { secondaryColor } from "../network/page";
 export const mainColor = siteConfig.main_color;
 
 export default function Locations() {
+
+  const item = siteConfig.items.find(i => i.label === "Locations");
+
   const { token, loading: authLoading } = useAuth();
   const [locations, setLocations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -72,10 +75,8 @@ export default function Locations() {
     if (!token || authLoading) return;
     async function getData() {
       try {
-        //search for item in siteConfig
-        const item = siteConfig.items.find(i => i.label === "Locations");
         if (!item) throw new Error("Not found");
-        const data = await fetchData(item.fetch, token);
+        const data = await fetchData(item.root, token);
         setLocations(data?.value || []);
       } catch (err) {
         console.error(err);

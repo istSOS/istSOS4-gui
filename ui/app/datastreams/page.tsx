@@ -12,6 +12,9 @@ import { SearchBar } from "../../components/bars/searchBar";
 export const mainColor = siteConfig.main_color;
 
 export default function Datastreams() {
+
+  const item = siteConfig.items.find(i => i.label === "Datastreams");
+  
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [datastreams, setDatastreams] = React.useState<any[]>([]);
@@ -24,9 +27,8 @@ export default function Datastreams() {
     async function getData() {
       try {
         //search for item in siteConfig
-        const item = siteConfig.items.find(i => i.label === "Datastreams");
         if (!item) throw new Error("Not found");
-        const data = await fetchData(item.fetch, token);
+        const data = await fetchData(item.root, token);
         setDatastreams(data?.value || []);
       } catch (err) {
         console.error(err);
