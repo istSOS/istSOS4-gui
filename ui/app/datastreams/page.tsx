@@ -11,13 +11,14 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
+import DeleteButton from "../../components/customButtons/deleteButton";
 
 export const mainColor = siteConfig.main_color;
 
 export default function Datastreams() {
 
-  
-  
+
+
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const [datastreams, setDatastreams] = React.useState<any[]>([]);
@@ -59,7 +60,7 @@ export default function Datastreams() {
       <Divider
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
       ></Divider>
-      
+
       <SearchBar
         value={search}
         onChange={setSearch}
@@ -131,6 +132,24 @@ export default function Datastreams() {
                       </div>
                     )
                   )}
+
+                  {/* EDIT AND DELETE BUTTONS */}
+                  <div className="flex justify-end mt-4 gap-2 relative">
+
+                    <Button color="warning" variant="bordered">
+                      Edit
+                    </Button>
+
+                    <DeleteButton
+                      endpoint={`${item.root}(${ds["@iot.id"]})`}
+                      token={token}
+                      onDeleted={() =>
+                        setDatastreams(prev => prev.filter(o => o["@iot.id"]
+                          !== ds["@iot.id"]))}
+                    />
+                  </div>
+
+
                 </div>
               </div>
             </AccordionItem>

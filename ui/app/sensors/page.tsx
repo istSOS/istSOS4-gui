@@ -10,6 +10,7 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
+import DeleteButton from "../../components/customButtons/deleteButton";
 
 export const mainColor = siteConfig.main_color;
 
@@ -68,13 +69,13 @@ export default function Sensors() {
       ) : (
 
         <Accordion variant="splitted">
-          {filtered.map((sensor, idx) => (
+          {filtered.map((sens, idx) => (
             <AccordionItem
-              key={sensor["@iot.id"] ?? idx}
+              key={sens["@iot.id"] ?? idx}
               title={
                 <div className="flex items-baseline gap-3">
-                  <span className="font-bold text-lg text-gray-800">{sensor.name ?? "-"}</span>
-                  <span className="text-xs text-gray-500">{sensor.description ?? "-"}</span>
+                  <span className="font-bold text-lg text-gray-800">{sens.name ?? "-"}</span>
+                  <span className="text-xs text-gray-500">{sens.description ?? "-"}</span>
                 </div>
               }
             >
@@ -82,7 +83,7 @@ export default function Sensors() {
 
                 {/* SX col with self attributes */}
                 <div className="flex-1 flex flex-col gap-2">
-                  {Object.entries(sensor).map(([key, value]) =>
+                  {Object.entries(sens).map(([key, value]) =>
                     (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
                       <div key={key} className="flex items-center gap-2">
                         <label className="w-40 text-sm text-gray-700">
@@ -108,7 +109,7 @@ export default function Sensors() {
 
                 {/* DX col with linked attributes */}
                 <div className="flex-1 flex flex-col gap-2">
-                  {Object.entries(sensor).map(([key, value]) =>
+                  {Object.entries(sens).map(([key, value]) =>
                     (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[A-Z]/.test(key)) ? null : (
                       <div key={key} className="flex items-center gap-2">
                         <label className="w-40 text-sm text-gray-700">
@@ -128,6 +129,23 @@ export default function Sensors() {
                       </div>
                     )
                   )}
+
+                  {/* EDIT AND DELETE BUTTONS */}
+                  <div className="flex justify-end mt-4 gap-2 relative">
+
+                    <Button color="warning" variant="bordered">
+                      Edit
+                    </Button>
+
+                    <DeleteButton
+                      endpoint={`${item.root}(${sens["@iot.id"]})`}
+                      token={token}
+                      onDeleted={() =>
+                        setSensors(prev => prev.filter(o => o["@iot.id"]
+                          !== sens["@iot.id"]))}
+                    />
+                    
+                  </div>
                 </div>
               </div>
             </AccordionItem>

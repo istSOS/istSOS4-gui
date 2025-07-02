@@ -10,6 +10,7 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
+import DeleteButton from "../../components/customButtons/deleteButton";
 
 export const mainColor = siteConfig.main_color;
 
@@ -68,13 +69,13 @@ export default function Things() {
       ) : (
 
         <Accordion variant="splitted">
-          {filtered.map((thing, idx) => (
+          {filtered.map((tgs, idx) => (
             <AccordionItem
-              key={thing["@iot.id"] ?? idx}
+              key={tgs["@iot.id"] ?? idx}
               title={
                 <div className="flex items-baseline gap-3">
-                  <span className="font-bold text-lg text-gray-800">{thing.name ?? "-"}</span>
-                  <span className="text-xs text-gray-500">{thing.description ?? "-"}</span>
+                  <span className="font-bold text-lg text-gray-800">{tgs.name ?? "-"}</span>
+                  <span className="text-xs text-gray-500">{tgs.description ?? "-"}</span>
                 </div>
               }
             >
@@ -82,7 +83,7 @@ export default function Things() {
 
                 {/* SX col with self attributes */}
                 <div className="flex-1 flex flex-col gap-2">
-                  {Object.entries(thing).map(([key, value]) =>
+                  {Object.entries(tgs).map(([key, value]) =>
                     (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
                       <div key={key} className="flex items-center gap-2">
                         <label className="w-40 text-sm text-gray-700">
@@ -108,7 +109,7 @@ export default function Things() {
 
                 {/* DX col with linked attributes */}
                 <div className="flex-1 flex flex-col gap-2">
-                  {Object.entries(thing).map(([key, value]) =>
+                  {Object.entries(tgs).map(([key, value]) =>
                     (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[A-Z]/.test(key)) ? null : (
                       <div key={key} className="flex items-center gap-2">
                         <label className="w-40 text-sm text-gray-700">
@@ -129,13 +130,20 @@ export default function Things() {
                     )
                   )}
 
-                  <div className="flex justify-end mt-4">
+                  {/* EDIT AND DELETE BUTTONS */}
+                  <div className="flex justify-end mt-4 gap-2 relative">
+
                     <Button color="warning" variant="bordered">
                       Edit
-                      </Button>
-                    <Button color="danger" className="ml-2">
-                      Delete
-                      </Button>
+                    </Button>
+
+                    <DeleteButton
+                      endpoint={`${item.root}(${tgs["@iot.id"]})`}
+                      token={token}
+                      onDeleted={() =>
+                        setThings(prev => prev.filter(o => o["@iot.id"]
+                          !== tgs["@iot.id"]))}
+                    />
                   </div>
 
                 </div>

@@ -138,8 +138,7 @@ export default function Observations() {
                     <Button color="warning" variant="bordered">
                       Edit
                     </Button>
-
-
+                    
                     <DeleteButton
                       endpoint={`${item.root}(${obs["@iot.id"]})`}
                       token={token}

@@ -9,6 +9,7 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import "leaflet/dist/leaflet.css";
+import DeleteButton from "../../components/customButtons/deleteButton";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
@@ -320,6 +321,24 @@ export default function Locations() {
                           </div>
                         )
                       )}
+
+
+                      {/* EDIT AND DELETE BUTTONS */}
+                      <div className="flex justify-end mt-4 gap-2 relative">
+
+                        <Button color="warning" variant="bordered">
+                          Edit
+                        </Button>
+
+                        <DeleteButton
+                          endpoint={`${item.root}(${loc["@iot.id"]})`}
+                          token={token}
+                          onDeleted={() =>
+                            setLocations(prev => prev.filter(o => o["@iot.id"]
+                              !== loc["@iot.id"]))}
+                        />
+                      </div>
+
                     </div>
                   </div>
                 </AccordionItem>
@@ -336,7 +355,7 @@ export default function Locations() {
                 width: 4,
                 cursor: "col-resize",
                 background: "#eee",
-                
+
                 zIndex: 20,
                 userSelect: "none",
               }}
@@ -356,7 +375,7 @@ export default function Locations() {
               minWidth: 150,
               maxWidth: "85%",
               height: "calc(100vh - 300px)",
-              
+
               background: "#fff",
               borderRadius: 8,
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
