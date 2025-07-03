@@ -6,43 +6,33 @@ import { siteConfig } from "../../config/site";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Card, Spinner, Divider } from "@heroui/react";
+import { useEntities } from "../../context/EntitiesContext";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
 
 export default function Page() {
   const router = useRouter();
-  const { token, loading: authLoading } = useAuth();
-  const [countsMap, setCountsMap] = React.useState<Record<string, number>>({});
-  const [loading, setLoading] = React.useState(true);
+  const { loading: authLoading } = useAuth();
+  const { entities, loading: entitiesLoading, refetchAll } = useEntities();
   const [hovered, setHovered] = React.useState<string | null>(null);
 
-  //fetch every iem in siteConfig.items and get the count of items
-  React.useEffect(() => {
-    if (!token || authLoading) return;
-    async function getCounts() {
-      setLoading(true);
-      try {
-        const entries = await Promise.all(
-          siteConfig.items.map(async (item) => {
-            try {
-              const data = await fetchData(item.root, token);
-              const count = Array.isArray(data?.value) ? data.value.length : 0;
-              return [item.label, count] as [string, number];
-            } catch {
-              return [item.label, 0] as [string, number];
-            }
-          })
-        );
-        setCountsMap(Object.fromEntries(entries));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    getCounts();
-  }, [token, authLoading]);
+    //refetch all entities on mount
+    React.useEffect(() => {
+      refetchAll();
+    }, []);
+
+  const countsMap = React.useMemo(() => {
+    const map: Record<string, number> = {};
+    siteConfig.items.forEach(item => {
+      // Assumendo che la chiave sia il label in minuscolo (es: "things")
+      const key = item.label.toLowerCase();
+      map[item.label] = Array.isArray((entities as any)[key]) ? (entities as any)[key].length : 0;
+    });
+    return map;
+  }, [entities]);
+
+  const loading = authLoading || entitiesLoading;
 
   return (
     <div className="min-h-screen py-4 px-8 sm:px-6 lg:px-8">

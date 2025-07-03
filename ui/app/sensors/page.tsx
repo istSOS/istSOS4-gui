@@ -11,6 +11,7 @@ import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
 import DeleteButton from "../../components/customButtons/deleteButton";
+import { useEntities } from "../../context/EntitiesContext";
 
 export const mainColor = siteConfig.main_color;
 
@@ -23,22 +24,18 @@ export default function Sensors() {
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
 
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+
+  //refetch all entities on mount
   React.useEffect(() => {
-    if (!token || authLoading) return;
-    async function getData() {
-      try {
-        if (!item) throw new Error("Not found");
-        const data = await fetchData(item.root, token);
-        setSensors(data?.value || []);
-      } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getData();
-  }, [token, authLoading]);
+    refetchAll();
+  }, []);
+
+  React.useEffect(() => {
+    setSensors(entities.sensors);
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entities, entitiesLoading, entitiesError]);
 
   const filtered = sensors.filter(sensor =>
     JSON.stringify(sensor).toLowerCase().includes(search.toLowerCase())
@@ -144,7 +141,7 @@ export default function Sensors() {
                         setSensors(prev => prev.filter(o => o["@iot.id"]
                           !== sens["@iot.id"]))}
                     />
-                    
+
                   </div>
                 </div>
               </div>

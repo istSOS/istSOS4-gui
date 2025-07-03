@@ -7,8 +7,8 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
-import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
+import { useEntities } from "../../context/EntitiesContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
 import DeleteButton from "../../components/customButtons/deleteButton";
@@ -26,23 +26,18 @@ export default function Datastreams() {
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
 
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+
+  //refetch all entities on mount
   React.useEffect(() => {
-    if (!token || authLoading) return;
-    async function getData() {
-      try {
-        //search for item in siteConfig
-        if (!item) throw new Error("Not found");
-        const data = await fetchData(item.root, token);
-        setDatastreams(data?.value || []);
-      } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getData();
-  }, [token, authLoading]);
+    refetchAll();
+  }, []);
+
+  React.useEffect(() => {
+    setDatastreams(entities.datastreams);
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entities, entitiesLoading, entitiesError]);
 
   const filtered = datastreams.filter(ds =>
     JSON.stringify(ds).toLowerCase().includes(search.toLowerCase())

@@ -13,6 +13,7 @@ import deleteData from "../../server/deleteData";
 import { useAuth } from "../../context/AuthContext";
 import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
+import { useEntities } from "../../context/EntitiesContext";
 
 export const mainColor = siteConfig.main_color;
 
@@ -27,23 +28,18 @@ export default function Observations() {
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
 
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+  
+  //refetch all entities on mount
+  React.useEffect(() => {
+    refetchAll();
+  }, []);
 
   React.useEffect(() => {
-    if (!token || authLoading) return;
-    async function getData() {
-      try {
-        if (!item) throw new Error("Not found");
-        const data = await fetchData(item.root, token);
-        setObservations(data?.value || []);
-      } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getData();
-  }, [token, authLoading]);
+    setObservations(entities.observations);
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entities, entitiesLoading, entitiesError]);
 
   const filtered = observations.filter(obs =>
     JSON.stringify(obs).toLowerCase().includes(search.toLowerCase())
@@ -131,19 +127,19 @@ export default function Observations() {
                   )}
 
 
-                  
+
                   {/* EDIT AND DELETE BUTTONS */}
                   <div className="flex justify-end mt-4 gap-2 relative">
 
                     <Button color="warning" variant="bordered">
                       Edit
                     </Button>
-                    
+
                     <DeleteButton
                       endpoint={`${item.root}(${obs["@iot.id"]})`}
                       token={token}
-                      onDeleted={() => 
-                        setObservations(prev => prev.filter(o => o["@iot.id"] 
+                      onDeleted={() =>
+                        setObservations(prev => prev.filter(o => o["@iot.id"]
                           !== obs["@iot.id"]))}
                     />
                   </div>

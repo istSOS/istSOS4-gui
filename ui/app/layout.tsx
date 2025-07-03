@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "../context/AuthContext";
 import LoginModal from "../components/LoginModal";
 
 import "./globals.css";
+import { EntitiesProvider } from "../context/EntitiesContext";
 
 export const mainColor = siteConfig.main_color;
 
@@ -30,11 +31,11 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
         onLoginClick={() => setLoginOpen(true)}
         onCreateUserClick={handleCreateUser}
       />
-      
+
       <Divider
-        style={{backgroundColor: "white", height: 1, margin: "8px 0",}}
-        ></Divider>
-        
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
+      ></Divider>
+
       <HeroUIProvider>
         <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
         {children}
@@ -42,7 +43,7 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
 
       <Footer />
 
-      
+
     </>
   );
 }
@@ -55,9 +56,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body style={{ backgroundColor: mainColor }} className="min-h-screen">
-        
+
         <AuthProvider>
-          <LayoutContent>{children}</LayoutContent>
+          <EntitiesProvider>
+            <LayoutContent>{children}</LayoutContent>
+          </EntitiesProvider>
+
         </AuthProvider>
 
       </body>

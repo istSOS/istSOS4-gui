@@ -7,6 +7,7 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
+import { useEntities } from "../../context/EntitiesContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import "leaflet/dist/leaflet.css";
 import DeleteButton from "../../components/customButtons/deleteButton";
@@ -18,6 +19,7 @@ export const secondaryColor = siteConfig.secondary_color;
 export default function Locations() {
 
   const { token, loading: authLoading } = useAuth();
+
   const [locations, setLocations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -44,6 +46,22 @@ export default function Locations() {
     encodingType: "application/vnd.geo+json"
   });
 
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+
+  //fetch locations from entities context
+  React.useEffect(() => {
+    setLocations(entities.locations);
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entities, entitiesLoading, entitiesError]);
+
+  //refetch all entities on mount
+  React.useEffect(() => {
+    refetchAll();
+  }, []);
+
+
+
   //focus a marker on the map
   const focusLocation = (coordinates: [number, number], id?: string) => {
     setShowMap(true);
@@ -56,7 +74,7 @@ export default function Locations() {
     }
     setTimeout(() => {
       if (mapInstanceRef.current && coordinates) {
-        mapInstanceRef.current.setView([coordinates[0], coordinates[1]], 6, { animate: true });
+        mapInstanceRef.current.setView([coordinates[1], coordinates[0]], 6, { animate: true });
       }
     }, 50);
   };
@@ -84,22 +102,6 @@ export default function Locations() {
     };
   }, [isSplitting]);
 
-  React.useEffect(() => {
-    if (!token || authLoading) return;
-    async function getData() {
-      try {
-        if (!item) throw new Error("Not found");
-        const data = await fetchData(item.root, token);
-        setLocations(data?.value || []);
-      } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getData();
-  }, [token, authLoading]);
 
   //filter locations based on search input
   const filteredLocations = locations.filter((loc) =>
@@ -111,9 +113,16 @@ export default function Locations() {
     if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
 
     import("leaflet").then((L) => {
+
+      //if the map container is not available, do nothing
+      if (!mapContainerRef.current) {
+        return;
+      }
+
       if (!mapInstanceRef.current) {
+
         const first = filteredLocations[0]?.location?.coordinates;
-        const center = first ? [first[0], first[1]] : [45, 10];
+        const center = [45, 10];
 
         const leafletMap = L.map(mapContainerRef.current, {
           worldCopyJump: false,
@@ -138,7 +147,7 @@ export default function Locations() {
         const coords = loc.location?.coordinates;
         const id = String(loc["@iot.id"]);
         if (Array.isArray(coords)) {
-          const marker = L.circleMarker([coords[0], coords[1]], {
+          const marker = L.circleMarker([coords[1], coords[0]], {
             radius: 6,
             fillColor: "red",
             color: "red",
@@ -390,7 +399,7 @@ export default function Locations() {
                         <Input
                           size="sm"
                           readOnly
-                          value={loc.location?.coordinates?.[0] ?? "-"}
+                          value={loc.location?.coordinates?.[1] ?? "-"}
                           className="flex-1"
                         />
                       </div>
@@ -399,7 +408,7 @@ export default function Locations() {
                         <Input
                           size="sm"
                           readOnly
-                          value={loc.location?.coordinates?.[1] ?? "-"}
+                          value={loc.location?.coordinates?.[0] ?? "-"}
                           className="flex-1"
                         />
                       </div>
@@ -450,6 +459,8 @@ export default function Locations() {
                           Edit
                         </Button>
 
+                        {/* Refetch not called here because it cause the refresh of
+                        the page and makes a bug in the map */}
                         <DeleteButton
                           endpoint={`${item.root}(${loc["@iot.id"]})`}
                           token={token}
