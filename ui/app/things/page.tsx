@@ -45,7 +45,7 @@ export default function Things() {
   if (error) return <p>{error}</p>;
 
   return (
-    <div className="p-4">
+    <div className="min-h-screen p-4">
 
       <SecNavbar
         title="Things"

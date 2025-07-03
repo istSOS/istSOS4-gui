@@ -24,6 +24,29 @@ export const LogoIstSOS = ({
   );
 };
 
+export const LogoOSGeo = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: { size?: number; width?: number; height?: number; [key: string]: any }) => {
+  const imgWidth = size || width || 24;
+  const imgHeight = size || height || 24;
+
+  return (
+    <img
+      src="/osgeo_logo.png"
+      width={imgWidth}
+      height={imgHeight}
+      alt="Logo OSGeo"
+      style={{
+        transition: "filter 0.3s"
+      }}
+      {...props}
+    />
+  );
+};
+
 type IconSvgProps = React.SVGProps<SVGSVGElement> & {
   size?: number;
   width?: number;

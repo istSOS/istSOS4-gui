@@ -10,17 +10,18 @@ export const siteConfig = {
   main_color: "#008374",
   secondary_color: "#007668",
   api_root: API_ROOT,
-  
+
 
   //HARDCODED PLACEHOLDER NETWORKS
   networks: [
     {
-      label: "Network 1",
-      href: "network",
+      label: "acsot",
     },
     {
-      label: "Network 2",
-      href: "network",
+      label: "defmin",
+    },
+    {
+      label: "psos",
     }
   ],
 
@@ -49,7 +50,7 @@ export const siteConfig = {
       weight: 3,
     },
     {
-      label: "Historical Locations",
+      label: "HistoricalLocations",
       href: "/historical-locations",
       root: API_ROOT + "HistoricalLocations",
       description: "A Thing’s HistoricalLocation entity set provides the times of the current (i.e., last known) and previous locations of the Thing.",
@@ -64,7 +65,7 @@ export const siteConfig = {
       weight: 2,
     },
     {
-      label: "Observed Properties",
+      label: "ObservedProperties",
       href: "/observed-properties",
       root: API_ROOT + "ObservedProperties",
       description: "An ObservedProperty specifies the phenomenon of an Observation.",
@@ -79,7 +80,7 @@ export const siteConfig = {
       weight: 2,
     },
     {
-      label: "Features Of Interest",
+      label: "FeaturesOfInterest",
       href: "/features-of-interest",
       root: API_ROOT + "FeaturesOfInterest",
       description: "An Observation assigns a value to a phenomenon, which is a property of the FeatureOfInterest (FOI). In IoT, the FOI is often the Location of the Thing (e.g., a thermostat’s location is the living room). In remote sensing, the FOI can be the geographic area or volume being observed.",
@@ -87,10 +88,10 @@ export const siteConfig = {
     },
 
   ],
-  
+
   links: {
     github: "https://github.com/LucaBTE/istSOS4-gui",
     istSOS: "https://istsos.org",
-    sponsor: "https://patreon.com/jrgarciadev",
+    OSGeo: "https://www.osgeo.org/",
   },
 };

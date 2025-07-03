@@ -193,7 +193,7 @@ export default function Locations() {
   if (error) return <p>{error}</p>;
 
   return (
-    <div className="p-4">
+    <div className="min-h-screen p-4">
 
       <div className="flex items-center justify-between mb-2">
         <SecNavbar

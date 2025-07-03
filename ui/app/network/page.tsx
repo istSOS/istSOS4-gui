@@ -7,27 +7,39 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { Card, Spinner, Divider } from "@heroui/react";
 import { useEntities } from "../../context/EntitiesContext";
+import { SecNavbar } from "../../components/bars/secNavbar";
+import { useSearchParams } from "next/navigation";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
+
+function labelToEntityKey(label: string) {
+  //remove spaces and hyphens and convert first letter to lowercase
+  //Example: "FeaturesOfInterest" or "Features Of Interest" → "featuresOfInterest"
+  return label
+    .replace(/[\s\-]/g, "") //remove spaces and hyphens
+    .replace(/^([A-Z])/, (m) => m.toLowerCase()); //first letter to lowercase
+}
 
 export default function Page() {
   const router = useRouter();
   const { loading: authLoading } = useAuth();
   const { entities, loading: entitiesLoading, refetchAll } = useEntities();
   const [hovered, setHovered] = React.useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const selectedNetwork = searchParams.get("label") || "Network";
 
-    //refetch all entities on mount
-    React.useEffect(() => {
-      refetchAll();
-    }, []);
+  //refetch all entities on mount
+  React.useEffect(() => {
+    refetchAll();
+  }, []);
 
   const countsMap = React.useMemo(() => {
     const map: Record<string, number> = {};
     siteConfig.items.forEach(item => {
-      // Assumendo che la chiave sia il label in minuscolo (es: "things")
-      const key = item.label.toLowerCase();
-      map[item.label] = Array.isArray((entities as any)[key]) ? (entities as any)[key].length : 0;
+      const key = labelToEntityKey(item.label);
+      const arr = (entities as any)[key];
+      map[item.label] = Array.isArray(arr) ? arr.length : 0;
     });
     return map;
   }, [entities]);
@@ -35,8 +47,16 @@ export default function Page() {
   const loading = authLoading || entitiesLoading;
 
   return (
-    <div className="min-h-screen py-4 px-8 sm:px-6 lg:px-8">
+    <div className="min-h-screen p-4">
+
+      <div className="flex items-center justify-between mb-2">
+        <SecNavbar 
+        title={selectedNetwork} 
+        />
+      </div>
+
       <div className="max-w-7xl mx-auto grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
+
         {siteConfig.items.map((item) => (
           <Card
             key={item.href}
@@ -61,11 +81,10 @@ export default function Page() {
                     : "0"}
               </div>
               <div
-                className={`text-sm mt-1 transition-all duration-300 ease-in-out overflow-hidden ${
-                  hovered === item.label
-                    ? "opacity-100 max-h-40"
-                    : "opacity-0 max-h-0"
-                }`}
+                className={`text-sm mt-1 transition-all duration-300 ease-in-out overflow-hidden ${hovered === item.label
+                  ? "opacity-100 max-h-40"
+                  : "opacity-0 max-h-0"
+                  }`}
               >
                 {item.description}
               </div>

@@ -10,6 +10,9 @@ type Entities = {
   sensors: any[];
   datastreams: any[];
   observations: any[];
+  featuresOfInterest: any[];
+  observedProperties: any[];
+  historicalLocations: any[];
 };
 
 type EntitiesContextType = {
@@ -27,6 +30,9 @@ const EntitiesContext = createContext<EntitiesContextType>({
     sensors: [],
     datastreams: [],
     observations: [],
+    featuresOfInterest: [],
+    observedProperties: [],
+    historicalLocations: [],
   },
   setEntities: () => {},
   loading: true,
@@ -42,6 +48,9 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
     sensors: [],
     datastreams: [],
     observations: [],
+    featuresOfInterest: [],
+    observedProperties: [],
+    historicalLocations: [],
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +60,18 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const [locations, things, sensors, datastreams, observations] = await Promise.all([
+      const [locations, things, sensors, datastreams, observations, featuresOfInterest, observedProperties, historicalLocations] = await Promise.all([
         fetchData(siteConfig.items.find(i => i.label === "Locations")?.root, token).then(d => d?.value || []),
         fetchData(siteConfig.items.find(i => i.label === "Things")?.root, token).then(d => d?.value || []),
         fetchData(siteConfig.items.find(i => i.label === "Sensors")?.root, token).then(d => d?.value || []),
         fetchData(siteConfig.items.find(i => i.label === "Datastreams")?.root, token).then(d => d?.value || []),
         fetchData(siteConfig.items.find(i => i.label === "Observations")?.root, token).then(d => d?.value || []),
+        fetchData(siteConfig.items.find(i => i.label === "FeaturesOfInterest")?.root, token).then(d => d?.value || []),
+        fetchData(siteConfig.items.find(i => i.label === "ObservedProperties")?.root, token).then(d => d?.value || []),
+        fetchData(siteConfig.items.find(i => i.label === "HistoricalLocations")?.root, token).then(d => d?.value || []),
+
       ]);
-      setEntities({ locations, things, sensors, datastreams, observations });
+      setEntities({ locations, things, sensors, datastreams, observations, featuresOfInterest, observedProperties, historicalLocations });
     } catch (err: any) {
       setError("Error during data loading: " + err.message);
     } finally {

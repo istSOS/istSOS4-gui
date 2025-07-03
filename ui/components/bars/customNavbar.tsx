@@ -8,54 +8,42 @@ import {
   NavbarItem,
 } from "@heroui/navbar";
 import { Link } from "@heroui/link";
-
 import { siteConfig } from "../../config/site";
-import {
-  GithubIcon,
-  LogoIstSOS,
-} from "../../components/icons";
+import { GithubIcon } from "../../components/icons";
 
 export const secondaryColor = siteConfig.secondary_color;
 
 export function CustomNavbar() {
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-
   return (
-    <HeroUINavbar
-      maxWidth="xl"
-      position="sticky"
-      style={{ backgroundColor: secondaryColor}}
-      className="max-h-[35px]"
+    <div
+      style={{
+        width: "100%",
+        background: secondaryColor,
+        padding: "6px 75px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        minHeight: 35,
+        boxSizing: "border-box",
+      }}
     >
-
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <NavbarBrand as="li" className="gap-3 max-w-fit">
-          <Link
-            //isExternal
-            className="flex justify-start items-center gap-1"
-            //href={siteConfig.links.istSOS}
-            href="/"
-
-          >
-            <LogoIstSOS className="h-5 w-20 text-white" />
-          </Link>
-        </NavbarBrand>
-      </NavbarContent>
-
-
-      <NavbarContent className="basis-1/5 sm:basis-full" justify="end">
-        <NavbarItem className="flex items-center justify-center h-full">
-          <Link
-            isExternal
-            aria-label="Github"
-            href={siteConfig.links.github}
-            className="flex items-center justify-center h-full"
-          >
-            <GithubIcon className="text-white" />
-          </Link>
-        </NavbarItem>
-      </NavbarContent>
-
-    </HeroUINavbar>
+      
+      <span className="text-white select-none" style={{ fontSize: '15px', fontWeight: 500 }}>
+        Discussions
+      </span>
+      
+      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Link
+          isExternal
+          aria-label="Source Code"
+          href={siteConfig.links.github}
+          className="flex items-center justify-center h-full text-white font-light text-base select-none"
+          style={{ fontSize: '15px', textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}
+        >
+          Source Code
+          <GithubIcon className="text-white" />
+        </Link>
+      </span>
+    </div>
   );
 }
