@@ -1,0 +1,10 @@
+{
+    "select_network": "Select a Network",
+    "cheer": "Hi, ",
+    "logout": "Logout",
+    "edit" : "Edit",
+    "delete": "Delete",
+    "yes": "Yes",
+    "no": "No",
+    "confirm_delete": "Are you sure?"
+}

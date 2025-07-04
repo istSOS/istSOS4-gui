@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { useAuth } from "../context/AuthContext";
-import fetchLogin from "../server/fetchLogin";
-import { siteConfig } from "../config/site";
+import { useAuth } from "../../context/AuthContext";
+import fetchLogin from "../../server/fetchLogin";
+import { siteConfig } from "../../config/site";
 import { Button, Link } from "@heroui/react";
-import { LogoIstSOS, LogoOSGeo } from "./icons";
+import { LogoIstSOS, LogoOSGeo } from "../icons";
 
 export default function LoginModal({ open, onClose }) {
   const { setToken } = useAuth();

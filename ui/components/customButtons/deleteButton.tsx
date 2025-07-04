@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Button } from "@heroui/react";
 import deleteData from "../../server/deleteData";
+import { useTranslation } from "react-i18next";
 
 type DeleteButtonProps = {
   endpoint: string; // endpoint completo, es: "/Observations(1)"
@@ -12,6 +13,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const { t } = useTranslation();
 
   const handleDelete = async () => {
     setIsLoading(true);
@@ -32,7 +34,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
     <div className="relative">
       {showConfirm && (
         <div className="absolute right-0 -top-24 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center">
-          <p className="mb-2 text-sm">Are you sure?</p>
+          <p className="mb-2 text-sm">{t("confirm_delete")}</p>
           <div className="flex gap-2">
             <Button
               color="danger"
@@ -40,7 +42,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               onPress={handleDelete}
               isLoading={isLoading}
             >
-              Yes
+              {t("yes")}
             </Button>
             <Button
               size="sm"
@@ -48,7 +50,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               onPress={() => setShowConfirm(false)}
               disabled={isLoading}
             >
-              No
+              {t("no")}
             </Button>
           </div>
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
@@ -59,7 +61,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
         onPress={() => setShowConfirm(true)}
         disabled={isLoading}
       >
-        Delete
+        {t("delete")}
       </Button>
     </div>
   );
