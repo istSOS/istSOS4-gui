@@ -1,7 +1,4 @@
 "use client";
-
-const item = siteConfig.items.find(i => i.label === "Locations");
-
 import * as React from "react";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
@@ -12,67 +9,69 @@ import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react"
 import "leaflet/dist/leaflet.css";
 import DeleteButton from "../../components/customButtons/deleteButton";
 import createData from "../../server/createData";
-import EntityCreationAccordion from "../../components/EntityCreationAccordion";
+import EntityCreator from "../../components/EntityCreator";
 
+// Define main and secondary colors from site config
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
 
+// Find the item configuration for Locations
+const item = siteConfig.items.find(i => i.label === "Locations");
+
+// Define fields for the EntityCreator specific to Locations
+const locationFields = [
+  { name: "name", label: "Name", required: true },
+  { name: "description", label: "Description" },
+  { name: "latitude", label: "Latitude", type: "number", required: true },
+  { name: "longitude", label: "Longitude", type: "number", required: true },
+  { name: "encodingType", label: "Encoding Type", required: true, default: "application/vnd.geo+json" },
+];
 
 export default function Locations() {
-
+  // Authentication and entities context
   const { token, loading: authLoading } = useAuth();
-
   const [locations, setLocations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [showMap, setShowMap] = React.useState(true);
   const [expanded, setExpanded] = React.useState<string | null>(null);
-
   const [split, setSplit] = React.useState(0.5);
   const [isSplitting, setIsSplitting] = React.useState(false);
-  const splitRef = React.useRef<HTMLDivElement>(null);
 
+  // Refs for DOM elements
+  const splitRef = React.useRef<HTMLDivElement>(null);
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
   const markersRef = React.useRef<any[]>([]);
 
-  // Creation Accordion logic (generic)
-  const [creating, setCreating] = React.useState(false);
-  const [creationValues, setCreationValues] = React.useState({
+  // State for creation form
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [newLocation, setNewLocation] = React.useState({
     name: "",
     description: "",
     latitude: "",
     longitude: "",
     encodingType: "application/vnd.geo+json"
   });
-  const [creationError, setCreationError] = React.useState<string | null>(null);
-  const [createLoading, setCreateLoading] = React.useState(false);
-
-  // Define fields for the entity creation (generic)
-  const creationFields = [
-    { name: "name", label: "Name", required: true },
-    { name: "description", label: "Description" },
-    { name: "latitude", label: "Latitude", type: "number", required: true },
-    { name: "longitude", label: "Longitude", type: "number", required: true },
-    { name: "encodingType", label: "Encoding Type", required: true, placeholder: "application/vnd.geo+json" },
-  ];
-
+  // Fetch entities from context
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
 
-  //fetch locations from entities context
+  // Update locations when entities change
   React.useEffect(() => {
     setLocations(entities.locations);
     setLoading(entitiesLoading);
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
 
-  //refetch all entities on mount
+  // Refetch all entities on mount
   React.useEffect(() => {
     refetchAll();
   }, []);
 
-  //focus a marker on the map
+  // Function to focus a location on the map
   const focusLocation = (coordinates: [number, number], id?: string) => {
     setShowMap(true);
     if (typeof id === "string") {
@@ -89,6 +88,7 @@ export default function Locations() {
     }, 50);
   };
 
+  // Handle map splitter mouse events
   React.useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!splitRef.current) return;
@@ -112,27 +112,22 @@ export default function Locations() {
     };
   }, [isSplitting]);
 
-  //filter locations based on search input
+  // Filter locations based on search input
   const filteredLocations = locations.filter((loc) =>
     JSON.stringify(loc).toLowerCase().includes(search.toLowerCase())
   );
 
-  //create and update map and markers
+  // Create and update map and markers
   React.useEffect(() => {
     if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
-
     import("leaflet").then((L) => {
-
-      //if the map container is not available, do nothing
+      // If the map container is not available, do nothing
       if (!mapContainerRef.current) {
         return;
       }
-
       if (!mapInstanceRef.current) {
-
         const first = filteredLocations[0]?.location?.coordinates;
         const center = [45, 10];
-
         const leafletMap = L.map(mapContainerRef.current, {
           worldCopyJump: false,
           maxBounds: [
@@ -142,16 +137,13 @@ export default function Locations() {
           maxBoundsViscosity: 1.0,
         }).setView(center, 4);
         mapInstanceRef.current = leafletMap;
-
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; OpenStreetMap contributors',
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         }).addTo(leafletMap);
       }
-
-      //update markers
+      // Update markers
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
-
       filteredLocations.forEach((loc) => {
         const coords = loc.location?.coordinates;
         const id = String(loc["@iot.id"]);
@@ -165,7 +157,7 @@ export default function Locations() {
             fillOpacity: 0.8,
           })
             .addTo(mapInstanceRef.current)
-            //when a point is clicked, its details are expanded in the list
+            // When a point is clicked, its details are expanded in the list
             .on("click", () => {
               setExpanded(id);
               setTimeout(() => {
@@ -182,8 +174,7 @@ export default function Locations() {
           markersRef.current.push(marker);
         }
       });
-
-      //forced map redraw
+      // Forced map redraw
       setTimeout(() => {
         mapInstanceRef.current?.invalidateSize();
       }, 200);
@@ -198,37 +189,30 @@ export default function Locations() {
     }
   }, [showMap]);
 
-  // Generic handleCreate for locations
-  const handleCreate = async () => {
+  // Handle creation of a new location
+  const handleCreate = async (newLocation: any) => {
     setCreateLoading(true);
-    setCreationError(null);
+    setCreateError(null);
     try {
       const payload = {
-        name: creationValues.name,
-        description: creationValues.description,
+        name: newLocation.name,
+        description: newLocation.description,
         location: {
           type: "Point",
           coordinates: [
-            parseFloat(creationValues.longitude),
-            parseFloat(creationValues.latitude)
+            parseFloat(newLocation.longitude),
+            parseFloat(newLocation.latitude)
           ]
         },
-        encodingType: creationValues.encodingType
+        encodingType: newLocation.encodingType
       };
       const res = await createData(item.root, token, payload);
       if (!res) throw new Error("Creation failed");
-      setCreating(false);
-      setCreationValues({
-        name: "",
-        description: "",
-        latitude: "",
-        longitude: "",
-        encodingType: "application/vnd.geo+json"
-      });
+      setShowCreate(false);
       const data = await fetchData(item.root, token);
       setLocations(data?.value || []);
     } catch (err: any) {
-      setCreationError(err.message || "Error creating location");
+      setCreateError(err.message || "Error creating location");
     } finally {
       setCreateLoading(false);
     }
@@ -239,7 +223,6 @@ export default function Locations() {
 
   return (
     <div className="min-h-screen p-4">
-
       <div className="flex items-center justify-between mb-2">
         <SecNavbar
           title="Locations"
@@ -248,8 +231,8 @@ export default function Locations() {
           color="primary"
           size="sm"
           onPress={() => {
-            setCreating(true);
-            setExpanded("new-entity");
+            setShowCreate(true);
+            setExpanded("new-location");
           }}
           style={{ fontSize: 24, padding: "0 12px", minWidth: 0 }}
           aria-label="Add Location"
@@ -257,14 +240,11 @@ export default function Locations() {
           +
         </Button>
       </div>
-
       <Divider
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
       ></Divider>
-
       <div className="flex mb-4">
-
-        {/* search filter input */}
+        {/* Search filter input */}
         <Input
           size="sm"
           placeholder="Search locations..."
@@ -272,8 +252,7 @@ export default function Locations() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
         />
-
-        {/* button toggle map visibility */}
+        {/* Button to toggle map visibility */}
         <Button
           size="sm"
           variant="flat"
@@ -283,9 +262,7 @@ export default function Locations() {
         >
           {showMap ? "Hide Map" : "Show Map"}
         </Button>
-
       </div>
-
       <div
         ref={splitRef}
         className="flex flex-row gap-0"
@@ -316,156 +293,154 @@ export default function Locations() {
             }}
           >
             {[
-              ...(creating
+              ...(showCreate
                 ? [
-                  <EntityCreationAccordion
-                    key="new-entity"
-                    fields={creationFields}
-                    values={creationValues}
-                    setValues={setCreationValues}
-                    error={creationError}
-                    loading={createLoading}
-                    onCreate={handleCreate}
-                    onCancel={() => {
-                      setCreating(false);
-                      setCreationError(null);
-                      setCreationValues({
+                  <AccordionItem
+                    key="new-location"
+                    id="location-accordion-item-new-location"
+                    title={
+                      <div className="flex items-baseline gap-3">
+                        <span className="font-bold text-lg text-gray-800">New Location</span>
+                      </div>
+                    }
+                    value="new-location"
+                  >
+                    <EntityCreator
+                      fields={locationFields}
+                      onCreate={handleCreate}
+                      onCancel={() => setShowCreate(false)}
+                      isLoading={createLoading}
+                      error={createError}
+                      initialValues={{
                         name: "",
                         description: "",
                         latitude: "",
                         longitude: "",
-                        encodingType: "application/vnd.geo+json"
-                      });
-                    }}
-                    title="New Location"
-                  />
+                        encodingType: "application/geo+json"
+                      }}
+                    />
+                  </AccordionItem>
                 ]
                 : []),
-              ...(filteredLocations.length === 0 && !creating
+              ...(filteredLocations.length === 0 && !showCreate
                 ? [
                   <p key="no-locations" style={{ padding: 16 }}>
                     No available locations.
                   </p>
                 ]
-                : filteredLocations.map((loc) => (
-                  <AccordionItem
-                    key={loc["@iot.id"]}
-                    id={`location-accordion-item-${loc["@iot.id"]}`}
-                    title={
-                      <div className="flex items-baseline gap-3">
-                        <span className="font-bold text-lg text-gray-800">{loc.name ?? "-"}</span>
-                        <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
-                      </div>
-                    }
-                    value={String(loc["@iot.id"])}
-                  >
-                    <div className="mt-2 flex flex-row gap-8">
-                      {/* LEFT col with self attributes */}
-                      <div className="flex-1 flex flex-col gap-2">
-                        {Object.entries(loc).map(([key, value]) =>
-                          (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[a-z]/.test(key)) ? null : (
-                            <div key={key} className="flex items-center gap-2">
-                              <label className="w-40 text-sm text-gray-700">
-                                {key.includes("@iot") ? key.split("@")[0] : key}
-                              </label>
-                              <Input
-                                size="sm"
-                                readOnly
-                                value={
-                                  typeof value === "object"
-                                    ? JSON.stringify(value)
-                                    : value?.toString() ?? "-"
-                                }
-                                className="flex-1"
-                              />
-                            </div>
-                          )
-                        )}
-                        {/* Show coordinates in left col */}
-                        <div className="flex items-center gap-2">
-                          <label className="w-40 text-sm text-gray-700">Latitude</label>
-                          <Input
-                            size="sm"
-                            readOnly
-                            value={loc.location?.coordinates?.[1] ?? "-"}
-                            className="flex-1"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="w-40 text-sm text-gray-700">Longitude</label>
-                          <Input
-                            size="sm"
-                            readOnly
-                            value={loc.location?.coordinates?.[0] ?? "-"}
-                            className="flex-1"
-                          />
-                        </div>
-                        {/* View in map button */}
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="flat"
-                            onPress={() => {
-                              focusLocation(loc.location?.coordinates, String(loc["@iot.id"]));
-                            }}
-                            disabled={!loc.location?.coordinates}
-                          >
-                            View in map
-                          </Button>
-                        </div>
-                      </div>
-                      {/* vertical divider */}
-                      <div className="w-px bg-gray-300 mx-4" />
-                      {/* RIGHT col with linked attributes */}
-                      <div className="flex-1 flex flex-col gap-2">
-                        {Object.entries(loc).map(([key, value]) =>
-                          (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[A-Z]/.test(key)) ? null : (
-                            <div key={key} className="flex items-center gap-2">
-                              <label className="w-40 text-sm text-gray-700">
-                                {key.includes("@iot") ? key.split("@")[0] : key}
-                              </label>
-                              <Button
-                                size="sm"
-                                variant="solid"
-                                onPress={() => {
-                                  alert(`Go to ${value}`);
-                                }}
-                              >
-                                {typeof value === "object"
+                : []),
+              ...filteredLocations.map((loc) => (
+                <AccordionItem
+                  key={loc["@iot.id"]}
+                  id={`location-accordion-item-${loc["@iot.id"]}`}
+                  title={
+                    <div className="flex items-baseline gap-3">
+                      <span className="font-bold text-lg text-gray-800">{loc.name ?? "-"}</span>
+                      <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
+                    </div>
+                  }
+                  value={String(loc["@iot.id"])}
+                >
+                  <div className="mt-2 flex flex-row gap-8">
+                    {/* LEFT col with self attributes */}
+                    <div className="flex-1 flex flex-col gap-2">
+                      {Object.entries(loc).map(([key, value]) =>
+                        (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[a-z]/.test(key)) ? null : (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="w-40 text-sm text-gray-700">
+                              {key.includes("@iot") ? key.split("@")[0] : key}
+                            </label>
+                            <Input
+                              size="sm"
+                              readOnly
+                              value={
+                                typeof value === "object"
                                   ? JSON.stringify(value)
-                                  : String(value).split("/").pop() || String(value)}
-                              </Button>
-                            </div>
-                          )
-                        )}
-
-
-                        {/* EDIT AND DELETE BUTTONS */}
-                        <div className="flex justify-end mt-4 gap-2 relative">
-
-                          <Button color="warning" variant="bordered">
-                            Edit
-                          </Button>
-
-                          {/* Refetch not called here because it cause the refresh of
-                            the page and makes a bug in the map */}
-                          <DeleteButton
-                            endpoint={`${item.root}(${loc["@iot.id"]})`}
-                            token={token}
-                            onDeleted={() =>
-                              setLocations(prev => prev.filter(o => o["@iot.id"]
-                                !== loc["@iot.id"]))}
-                          />
-                        </div>
-
+                                  : value?.toString() ?? "-"
+                              }
+                              className="flex-1"
+                            />
+                          </div>
+                        )
+                      )}
+                      {/* Show coordinates in left col */}
+                      <div className="flex items-center gap-2">
+                        <label className="w-40 text-sm text-gray-700">Latitude</label>
+                        <Input
+                          size="sm"
+                          readOnly
+                          value={loc.location?.coordinates?.[1] ?? "-"}
+                          className="flex-1"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="w-40 text-sm text-gray-700">Longitude</label>
+                        <Input
+                          size="sm"
+                          readOnly
+                          value={loc.location?.coordinates?.[0] ?? "-"}
+                          className="flex-1"
+                        />
+                      </div>
+                      {/* View in map button */}
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          onPress={() => {
+                            focusLocation(loc.location?.coordinates, String(loc["@iot.id"]));
+                          }}
+                          disabled={!loc.location?.coordinates}
+                        >
+                          View in map
+                        </Button>
                       </div>
                     </div>
-                  </AccordionItem>
-                )))
+                    {/* Vertical divider */}
+                    <div className="w-px bg-gray-300 mx-4" />
+                    {/* RIGHT col with linked attributes */}
+                    <div className="flex-1 flex flex-col gap-2">
+                      {Object.entries(loc).map(([key, value]) =>
+                        (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[A-Z]/.test(key)) ? null : (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="w-40 text-sm text-gray-700">
+                              {key.includes("@iot") ? key.split("@")[0] : key}
+                            </label>
+                            <Button
+                              size="sm"
+                              variant="solid"
+                              onPress={() => {
+                                alert(`Go to ${value}`);
+                              }}
+                            >
+                              {typeof value === "object"
+                                ? JSON.stringify(value)
+                                : String(value).split("/").pop() || String(value)}
+                            </Button>
+                          </div>
+                        )
+                      )}
+                      {/* EDIT AND DELETE BUTTONS */}
+                      <div className="flex justify-end mt-4 gap-2 relative">
+                        <Button color="warning" variant="bordered">
+                          Edit
+                        </Button>
+                        {/* Refetch not called here because it causes the refresh of the page and makes a bug in the map */}
+                        <DeleteButton
+                          endpoint={`${item.root}(${loc["@iot.id"]})`}
+                          token={token}
+                          onDeleted={() =>
+                            setLocations(prev => prev.filter(o => o["@iot.id"]
+                              !== loc["@iot.id"]))}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </AccordionItem>
+              )),
             ]}
           </Accordion>
         </div>
-
         {/* SPLITTER */}
         {showMap && (
           <>
@@ -474,7 +449,6 @@ export default function Locations() {
                 width: 4,
                 cursor: "col-resize",
                 background: "#eee",
-
                 zIndex: 20,
                 userSelect: "none",
               }}
@@ -483,7 +457,6 @@ export default function Locations() {
             <div style={{ width: 16 }} />
           </>
         )}
-
         {/* RIGHT: Map */}
         {showMap && (
           <div
@@ -494,7 +467,6 @@ export default function Locations() {
               minWidth: 150,
               maxWidth: "85%",
               height: "calc(100vh - 300px)",
-
               background: "#fff",
               borderRadius: 8,
               boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
