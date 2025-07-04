@@ -1,20 +1,23 @@
-import React from "react";
-import { Button, Link } from "@heroui/react";
+import React, { useState } from "react";
+import { Button, Link, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from "@heroui/react";
 import { useAuth } from "../../context/AuthContext";
 import { withRouter } from "next/router";
 import fetchUserRole from "../../server/fetchUser";
 import { siteConfig } from "../../config/site";
 import fetchLogout from "../../server/fetchLogout";
 import { LogoIstSOS } from "../icons";
+import i18n from "../../i18n";
+import { useTranslation } from "react-i18next";
 
 export const mainColor = siteConfig.main_color;
 
-
 export default function UserBar({
     onLoginClick,
-    onCreateUserClick,
+    
 }) {
     const { token, setToken } = useAuth();
+    const [selectedLang, setSelectedLang] = useState(i18n.language || "en");
+
     let username = "User";
     let isAdmin = false;
 
@@ -30,13 +33,25 @@ export default function UserBar({
         }
     }
 
+    //Available languages
+    const languages = [
+        { code: "en", label: "EN" },
+        { code: "it", label: "IT" },
+    ];
+    const { t } = useTranslation();
+
+    const handleLanguageChange = (langCode) => {
+        i18n.changeLanguage(langCode);
+        setSelectedLang(langCode);
+    };
+
     return (
         <div
             style={{
                 width: "100%",
                 background: mainColor,
                 color: "#fff",
-                padding: "15px 75px", // Increase the horizontal padding here
+                padding: "15px 75px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -55,20 +70,9 @@ export default function UserBar({
 
             {/* User */}
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {/*
-                {!token && (
-                    <Button color="primary" size="sm" onClick={onLoginClick}>
-                        Login
-                    </Button>
-                )} */}
                 {token && (
                     <>
-                        <span>Hi, <b>{username}</b></span>
-                        {isAdmin && (
-                            <Button color="secondary" size="sm" onClick={onCreateUserClick}>
-                                Create User
-                            </Button>
-                        )}
+                        <span> {t("cheer")} <b>{username}</b></span>
                         <Button
                             color="danger"
                             size="sm"
@@ -78,10 +82,29 @@ export default function UserBar({
                             }}
                             style={{ marginLeft: 8 }}
                         >
-                            Logout
+                            {t("logout")}
                         </Button>
                     </>
                 )}
+
+                {/* Language selector */}
+                <Dropdown>
+                    <DropdownTrigger>
+                        <Button variant="flat" size="sm">
+                            {languages.find(lang => lang.code === selectedLang)?.label || selectedLang}
+                        </Button>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Language selection">
+                        {languages.map((lang) => (
+                            <DropdownItem
+                                key={lang.code}
+                                onClick={() => handleLanguageChange(lang.code)}
+                            >
+                                {lang.label}
+                            </DropdownItem>
+                        ))}
+                    </DropdownMenu>
+                </Dropdown>
             </div>
         </div>
     );
