@@ -227,18 +227,7 @@ export default function Locations() {
         <SecNavbar
           title="Locations"
         />
-        <Button
-          color="primary"
-          size="sm"
-          onPress={() => {
-            setShowCreate(true);
-            setExpanded("new-location");
-          }}
-          style={{ fontSize: 24, padding: "0 12px", minWidth: 0 }}
-          aria-label="Add Location"
-        >
-          +
-        </Button>
+
       </div>
       <Divider
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
@@ -252,6 +241,20 @@ export default function Locations() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
         />
+        
+        <Button
+          color="primary"
+          size="sm"
+          onPress={() => {
+            setShowCreate(true);
+            setExpanded("new-location");
+          }}
+          style={{ fontSize: 24, padding: "0 12px", minWidth: 0 }}
+          aria-label="Add Location"
+        >
+          +
+        </Button>
+
         {/* Button to toggle map visibility */}
         <Button
           size="sm"

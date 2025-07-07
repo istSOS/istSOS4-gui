@@ -3,7 +3,7 @@
 const createData = async (
   endpoint: string,
   token: string,
-  payload: Record<string, any> // accetta oggetti generici
+  payload: Record<string, any>
 ) => {
   try {
     const response = await fetch(endpoint, {
@@ -14,16 +14,20 @@ const createData = async (
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(payload) // serializza l'oggetto
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-      throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
+      let errorMsg = `Error fetching data: ${response.status} ${response.statusText}`;
+      try {
+        const data = await response.json();
+        if (data?.message) errorMsg = data.message;
+      } catch {}
+      throw new Error(errorMsg);
     }
-    return true;
+    return await response.json().catch(() => true);
   } catch (error) {
-    console.error('Error fetching data:', error);
-    return null;
+    throw error;
   }
 }
 
