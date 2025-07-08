@@ -15,7 +15,7 @@ export default function Page() {
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
 
       <h1 className="text-4xl font-bold mb-8" style={{ color: "white" }}>
-        {t("select_network")}
+        {t("general.select_network")}
       </h1>
 
       <div className="max-w-7xl mx-auto grid gap-6 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">

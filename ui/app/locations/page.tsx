@@ -10,6 +10,7 @@ import "leaflet/dist/leaflet.css";
 import DeleteButton from "../../components/customButtons/deleteButton";
 import createData from "../../server/createData";
 import EntityCreator from "../../components/EntityCreator";
+import { useTranslation } from "react-i18next";
 
 // Define main and secondary colors from site config
 export const mainColor = siteConfig.main_color;
@@ -18,16 +19,43 @@ export const secondaryColor = siteConfig.secondary_color;
 // Find the item configuration for Locations
 const item = siteConfig.items.find(i => i.label === "Locations");
 
-// Define fields for the EntityCreator specific to Locations
-const locationFields = [
-  { name: "name", label: "Name", required: true },
-  { name: "description", label: "Description" },
-  { name: "latitude", label: "Latitude", type: "number", required: true },
-  { name: "longitude", label: "Longitude", type: "number", required: true },
-  { name: "encodingType", label: "Encoding Type", required: true, default: "application/vnd.geo+json" },
-];
+
 
 export default function Locations() {
+
+
+  const { t } = useTranslation();
+
+  // Define fields for the EntityCreator specific to Locations
+  const locationFields = [
+    { name: "name", label: t("locations.name"), required: true },
+    { name: "description", label: t("locations.description") },
+    { name: "latitude", label: t("locations.latitude"), type: "number", required: true },
+    { name: "longitude", label: t("locations.longitude"), type: "number", required: true },
+    { name: "encodingType", label: t("locations.encoding_type"), required: true, default: "application/vnd.geo+json" },
+  ];
+
+  //labels for columns in the datastreams table
+  const getLabel = (key: string) => {
+    //map keys to translated labels
+    const map: Record<string, string> = {
+      name: t("datastreams.name"),
+      description: t("datastreams.description"),
+      unitOfMeasurement: t("datastreams.unit_of_measurement"),
+      thingId: t("datastreams.thing_id"),
+      sensorId: t("datastreams.sensor_id"),
+      observedPropertyId: t("datastreams.observed_property_id"),
+      observationType: t("datastreams.observation_type"),
+      observedArea: t("datastreams.observed_area"),
+      phenomenonTime: t("datastreams.phenomenon_time"),
+      coordinates: t("datastreams.coordinates"),
+
+    };
+    return map[key] || key;
+  };
+
+
+
   // Authentication and entities context
   const { token, loading: authLoading } = useAuth();
   const [locations, setLocations] = React.useState<any[]>([]);
@@ -241,7 +269,6 @@ export default function Locations() {
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
         />
-        
         <Button
           color="primary"
           size="sm"
@@ -254,7 +281,6 @@ export default function Locations() {
         >
           +
         </Button>
-
         {/* Button to toggle map visibility */}
         <Button
           size="sm"
@@ -263,7 +289,7 @@ export default function Locations() {
           onPress={() => setShowMap((prev) => !prev)}
           style={{ backgroundColor: secondaryColor, color: "white" }}
         >
-          {showMap ? "Hide Map" : "Show Map"}
+          {showMap ? t("locations.hide_map") : ("locations.show_map")}
         </Button>
       </div>
       <div
@@ -338,6 +364,7 @@ export default function Locations() {
                   id={`location-accordion-item-${loc["@iot.id"]}`}
                   title={
                     <div className="flex items-baseline gap-3">
+                      <span className="text-xs text-gray-500">id: {loc["@iot.id"]}</span>
                       <span className="font-bold text-lg text-gray-800">{loc.name ?? "-"}</span>
                       <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
                     </div>
@@ -351,7 +378,7 @@ export default function Locations() {
                         (value == null || key == "@iot.id" || key == "@iot.selfLink" || key === "location" || !/^[a-z]/.test(key)) ? null : (
                           <div key={key} className="flex items-center gap-2">
                             <label className="w-40 text-sm text-gray-700">
-                              {key.includes("@iot") ? key.split("@")[0] : key}
+                              {key.includes("@iot") ? key.split("@")[0] : getLabel(key)}
                             </label>
                             <Input
                               size="sm"
@@ -395,7 +422,7 @@ export default function Locations() {
                           }}
                           disabled={!loc.location?.coordinates}
                         >
-                          View in map
+                          {t("locations.view_in_map")}
                         </Button>
                       </div>
                     </div>

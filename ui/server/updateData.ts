@@ -1,16 +1,16 @@
 'use server'
 
-const createData = async (
+const updateData = async (
   endpoint: string,
   token: string,
   payload: Record<string, any>
 ) => {
   try {
     const response = await fetch(endpoint, {
-      method: 'POST',
+      method: 'PATCH',
       headers: {
         "accept": "application/json",
-        "commit-message": "test",
+        "commit-message": "update",
         "Authorization": `Bearer ${token}`,
         "Content-Type": "application/json"
       },
@@ -18,7 +18,7 @@ const createData = async (
     });
 
     if (!response.ok) {
-      let errorMsg = `Error fetching data: ${response.status} ${response.statusText}`;
+      let errorMsg = `Error updating data: ${response.status} ${response.statusText}`;
       try {
         const data = await response.json();
         if (data?.message) errorMsg = data.message;
@@ -31,4 +31,4 @@ const createData = async (
   }
 }
 
-export default createData
+export default updateData;

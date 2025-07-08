@@ -9,9 +9,14 @@ import { Accordion, AccordionItem, Button, Input, Divider, Select, SelectItem, T
 import { SearchBar } from "../../components/bars/searchBar";
 import DeleteButton from "../../components/customButtons/deleteButton";
 import createData from "../../server/createData";
+import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import EntityCreator from "../../components/EntityCreator";
 import { unitOfMeasurementOptions, observationTypeURIs } from "./utils";
+
+import { useTranslation } from "react-i18next";
+
+
 
 //define color from site condiguration
 export const mainColor = siteConfig.main_color;
@@ -22,41 +27,12 @@ const things = siteConfig.items.find(i => i.label === "Things");
 const sensors = siteConfig.items.find(i => i.label === "Sensors");
 const observedProperties = siteConfig.items.find(i => i.label === "Observed Properties");
 
+
 //default coordinates for the observed area
 const defaultCoordinates = [
   [1.1, 1.1],
   [2.2, 2.2],
   [3.3, 3.3],
-];
-
-//define the fields for datastream creation
-const datastreamFields = [
-  { name: "name", label: "Name", required: true },
-  { name: "description", label: "Description", required: false },
-  {
-    name: "unitOfMeasurement",
-    label: "Unit Of Measurement",
-    required: true,
-    type: "select",
-    options: unitOfMeasurementOptions
-  },
-  {
-    name: "observationType",
-    label: "Observation Type",
-    required: true,
-    type: "select",
-    options: observationTypeURIs
-  },
-  {
-    name: "coordinates",
-    label: "Observed Area (Polygon)",
-    type: "coordinates",
-    required: false
-  },
-  { name: "phenomenonTime", label: "Phenomenon Time", type: "datetime-local", required: false },
-  { name: "thingId", label: "Thing ID", required: true, type: "number" },
-  { name: "sensorId", label: "Sensor ID", required: true, type: "number" },
-  { name: "observedPropertyId", label: "Observed Property ID", required: true, type: "number" },
 ];
 
 //function to format coordinates into GeoJSON format
@@ -69,6 +45,95 @@ function formatGeoJSON(coordinates) {
 
 //main component for Datastreams
 export default function Datastreams() {
+
+  //initialize translation hook
+  const { t } = useTranslation();
+
+  //retrieve entities from context
+  const { entities } = useEntities();
+
+  //map entities to options for select fields
+  const thingOptions = (entities?.things || []).map(thing => ({
+    label: thing.name || `Thing ${thing["@iot.id"]}`,
+    value: thing["@iot.id"]
+  }));
+  const sensorOptions = (entities?.sensors || []).map(sensor => ({
+    label: sensor.name || `Sensor ${sensor["@iot.id"]}`,
+    value: sensor["@iot.id"]
+  }));
+  const observedPropertyOptions = (entities?.observedProperties || []).map(op => ({
+    label: op.name || `Observed Property ${op["@iot.id"]}`,
+    value: op["@iot.id"]
+  }));
+
+  //define the fields for datastream creation
+  const datastreamFields = [
+    { name: "name", label: t("datastreams.name"), required: true },
+    { name: "description", label: t("datastreams.description"), required: false },
+    {
+      name: "unitOfMeasurement",
+      label: t("datastreams.unit_of_measurement"),
+      required: true,
+      type: "select",
+      options: unitOfMeasurementOptions
+    },
+    {
+      name: "observationType",
+      label: t("datastreams.observation_type"),
+      required: true,
+      type: "select",
+      options: observationTypeURIs
+    },
+    {
+      name: "coordinates",
+      label: t("datastreams.observed_area"),
+      type: "coordinates",
+      required: false
+    },
+    { name: "phenomenonTime", label: t("datastreams.phenomenon_time"), type: "datetime-local", required: false },
+    {
+      name: "thingId",
+      label: "Thing",
+      required: true,
+      type: "select",
+      options: thingOptions
+    },
+    {
+      name: "sensorId",
+      label: "Sensor",
+      required: true,
+      type: "select",
+      options: sensorOptions
+    },
+    {
+      name: "observedPropertyId",
+      label: "ObservedProperty",
+      required: true,
+      type: "select",
+      options: observedPropertyOptions
+    },
+  ];
+
+
+  //labels for columns in the datastreams table
+  const getLabel = (key: string) => {
+    //map keys to translated labels
+    const map: Record<string, string> = {
+      name: t("datastreams.name"),
+      description: t("datastreams.description"),
+      unitOfMeasurement: t("datastreams.unit_of_measurement"),
+      observationType: t("datastreams.observation_type"),
+      observedArea: t("datastreams.observed_area"),
+      phenomenonTime: t("datastreams.phenomenon_time"),
+      coordinates: t("datastreams.coordinates"),
+
+    };
+    return map[key] || key;
+  };
+
+
+
+
   //retrive token and loading state from authentication context
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -81,10 +146,17 @@ export default function Datastreams() {
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
   const [createError, setCreateError] = React.useState(null);
+
+  //state for editing datastreams
+  const [editDatastream, setEditDatastream] = React.useState(null);
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [editError, setEditError] = React.useState(null);
+
+  //state for expanded accordion items
   const [expanded, setExpanded] = React.useState(null);
 
   //retrive entities from context and refetch on mount
-  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+  const { loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   React.useEffect(() => {
     refetchAll();
   }, []);
@@ -181,7 +253,7 @@ export default function Datastreams() {
       await createData(item.root, token, payload);
       setShowCreate(false);
       setExpanded(null);
-      
+
       //refetch datastreams after creation
       const data = await fetchData(item.root, token);
       setDatastreams(data?.value || []);
@@ -191,6 +263,51 @@ export default function Datastreams() {
       setCreateLoading(false);
     }
   };
+
+  // --- EDITING ---
+
+  const handleUpdate = async (updatedDatastream) => {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const uom = unitOfMeasurementOptions.find(
+        o => o.value === updatedDatastream.unitOfMeasurement
+      );
+      if (!uom) {
+        setEditError("Invalid Unit Of Measurement");
+        setEditLoading(false);
+        return;
+      }
+      const obsType = updatedDatastream.observationType;
+      if (!obsType) {
+        setEditError("Invalid Observation Type");
+        setEditLoading(false);
+        return;
+      }
+      const payload = {
+        name: updatedDatastream.name,
+        description: updatedDatastream.description,
+        unitOfMeasurement: {
+          name: uom.label,
+          symbol: uom.symbol,
+          definition: uom.definition,
+        },
+        observationType: obsType,
+        network: "acsot",
+
+      };
+      await updateData(`${item.root}(${editDatastream["@iot.id"]})`, token, payload);
+      setEditDatastream(null);
+      setExpanded(null);
+      const data = await fetchData(item.root, token);
+      setDatastreams(data?.value || []);
+    } catch (err) {
+      setEditError(err.message || "Error updating datastream");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
 
   // --- RENDER ---
   if (loading) return <p>Loading...</p>;
@@ -276,64 +393,93 @@ export default function Datastreams() {
                 }
                 value={String(ds["@iot.id"] ?? idx)}
               >
-                <div className="mt-2 flex flex-row gap-8">
-                  <div className="flex-1 flex flex-col gap-2">
-                    {Object.entries(ds).map(([key, value]) =>
-                      (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
-                        <div key={key} className="flex items-center gap-2">
-                          <label className="w-40 text-sm text-gray-700">
-                            {key.includes("@iot") ? key.split("@")[0] : key}
-                          </label>
-                          <Input
-                            size="sm"
-                            readOnly
-                            value={
-                              typeof value === "object"
+                {editDatastream && editDatastream["@iot.id"] === ds["@iot.id"] ? (
+                  <EntityCreator
+                    fields={datastreamFields}
+                    onCreate={handleUpdate}
+                    onCancel={() => setEditDatastream(null)}
+                    isLoading={editLoading}
+                    error={editError}
+                    initialValues={{
+                      name: ds.name || "",
+                      description: ds.description || "",
+                      unitOfMeasurement: unitOfMeasurementOptions.find(
+                        o =>
+                          o.label === ds.unitOfMeasurement?.name &&
+                          o.symbol === ds.unitOfMeasurement?.symbol &&
+                          o.definition === ds.unitOfMeasurement?.definition
+                      )?.value || "",
+                      observationType: observationTypeURIs.find(
+                        o => o.value === ds.observationType
+                      )?.value || "",
+                      coordinates: ds.observedArea?.coordinates?.[0] || defaultCoordinates,
+                      phenomenonTime: ds.phenomenonTime || "",
+                      thingId: ds.Thing?.["@iot.id"] || "",
+                      sensorId: ds.Sensor?.["@iot.id"] || "",
+                      observedPropertyId: ds.ObservedProperty?.["@iot.id"] || "",
+                    }}
+                  />
+
+                ) : (
+                  <div className="mt-2 flex flex-row gap-8">
+                    <div className="flex-1 flex flex-col gap-2">
+                      {Object.entries(ds).map(([key, value]) =>
+                        (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="w-40 text-sm text-gray-700">
+                              {key.includes("@iot") ? key.split("@")[0] : getLabel(key)}
+                            </label>
+                            <Input
+                              size="sm"
+                              readOnly
+                              value={
+                                typeof value === "object"
+                                  ? JSON.stringify(value)
+                                  : value?.toString() ?? "-"
+                              }
+                              className="flex-1"
+                            />
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="w-px bg-gray-300 mx-4" />
+                    <div className="flex-1 flex flex-col gap-2">
+                      {Object.entries(ds).map(([key, value]) =>
+                        (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[A-Z]/.test(key)) ? null : (
+                          <div key={key} className="flex items-center gap-2">
+                            <label className="w-40 text-sm text-gray-700">
+                              {key.includes("@iot") ? key.split("@")[0] : key}
+                            </label>
+                            <Button
+                              size="sm"
+                              variant="solid"
+                              onPress={() => {
+                                alert(`Go to ${value}`);
+                              }}
+                            >
+                              {typeof value === "object"
                                 ? JSON.stringify(value)
-                                : value?.toString() ?? "-"
-                            }
-                            className="flex-1"
-                          />
-                        </div>
-                      )
-                    )}
-                  </div>
-                  <div className="w-px bg-gray-300 mx-4" />
-                  <div className="flex-1 flex flex-col gap-2">
-                    {Object.entries(ds).map(([key, value]) =>
-                      (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[A-Z]/.test(key)) ? null : (
-                        <div key={key} className="flex items-center gap-2">
-                          <label className="w-40 text-sm text-gray-700">
-                            {key.includes("@iot") ? key.split("@")[0] : key}
-                          </label>
-                          <Button
-                            size="sm"
-                            variant="solid"
-                            onPress={() => {
-                              alert(`Go to ${value}`);
-                            }}
-                          >
-                            {typeof value === "object"
-                              ? JSON.stringify(value)
-                              : String(value).split("/").pop() || String(value)}
-                          </Button>
-                        </div>
-                      )
-                    )}
-                    <div className="flex justify-end mt-4 gap-2 relative">
-                      <Button color="warning" variant="bordered">
-                        Edit
-                      </Button>
-                      <DeleteButton
-                        endpoint={`${item.root}(${ds["@iot.id"]})`}
-                        token={token}
-                        onDeleted={() =>
-                          setDatastreams(prev => prev.filter(o => o["@iot.id"] !== ds["@iot.id"]))
-                        }
-                      />
+                                : String(value).split("/").pop() || String(value)}
+                            </Button>
+                          </div>
+                        )
+                      )}
+                      <div className="flex justify-end mt-4 gap-2 relative">
+                        <Button color="warning" variant="bordered" onPress={() => setEditDatastream(ds)}>
+                          {t("general.edit")}
+                        </Button>
+                        <DeleteButton
+                          endpoint={`${item.root}(${ds["@iot.id"]})`}
+                          token={token}
+                          onDeleted={() =>
+                            setDatastreams(prev => prev.filter(o => o["@iot.id"] !== ds["@iot.id"]))
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </AccordionItem>
             )),
           ]}

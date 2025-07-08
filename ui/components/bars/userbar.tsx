@@ -72,7 +72,7 @@ export default function UserBar({
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 {token && (
                     <>
-                        <span> {t("cheer")} <b>{username}</b></span>
+                        <span> {t("general.cheer")} <b>{username}</b></span>
                         <Button
                             color="danger"
                             size="sm"
@@ -82,7 +82,7 @@ export default function UserBar({
                             }}
                             style={{ marginLeft: 8 }}
                         >
-                            {t("logout")}
+                            {t("general.logout")}
                         </Button>
                     </>
                 )}

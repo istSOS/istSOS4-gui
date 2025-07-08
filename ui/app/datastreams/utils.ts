@@ -2,7 +2,7 @@
 
 export const unitOfMeasurementOptions = [
     //name, symbol, definition
-    { label: "Celsius", value: "Celsius", symbol: "°C", definition: "A unit of temperature on the Celsius scale." },
+    { label: "Centigrade", value: "Centigrade", symbol: "°C", definition: "A unit of temperature on the Celsius scale." },
     { label: "Fahrenheit", value: "Fahrenheit", symbol: "°F", definition: "A unit of temperature on the Fahrenheit scale." },
     { label: "Kelvin", value: "Kelvin", symbol: "K", definition: "The SI base unit of thermodynamic temperature." },
     { label: "Meter", value: "Meter", symbol: "m", definition: "The base unit of length in the International System of Units (SI)." },

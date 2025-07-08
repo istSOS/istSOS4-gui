@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Button, Input, Select, SelectItem, Textarea } from "@heroui/react";
+import { useTranslation } from "react-i18next";
+
 
 interface Field {
   name: string;
@@ -20,7 +22,10 @@ interface EntityCreatorProps {
   initialValues?: Record<string, any>;
 }
 
+
+
 export const EntityCreator: React.FC<EntityCreatorProps> = ({
+  
   fields,
   onCreate,
   onCancel,
@@ -78,6 +83,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   };
 
   const renderField = (field: Field) => {
+    
     if (field.type === "coordinates") {
       return (
         <div className="flex flex-col gap-2 w-full">
@@ -85,7 +91,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             <div key={idx} className="flex items-center gap-2">
               <Input
                 type="number"
-                label="Lng"
+                label="Longitude"
                 placeholder="Longitude"
                 value={coord[0].toString()}
 
@@ -94,7 +100,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               />
               <Input
                 type="number"
-                label="Lat"
+                label="Latitude"
                 placeholder="Latitude"
                 value={coord[1].toString()}
                 onChange={e => handleCoordinateChange(idx, "lat", e.target.value)}
@@ -115,7 +121,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               +
             </Button>
 
-            3 or more coordinates are required to define a polygon.
+            {t("locations.coordinates_required")}
           </div>
         </div>
       );
@@ -177,7 +183,10 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     }
   };
 
+  const { t } = useTranslation();
+
   return (
+    
     <div className="mt-2 flex flex-row gap-8">
       <div className="flex-1 flex flex-col gap-2">
         {fields.map((field) => (
@@ -191,10 +200,10 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
         {error && <div style={{ color: "red", marginBottom: 8, marginTop: 4 }}>{error}</div>}
         <div className="flex items-center gap-2 mt-2">
           <Button color="primary" size="sm" isLoading={isLoading} onPress={handleSubmit}>
-            Create
+            {t("general.create")}
           </Button>
           <Button variant="bordered" size="sm" onPress={onCancel} disabled={isLoading}>
-            Cancel
+            {t("general.cancel")}
           </Button>
         </div>
       </div>

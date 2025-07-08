@@ -42,7 +42,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               onPress={handleDelete}
               isLoading={isLoading}
             >
-              {t("yes")}
+              {t("general.yes")}
             </Button>
             <Button
               size="sm"
@@ -50,7 +50,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               onPress={() => setShowConfirm(false)}
               disabled={isLoading}
             >
-              {t("no")}
+              {t("general.no")}
             </Button>
           </div>
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
@@ -61,7 +61,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
         onPress={() => setShowConfirm(true)}
         disabled={isLoading}
       >
-        {t("delete")}
+        {t("general.delete")}
       </Button>
     </div>
   );
