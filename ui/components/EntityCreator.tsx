@@ -25,7 +25,7 @@ interface EntityCreatorProps {
 
 
 export const EntityCreator: React.FC<EntityCreatorProps> = ({
-  
+
   fields,
   onCreate,
   onCancel,
@@ -83,49 +83,62 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   };
 
   const renderField = (field: Field) => {
-    
-    if (field.type === "coordinates") {
+    if (field.type === "properties") {
+      const properties = values.properties || [];
       return (
         <div className="flex flex-col gap-2 w-full">
-          {(values.coordinates || []).map((coord: [number, number], idx: number) => (
-            <div key={idx} className="flex items-center gap-2">
+          {properties.map((prop, idx) => (
+            <div key={idx} className="flex gap-2 items-center">
               <Input
-                type="number"
-                label="Longitude"
-                placeholder="Longitude"
-                value={coord[0].toString()}
-
-                onChange={e => handleCoordinateChange(idx, "lng", e.target.value)}
-                style={{ width: 120 }}
+                size="sm"
+                placeholder={t("general.property_key") || "Key"}
+                value={prop.key}
+                onChange={e => {
+                  const newProps = [...properties];
+                  newProps[idx].key = e.target.value;
+                  setValues(v => ({ ...v, properties: newProps }));
+                }}
+                className="flex-1"
               />
               <Input
-                type="number"
-                label="Latitude"
-                placeholder="Latitude"
-                value={coord[1].toString()}
-                onChange={e => handleCoordinateChange(idx, "lat", e.target.value)}
-                style={{ width: 120 }}
+                size="sm"
+                placeholder={t("general.property_value") || "Value"}
+                value={prop.value}
+                onChange={e => {
+                  const newProps = [...properties];
+                  newProps[idx].value = e.target.value;
+                  setValues(v => ({ ...v, properties: newProps }));
+                }}
+                className="flex-1"
               />
               <Button
                 size="sm"
                 color="danger"
-                onPress={() => removeCoordinate(idx)}
-                isDisabled={values.coordinates.length <= 3}
-                title="Rimuovi punto"
+                onPress={() => {
+                  setValues(v => ({
+                    ...v,
+                    properties: properties.filter((_, i) => i !== idx)
+                  }));
+                }}
               >-</Button>
             </div>
           ))}
-          {/*add space from button to text*/}
-          <div className="text-xs text-gray-500 flex items-center gap-2 mt-2">
-            <Button size="sm" onPress={addCoordinate} style={{ width: 120 }}>
-              +
-            </Button>
-
-            {t("locations.coordinates_required")}
-          </div>
+          <Button
+            size="sm"
+            color="primary"
+            variant="bordered"
+            onPress={() => {
+              setValues(v => ({
+                ...v,
+                properties: [...(v.properties || []), { key: "", value: "" }]
+              }));
+            }}
+          >{t("general.add_property") || "Add property"}</Button>
         </div>
       );
     }
+
+
     switch (field.type) {
       case "select":
         return (
@@ -186,7 +199,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   const { t } = useTranslation();
 
   return (
-    
+
     <div className="mt-2 flex flex-row gap-8">
       <div className="flex-1 flex flex-col gap-2">
         {fields.map((field) => (

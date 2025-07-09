@@ -9,6 +9,7 @@ import { Card, Spinner, Divider } from "@heroui/react";
 import { useEntities } from "../../context/EntitiesContext";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import { useSearchParams } from "next/navigation";
+import { useTranslation } from "react-i18next";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
@@ -28,6 +29,8 @@ export default function Page() {
   const [hovered, setHovered] = React.useState<string | null>(null);
   const searchParams = useSearchParams();
   const selectedNetwork = searchParams.get("label") || "Network";
+
+  const { t } = useTranslation();
 
   //refetch all entities on mount
   React.useEffect(() => {
@@ -86,7 +89,8 @@ export default function Page() {
                   : "opacity-0 max-h-0"
                   }`}
               >
-                {item.description}
+                
+                {t(`general.${item.label.toLowerCase()}_info`)}
               </div>
             </div>
           </Card>

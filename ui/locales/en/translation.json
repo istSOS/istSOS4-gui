@@ -9,7 +9,20 @@
         "no": "No",
         "confirm_delete": "Are you sure?",
         "create": "Create",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "search": "Search...",
+        "add_property": "Add Property",
+        "property_key": "Name",
+        "property_value": "Value",
+
+        "datastreams_info": "A collection of Observations and the Observations in a Datastream measure the same ObservedProperty and are produced by the same Sensor.",
+        "things_info": "An object of the physical world (physical things) or the information world (virtual things) that is capable of being identified and integrated into communication networks.",
+        "locations_info": "The Location entity locates the Thing or the Things it associated with. A Thing’s Location entity is defined as the last known location of the Thing.",
+        "historicallocations_info": "A Thing’s HistoricalLocation entity set provides the times of the current (i.e., last known) and previous locations of the Thing.",
+        "sensors_info": "A Sensor is an instrument that observes a property or phenomenon with the goal of producing an estimate of the value of the property.",
+        "observedproperties_info": "An ObservedProperty specifies the phenomenon of an Observation.",
+        "observations_info": "An Observation is the act of measuring or otherwise determining the value of a property.",
+        "featuresofinterest_info": "An Observation assigns a value to a phenomenon, which is a property of the FeatureOfInterest (FOI). In IoT, the FOI is often the Location of the Thing (e.g., a thermostat’s location is the living room). In remote sensing, the FOI can be the geographic area or volume being observed."
     },
     "datastreams": {
         "create": "Create Datastream",
@@ -33,7 +46,7 @@
         "delete_error": "Error deleting datastream: ",
         "delete_success": "Datastream deleted successfully!"
     },
-    "locations":{
+    "locations": {
         "name": "Name",
         "description": "Description",
         "coordinates": "Coordinates",
@@ -43,12 +56,43 @@
         "view_in_map": "View in Map",
         "hide_map": "Hide Map",
         "show_map": "Show Map",
-        "coordinates_required": "3 or more coordinates are required to define a polygon.",
         "create_error": "Error creating location: ",
         "create_success": "Location created successfully!",
         "update_error": "Error updating location: ",
         "update_success": "Location updated successfully!",
         "delete_error": "Error deleting location: ",
         "delete_success": "Location deleted successfully!"
+    },
+    "sensors": {
+        "name": "Name",
+        "description": "Description",
+        "encoding_type": "Encoding Type",
+        "metadata": "Metadata",
+        "properties": "Properties",
+        "add_property": "Add Property",
+        "create": "Create Sensor",
+        "edit": "Edit Sensor",
+        "delete": "Delete Sensor",
+        "create_error": "Error creating sensor: ",
+        "create_success": "Sensor created successfully!",
+        "update_error": "Error updating sensor: ",
+        "update_success": "Sensor updated successfully!",
+        "delete_error": "Error deleting sensor: ",
+        "delete_success": "Sensor deleted successfully!"
+    },
+    "things": {
+        "name": "Name",
+        "description": "Description",
+        "properties": "Properties",
+        "add_property": "Add Property",
+        "create": "Create Thing",
+        "edit": "Edit Thing",
+        "delete": "Delete Thing",
+        "create_error": "Error creating thing: ",
+        "create_success": "Thing created successfully!",
+        "update_error": "Error updating thing: ",
+        "update_success": "Thing updated successfully!",
+        "delete_error": "Error deleting thing: ",
+        "delete_success": "Thing deleted successfully!"
     }
 }

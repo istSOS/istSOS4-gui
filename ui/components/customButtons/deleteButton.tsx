@@ -34,7 +34,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
     <div className="relative">
       {showConfirm && (
         <div className="absolute right-0 -top-24 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center">
-          <p className="mb-2 text-sm">{t("confirm_delete")}</p>
+          <p className="mb-2 text-sm">{t("general.confirm_delete")}</p>
           <div className="flex gap-2">
             <Button
               color="danger"

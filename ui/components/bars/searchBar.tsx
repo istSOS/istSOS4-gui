@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Input, Button } from "@heroui/react";
+import { t } from "i18next";
 
 interface SearchBarProps {
   value: string;
@@ -11,7 +12,7 @@ interface SearchBarProps {
 export function SearchBar({
   value,
   onChange,
-  placeholder = "Search...",
+  placeholder = t("general.search"),
   className = "w-64",
 }: SearchBarProps) {
   return (

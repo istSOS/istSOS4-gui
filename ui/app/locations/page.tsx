@@ -6,24 +6,24 @@ import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
-import "leaflet/dist/leaflet.css";
 import DeleteButton from "../../components/customButtons/deleteButton";
 import createData from "../../server/createData";
 import EntityCreator from "../../components/EntityCreator";
 import { useTranslation } from "react-i18next";
+import MapWrapper from "../../components/MapWrapper";
 
 // Define main and secondary colors from site config
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
 
-// Find the item configuration for Locations
+//retrive specific items from site configuration (this and linked items)
 const item = siteConfig.items.find(i => i.label === "Locations");
-
-
+//linked items
+const locationsItem = siteConfig.items.find(i => i.label === "Locations");
+const historicalLocations = siteConfig.items.find(i => i.label === "HistoricalLocations");
+const datastreams = siteConfig.items.find(i => i.label === "Datastreams");
 
 export default function Locations() {
-
-
   const { t } = useTranslation();
 
   // Define fields for the EntityCreator specific to Locations
@@ -49,12 +49,9 @@ export default function Locations() {
       observedArea: t("datastreams.observed_area"),
       phenomenonTime: t("datastreams.phenomenon_time"),
       coordinates: t("datastreams.coordinates"),
-
     };
     return map[key] || key;
   };
-
-
 
   // Authentication and entities context
   const { token, loading: authLoading } = useAuth();
@@ -67,23 +64,11 @@ export default function Locations() {
   const [split, setSplit] = React.useState(0.5);
   const [isSplitting, setIsSplitting] = React.useState(false);
 
-  // Refs for DOM elements
-  const splitRef = React.useRef<HTMLDivElement>(null);
-  const mapContainerRef = React.useRef<HTMLDivElement>(null);
-  const mapInstanceRef = React.useRef<any>(null);
-  const markersRef = React.useRef<any[]>([]);
-
   // State for creation form
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
-  const [newLocation, setNewLocation] = React.useState({
-    name: "",
-    description: "",
-    latitude: "",
-    longitude: "",
-    encodingType: "application/vnd.geo+json"
-  });
+
   // Fetch entities from context
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
 
@@ -99,24 +84,8 @@ export default function Locations() {
     refetchAll();
   }, []);
 
-  // Function to focus a location on the map
-  const focusLocation = (coordinates: [number, number], id?: string) => {
-    setShowMap(true);
-    if (typeof id === "string") {
-      setExpanded(id);
-      setTimeout(() => {
-        const el = document.getElementById(`location-accordion-item-${id}`);
-        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 50);
-    }
-    setTimeout(() => {
-      if (mapInstanceRef.current && coordinates) {
-        mapInstanceRef.current.setView([coordinates[1], coordinates[0]], 6, { animate: true });
-      }
-    }, 50);
-  };
-
   // Handle map splitter mouse events
+  const splitRef = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!splitRef.current) return;
@@ -144,78 +113,6 @@ export default function Locations() {
   const filteredLocations = locations.filter((loc) =>
     JSON.stringify(loc).toLowerCase().includes(search.toLowerCase())
   );
-
-  // Create and update map and markers
-  React.useEffect(() => {
-    if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
-    import("leaflet").then((L) => {
-      // If the map container is not available, do nothing
-      if (!mapContainerRef.current) {
-        return;
-      }
-      if (!mapInstanceRef.current) {
-        const first = filteredLocations[0]?.location?.coordinates;
-        const center = [45, 10];
-        const leafletMap = L.map(mapContainerRef.current, {
-          worldCopyJump: false,
-          maxBounds: [
-            [-90, -180],
-            [90, 180]
-          ],
-          maxBoundsViscosity: 1.0,
-        }).setView(center, 4);
-        mapInstanceRef.current = leafletMap;
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(leafletMap);
-      }
-      // Update markers
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
-      filteredLocations.forEach((loc) => {
-        const coords = loc.location?.coordinates;
-        const id = String(loc["@iot.id"]);
-        if (Array.isArray(coords)) {
-          const marker = L.circleMarker([coords[1], coords[0]], {
-            radius: 6,
-            fillColor: "red",
-            color: "red",
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.8,
-          })
-            .addTo(mapInstanceRef.current)
-            // When a point is clicked, its details are expanded in the list
-            .on("click", () => {
-              setExpanded(id);
-              setTimeout(() => {
-                const el = document.getElementById(`location-accordion-item-${id}`);
-                if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-              }, 100);
-            })
-            .on("mouseover", function () {
-              marker.bindPopup(loc.name ?? "-").openPopup();
-            })
-            .on("mouseout", function () {
-              marker.closePopup();
-            });
-          markersRef.current.push(marker);
-        }
-      });
-      // Forced map redraw
-      setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
-      }, 200);
-    });
-  }, [filteredLocations, showMap]);
-
-  React.useEffect(() => {
-    if (!showMap && mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-      markersRef.current = [];
-    }
-  }, [showMap]);
 
   // Handle creation of a new location
   const handleCreate = async (newLocation: any) => {
@@ -246,25 +143,28 @@ export default function Locations() {
     }
   };
 
+  // Funzioni per MapWrapper
+  const getCoordinates = (loc: any) =>
+    Array.isArray(loc.location?.coordinates) ? loc.location.coordinates : null;
+  const getId = (loc: any) => String(loc["@iot.id"]);
+  const getLabelMap = (loc: any) => loc.name ?? "-";
+
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
   return (
     <div className="min-h-screen p-4">
       <div className="flex items-center justify-between mb-2">
-        <SecNavbar
-          title="Locations"
-        />
-
+        <SecNavbar title="Locations" />
       </div>
       <Divider
-        style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
-      ></Divider>
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0" }}
+      />
       <div className="flex mb-4">
         {/* Search filter input */}
         <Input
           size="sm"
-          placeholder="Search locations..."
+          placeholder={t("general.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-64"
@@ -289,7 +189,7 @@ export default function Locations() {
           onPress={() => setShowMap((prev) => !prev)}
           style={{ backgroundColor: secondaryColor, color: "white" }}
         >
-          {showMap ? t("locations.hide_map") : ("locations.show_map")}
+          {showMap ? t("locations.hide_map") : t("locations.show_map")}
         </Button>
       </div>
       <div
@@ -364,7 +264,6 @@ export default function Locations() {
                   id={`location-accordion-item-${loc["@iot.id"]}`}
                   title={
                     <div className="flex items-baseline gap-3">
-                      <span className="text-xs text-gray-500">id: {loc["@iot.id"]}</span>
                       <span className="font-bold text-lg text-gray-800">{loc.name ?? "-"}</span>
                       <span className="text-xs text-gray-500">{loc.description ?? "-"}</span>
                     </div>
@@ -412,19 +311,6 @@ export default function Locations() {
                           className="flex-1"
                         />
                       </div>
-                      {/* View in map button */}
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="flat"
-                          onPress={() => {
-                            focusLocation(loc.location?.coordinates, String(loc["@iot.id"]));
-                          }}
-                          disabled={!loc.location?.coordinates}
-                        >
-                          {t("locations.view_in_map")}
-                        </Button>
-                      </div>
                     </div>
                     {/* Vertical divider */}
                     <div className="w-px bg-gray-300 mx-4" />
@@ -453,15 +339,13 @@ export default function Locations() {
                       {/* EDIT AND DELETE BUTTONS */}
                       <div className="flex justify-end mt-4 gap-2 relative">
                         <Button color="warning" variant="bordered">
-                          Edit
+                          {t("general.edit")}
                         </Button>
-                        {/* Refetch not called here because it causes the refresh of the page and makes a bug in the map */}
                         <DeleteButton
                           endpoint={`${item.root}(${loc["@iot.id"]})`}
                           token={token}
                           onDeleted={() =>
-                            setLocations(prev => prev.filter(o => o["@iot.id"]
-                              !== loc["@iot.id"]))}
+                            setLocations(prev => prev.filter(o => o["@iot.id"] !== loc["@iot.id"]))}
                         />
                       </div>
                     </div>
@@ -489,41 +373,18 @@ export default function Locations() {
         )}
         {/* RIGHT: Map */}
         {showMap && (
-          <div
-            id="resizable-map-wrapper"
-            className="relative"
-            style={{
-              flexBasis: `${(1 - split) * 100}%`,
-              minWidth: 150,
-              maxWidth: "85%",
-              height: "calc(100vh - 300px)",
-              background: "#fff",
-              borderRadius: 8,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              display: "flex",
-              flexDirection: "column",
-              pointerEvents: "auto",
-              transition: isSplitting ? "none" : "flex-basis 0.2s",
-              position: "relative",
-            }}
-          >
-            <div
-              ref={mapContainerRef}
-              className="w-full border border-gray-300 shadow bg-white"
-              style={{
-                minHeight: 0,
-                borderRadius: "0 0 8px 8px",
-                overflow: "hidden",
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 5,
-                pointerEvents: "auto",
-              }}
-            />
-          </div>
+          <MapWrapper
+            items={filteredLocations}
+            getCoordinates={getCoordinates}
+            getId={getId}
+            getLabel={getLabelMap}
+            getGeoJSON={loc => null}
+            expandedId={expanded}
+            onMarkerClick={id => setExpanded(id)}
+            showMap={showMap}
+            split={split}
+            setSplit={setSplit}
+          />
         )}
       </div>
     </div>

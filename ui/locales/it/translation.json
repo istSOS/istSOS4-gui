@@ -9,7 +9,22 @@
         "no": "No",
         "confirm_delete": "Sei sicuro?",
         "create": "Crea",
-        "cancel": "Annulla"
+        "cancel": "Annulla",
+        "search": "Cerca...",
+        "add_property": "Aggiungi Proprietà",
+        "property_key": "Nome",
+        "property_value": "Valore",
+
+        "datastreams_info": "Una raccolta di Osservazioni e le Osservazioni in un Datastream misurano la stessa Proprietà Osservata e sono prodotte dallo stesso Sensore.",
+        "things_info": "Un oggetto del mondo fisico (cose fisiche) o del mondo informativo (cose virtuali) che è in grado di essere identificato e integrato in reti di comunicazione.",
+        "locations_info": "L'entità Posizione localizza l'Oggetto o gli Oggetti ad esso associati. L'entità Posizione di un Oggetto è definita come l'ultima posizione nota dell'Oggetto.",
+        "historicallocations_info": "L'insieme delle entità Posizione Storica di un Oggetto fornisce i tempi della posizione attuale (cioè, l'ultima nota) e delle posizioni precedenti dell'Oggetto.",
+        "sensors_info": "Un Sensore è uno strumento che osserva una proprietà o fenomeno con l'obiettivo di produrre una stima del valore della proprietà.",
+        "observedproperties_info": "Una Proprietà Osservata specifica il fenomeno di un'Osservazione.",
+        "observations_info": "Un'Osservazione è l'atto di misurare o determinare in altro modo il valore di una proprietà.",
+        "featuresofinterest_info": "Un'Osservazione assegna un valore a una proprietà di una Caratteristica di Interesse (FOI), che spesso rappresenta la posizione di un oggetto o un'area/volume osservato."
+
+
     },
     "datastreams": {
         "create": "Crea Datastream",
@@ -43,12 +58,35 @@
         "view_in_map": "Visualizza nella Mappa",
         "hide_map": "Nascondi Mappa",
         "show_map": "Mostra Mappa",
-        "coordinates_required": "Sono necessarie 3 o più coordinate per definire un poligono.",
         "create_error": "Errore nella creazione della posizione: ",
         "create_success": "Posizione creata con successo!",
         "update_error": "Errore nell'aggiornamento della posizione: ",
         "update_success": "Posizione aggiornata con successo!",
         "delete_error": "Errore nell'eliminazione della posizione: ",
         "delete_success": "Posizione eliminata con successo!"
+    },
+    "sensors": {
+        "name": "Nome",
+        "description": "Descrizione",
+        "encoding_type": "Tipo di Codifica",
+        "metadata": "Metadati",
+        "properties": "Proprietà",
+        "create_error": "Errore nella creazione del sensore: ",
+        "create_success": "Sensore creato con successo!",
+        "update_error": "Errore nell'aggiornamento del sensore: ",
+        "update_success": "Sensore aggiornato con successo!",
+        "delete_error": "Errore nell'eliminazione del sensore: ",
+        "delete_success": "Sensore eliminato con successo!"
+    },
+    "things": {
+        "name": "Nome",
+        "description": "Descrizione",
+        "properties": "Proprietà",
+        "create_error": "Errore nella creazione dell'oggetto: ",
+        "create_success": "Oggetto creato con successo!",
+        "update_error": "Errore nell'aggiornamento dell'oggetto: ",
+        "update_success": "Oggetto aggiornato con successo!",
+        "delete_error": "Errore nell'eliminazione dell'oggetto: ",
+        "delete_success": "Oggetto eliminato con successo!"
     }
 }

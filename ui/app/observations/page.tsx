@@ -80,6 +80,10 @@ export default function Observations() {
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
+  function t(arg0: string): string {
+    throw new Error("Function not implemented.");
+  }
+
   return (
     <div className="min-h-screen p-4">
       <SecNavbar title="Observations" />
@@ -87,11 +91,7 @@ export default function Observations() {
         style={{ backgroundColor: "white", height: 1, margin: "8px 0" }}
       />
       <div className="flex mb-4">
-        <SearchBar
-          value={search}
-          onChange={setSearch}
-          placeholder="Search observations..."
-        />
+        <SearchBar value={search} onChange={setSearch}/>
         <Button
           color="primary"
           size="sm"
@@ -127,28 +127,28 @@ export default function Observations() {
           {[
             ...(showCreate
               ? [
-                  <AccordionItem
-                    key="new-observation"
-                    id="observation-accordion-item-new-observation"
-                    title={
-                      <div className="flex items-baseline gap-3">
-                        <span className="font-bold text-lg text-gray-800">New Observation</span>
-                      </div>
-                    }
-                    value="new-observation"
-                  >
-                    <EntityCreator
-                      fields={observationFields}
-                      onCreate={handleCreate}
-                      onCancel={() => setShowCreate(false)}
-                      isLoading={createLoading}
-                      error={createError}
-                      initialValues={{
-                        phenomenonTime: "",
-                      }}
-                    />
-                  </AccordionItem>
-                ]
+                <AccordionItem
+                  key="new-observation"
+                  id="observation-accordion-item-new-observation"
+                  title={
+                    <div className="flex items-baseline gap-3">
+                      <span className="font-bold text-lg text-gray-800">New Observation</span>
+                    </div>
+                  }
+                  value="new-observation"
+                >
+                  <EntityCreator
+                    fields={observationFields}
+                    onCreate={handleCreate}
+                    onCancel={() => setShowCreate(false)}
+                    isLoading={createLoading}
+                    error={createError}
+                    initialValues={{
+                      phenomenonTime: "",
+                    }}
+                  />
+                </AccordionItem>
+              ]
               : []),
             ...filtered.map((obs, idx) => (
               <AccordionItem

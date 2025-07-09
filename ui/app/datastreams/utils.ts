@@ -15,13 +15,9 @@ export const unitOfMeasurementOptions = [
 
 export const observationTypeURIs = [
     //label, value
-    { label: "Temperature", value: "Temperature" },
-    { label: "Humidity", value: "Humidity" },
-    { label: "Pressure", value: "Pressure" },
-    { label: "WindSpeed", value: "WindSpeed" },
-    { label: "Precipitation", value: "Precipitation" },
-    { label: "SoilMoisture", value: "Soil Moisture" },
-    { label: "AirQuality", value: "Air Quality" },
+    { label: "OM_Measurement", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement" },
+    {label: "OM_CategoryObservation", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_CategoryObservation" },
+    { label: "OM_CountObservation", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_CountObservation" },
+    { label: "OM_Observation", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Observation" },
+    { label: "OM_TruthObservation", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_TruthObservation" }
 ];
-
-

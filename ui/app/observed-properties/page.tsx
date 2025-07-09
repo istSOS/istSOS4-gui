@@ -12,6 +12,7 @@ import { useEntities } from "../../context/EntitiesContext";
 import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
 import { SearchBar } from "../../components/bars/searchBar";
 import DeleteButton from "../../components/customButtons/deleteButton";
+import { t } from "i18next";
 
 export const mainColor = siteConfig.main_color;
 
@@ -54,11 +55,7 @@ export default function ObservedProperties() {
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
       ></Divider>
 
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-        placeholder="Search observed properties..."
-      />
+      <SearchBar value={search} onChange={setSearch}/>
 
       {filtered.length === 0 ? (
         <p>No available observed properties.</p>
