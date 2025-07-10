@@ -4,7 +4,6 @@ import * as React from "react";
 import { Button, Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 
-
 interface Field {
   name: string;
   label: string;
@@ -22,10 +21,7 @@ interface EntityCreatorProps {
   initialValues?: Record<string, any>;
 }
 
-
-
 export const EntityCreator: React.FC<EntityCreatorProps> = ({
-
   fields,
   onCreate,
   onCancel,
@@ -43,14 +39,17 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           [8.9606, 46.0211],
           [8.9610, 46.0215]
         ];
+      } else if (field.name === "properties") {
+        vals[field.name] = []; // Ensure properties start as an empty array if not provided
       } else {
-        vals[field.name] = "";
+        vals[field.name] = ""; // Default empty value
       }
     });
     return vals;
   });
 
-  // Gestione coordinate
+  const { t } = useTranslation();
+
   const handleCoordinateChange = (index: number, lngOrLat: "lng" | "lat", value: string) => {
     setValues((prev) => {
       const coords = [...(prev.coordinates || [])];
@@ -84,7 +83,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
 
   const renderField = (field: Field) => {
     if (field.type === "properties") {
-      const properties = values.properties || [];
+      const properties = Array.isArray(values.properties) ? values.properties : [];
       return (
         <div className="flex flex-col gap-2 w-full">
           {properties.map((prop, idx) => (
@@ -92,10 +91,13 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               <Input
                 size="sm"
                 placeholder={t("general.property_key") || "Key"}
-                value={prop.key}
+                value={prop.key || ""}
                 onChange={e => {
                   const newProps = [...properties];
-                  newProps[idx].key = e.target.value;
+                  newProps[idx] = {
+                    ...newProps[idx],
+                    key: e.target.value
+                  };
                   setValues(v => ({ ...v, properties: newProps }));
                 }}
                 className="flex-1"
@@ -103,10 +105,13 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               <Input
                 size="sm"
                 placeholder={t("general.property_value") || "Value"}
-                value={prop.value}
+                value={prop.value || ""}
                 onChange={e => {
                   const newProps = [...properties];
-                  newProps[idx].value = e.target.value;
+                  newProps[idx] = {
+                    ...newProps[idx],
+                    value: e.target.value
+                  };
                   setValues(v => ({ ...v, properties: newProps }));
                 }}
                 className="flex-1"
@@ -137,8 +142,6 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
         </div>
       );
     }
-
-
     switch (field.type) {
       case "select":
         return (
@@ -196,10 +199,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     }
   };
 
-  const { t } = useTranslation();
-
   return (
-
     <div className="mt-2 flex flex-row gap-8">
       <div className="flex-1 flex flex-col gap-2">
         {fields.map((field) => (
