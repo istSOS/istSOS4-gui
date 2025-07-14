@@ -33,6 +33,8 @@ export const siteConfig = {
       label: "Datastreams",
       href: "/datastreams",
       root: API_ROOT + "Datastreams",
+      nested: ["Thing", "Sensor", "ObservedProperty", "FeatureOfInterest"],
+      //nested: ["Thing", "Sensor", "ObservedProperty", "FeatureOfInterest", "Observations"],
       weight: 1,
     },
 
@@ -59,6 +61,7 @@ export const siteConfig = {
       label: "Sensors",
       href: "/sensors",
       root: API_ROOT + "Sensors",
+      nested: ["Datastreams"],
       weight: 2,
     },
     {

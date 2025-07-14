@@ -14,7 +14,6 @@
         "add_property": "Add Property",
         "property_key": "Name",
         "property_value": "Value",
-
         "datastreams_info": "A collection of Observations and the Observations in a Datastream measure the same ObservedProperty and are produced by the same Sensor.",
         "things_info": "An object of the physical world (physical things) or the information world (virtual things) that is capable of being identified and integrated into communication networks.",
         "locations_info": "The Location entity locates the Thing or the Things it associated with. A Thing’s Location entity is defined as the last known location of the Thing.",
@@ -37,6 +36,7 @@
         "observed_property_id": "Observed Property ID",
         "observation_type": "Observation Type",
         "phenomenon_time": "Phenomenon Time",
+        "properties": "Properties",
         "coordinates": "Coordinates",
         "add_coordinate": "Add Coordinate",
         "create_error": "Error creating datastream: ",
@@ -94,5 +94,23 @@
         "update_success": "Thing updated successfully!",
         "delete_error": "Error deleting thing: ",
         "delete_success": "Thing deleted successfully!"
+    },
+    "fields": {
+        "name": "Name",
+        "description": "Description",
+        "unit_of_measurement": "Unit of Measurement",
+        "observation_type": "Observation Type",
+        "observed_area": "Observed Area",
+        "phenomenon_time": "Phenomenon Time",
+        "properties": "Properties",
+        "thing_id": "Thing ID",
+        "sensor_id": "Sensor ID",
+        "observed_property_id": "Observed Property ID",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "encoding_type": "Encoding Type",
+        "metadata": "Metadata",
+        "coordinates": "Coordinates",
+        "add_property": "Add Property"
     }
 }
