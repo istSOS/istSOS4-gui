@@ -74,6 +74,7 @@ export const siteConfig = {
     {
       label: "Observations",
       href: "/observations",
+      nested: ["Datastream", "FeatureOfInterest"],
       root: API_ROOT + "Observations",
       weight: 2,
     },

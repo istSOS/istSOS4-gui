@@ -63,10 +63,44 @@ export default function Datastreams() {
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
 
-  // Filter datastreams based on search input
-  const filtered = datastreams.filter(ds =>
-    JSON.stringify(ds).toLowerCase().includes(search.toLowerCase())
-  );
+
+
+  //FILTERS
+  const [filters, setFilters] = React.useState({
+    sensor: "",
+    thing: "",
+    observedProperty: ""
+  });
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Filter datastreams (maybe overcomplicated?)
+  const filtered = datastreams.filter(ds => {
+    const id = ds["@iot.id"];
+    const nested = nestedEntitiesMap[id] || {};
+
+    //take nested entities or fallback to main datastream properties
+    const sensor = nested.Sensor || ds.Sensor;
+    const thing = nested.Thing || ds.Thing;
+    const observedProperty = nested.ObservedProperty || ds.ObservedProperty;
+
+    const sensorId = sensor && sensor["@iot.id"] ? String(sensor["@iot.id"]) : "";
+    const thingId = thing && thing["@iot.id"] ? String(thing["@iot.id"]) : "";
+    const observedPropertyId = observedProperty && observedProperty["@iot.id"] ? String(observedProperty["@iot.id"]) : "";
+
+    //textual search
+    const matchesSearch = JSON.stringify(ds).toLowerCase().includes(search.toLowerCase());
+
+    //id filter for nested entities
+    const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
+    const matchesThing = !filters.thing || thingId === String(filters.thing);
+    const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
+
+    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty;
+  });
+
+
 
   // Options for dropdowns
   const thingOptions = (entities?.things || []).map(thing => ({
@@ -165,9 +199,9 @@ export default function Datastreams() {
         description: any;
         unitOfMeasurement: { name: string; symbol: string; definition: string; };
         observationType: any;
-        thingId: { "@iot.id": number; };
-        sensorId: { "@iot.id": number; };
-        observedPropertyId: { "@iot.id": number; };
+        Thing: { "@iot.id": number; };
+        Sensor: { "@iot.id": number; };
+        ObservedProperty: { "@iot.id": number; };
         network: string;
         phenomenonTime?: string;
         properties?: Record<string, any>;
@@ -180,9 +214,9 @@ export default function Datastreams() {
           definition: uom.definition,
         },
         observationType: obsType,
-        thingId: { "@iot.id": Number(newDatastream.thingId) },
-        sensorId: { "@iot.id": Number(newDatastream.sensorId) },
-        observedPropertyId: { "@iot.id": Number(newDatastream.observedPropertyId) },
+        Thing: { "@iot.id": Number(newDatastream.thingId) },
+        Sensor: { "@iot.id": Number(newDatastream.sensorId) },
+        ObservedProperty: { "@iot.id": Number(newDatastream.observedPropertyId) },
         network: "acsot",
       };
 
@@ -324,11 +358,12 @@ export default function Datastreams() {
     setError(entitiesError);
   }, [entitiesLoading, entitiesError, token, datastreams]);
 
+
   // Render loading and error states
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
-  // Creiamo i componenti da renderizzare
+  // Render components
   const entityListComponent = (
     <EntityList
       items={filtered}
@@ -384,6 +419,12 @@ export default function Datastreams() {
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
         hasMap={true} // Enable map toggle
+        filters={{
+          thing: { label: "Thing", options: thingOptions, value: filters.thing },
+          sensor: { label: "Sensor", options: sensorOptions, value: filters.sensor },
+          observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty }
+        }}
+        onFilterChange={handleFilterChange}
       />
 
       <SplitPanel

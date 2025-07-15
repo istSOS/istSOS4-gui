@@ -120,8 +120,22 @@ const EntityAccordion = ({
               key={entity["@iot.id"] ?? idx}
               title={
                 <div className="flex items-baseline gap-3">
-                  <span className="font-bold text-lg text-gray-800">{entity.name ?? "-"}</span>
-                  <span className="text-xs text-gray-500">{entity.description ?? "-"}</span>
+                  {/* IF OBSERVATION, IT SHOWS OBS ID INSTEAD OF NAME SINCE OBSERVATIONS DON'T HAVE NAME */}
+                  <span className="font-bold text-lg text-gray-800">
+                    {entityType === "observations"
+                      ? entity["@iot.id"]
+                      : entity.name ?? "-"}
+                  </span>
+                  {/* IF OBSERVATION, IT SHOWS DATASTREAM NAME INSTEAD OF DESCRIPTION */}
+                  {entityType === "observations" ? (
+                    <span className="text-sm text-gray-600">
+                      {getNestedEntity(entity, "datastream")?.name || "-"}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-600">
+                      {entity.description || "-"}
+                    </span>
+                  )}
                 </div>
               }
               value={String(entity["@iot.id"] ?? idx)}

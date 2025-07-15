@@ -10,6 +10,7 @@
         "confirm_delete": "Are you sure?",
         "create": "Create",
         "cancel": "Cancel",
+        "close": "Close",
         "search": "Search...",
         "add_property": "Add Property",
         "property_key": "Name",
