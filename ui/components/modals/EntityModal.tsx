@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Accordion, AccordionItem } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 
+
 interface EntityModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;

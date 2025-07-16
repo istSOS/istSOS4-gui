@@ -13,6 +13,7 @@ type MapWrapperProps = {
     split: number;
     setSplit: (split: number) => void;
     showMarkers?: boolean;
+    mapRef?: React.MutableRefObject<any>;
 };
 
 // Color palette for features
@@ -44,6 +45,7 @@ export default function MapWrapper({
     split,
     setSplit,
     showMarkers,
+    mapRef,
 }: MapWrapperProps) {
     const mapContainerRef = React.useRef<HTMLDivElement>(null);
     const mapInstanceRef = React.useRef<any>(null);
@@ -121,6 +123,9 @@ export default function MapWrapper({
                     maxBoundsViscosity: 1.0,
                 }).setView(center, 2);
                 mapInstanceRef.current = leafletMap;
+                if (mapRef) {
+                    mapRef.current = leafletMap;
+                }
                 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 }).addTo(leafletMap);
@@ -223,7 +228,7 @@ export default function MapWrapper({
                 });
             }
         });
-    }, [expandedId, showMap, items, getCoordinates, getId]);
+    }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick, mapRef]);
 
     if (!showMap) return null;
 

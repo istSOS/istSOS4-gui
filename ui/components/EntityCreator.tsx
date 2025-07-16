@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Button, Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useTranslation } from "react-i18next";
+import FeatureOfInterestCreator from "../app/observations/FeatureOfInterestCreator";
 
 interface Field {
   name: string;
@@ -40,15 +41,19 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           [8.9610, 46.0215]
         ];
       } else if (field.name === "properties") {
-        vals[field.name] = []; // Ensure properties start as an empty array if not provided
+        vals[field.name] = [];
       } else {
-        vals[field.name] = ""; // Default empty value
+        vals[field.name] = "";
       }
     });
     return vals;
   });
 
   const { t } = useTranslation();
+
+  // State for FOI modal and new FOI
+  const [foiModalOpen, setFoiModalOpen] = React.useState(false);
+  const [newFoi, setNewFoi] = React.useState<any>(null);
 
   const handleCoordinateChange = (index: number, lngOrLat: "lng" | "lat", value: string) => {
     setValues((prev) => {
@@ -77,11 +82,62 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     setValues((prev) => ({ ...prev, [name]: value }));
   };
 
+  // On submit, include newFoi if present
   const handleSubmit = async () => {
-    await onCreate(values);
+    const payload = { ...values };
+    if (newFoi) {
+      payload.newFoi = newFoi;
+      payload.FeatureOfInterest = null; // Will be set after FOI creation
+    }
+    await onCreate(payload);
+    setNewFoi(null);
   };
 
+  // Field rendering
   const renderField = (field: Field) => {
+    if (field.name === "FeatureOfInterest") {
+      return (
+        <div className="flex flex-col gap-2 w-full">
+          <Select
+            size="sm"
+            value={values.FeatureOfInterest}
+            onChange={(e) => handleChange(field.name, e.target.value)}
+            className="flex-1"
+            required={field.required}
+            items={field.options || []}
+            placeholder={t("observations.select_feature_of_interest") || "Select FeatureOfInterest"}
+          >
+            {(item) => (
+              <SelectItem key={item.value}>
+                {item.label}
+              </SelectItem>
+            )}
+          </Select>
+          <Button
+            size="sm"
+            color="primary"
+            onPress={() => setFoiModalOpen(true)}
+            type="button"
+          >
+            + {t("observations.create_new_feature_of_interest") || "Create new FeatureOfInterest"}
+          </Button>
+          {newFoi && (
+            <div className="text-green-700 text-xs">
+              {t("observations.new_feature_of_interest_ready") || "New FeatureOfInterest ready to be created!"}
+            </div>
+          )}
+          {foiModalOpen && (
+            <FeatureOfInterestCreator
+              onCreate={foi => {
+                setNewFoi(foi);
+                setFoiModalOpen(false);
+              }}
+              onCancel={() => setFoiModalOpen(false)}
+            />
+          )}
+        </div>
+      );
+    }
     if (field.type === "properties") {
       const properties = Array.isArray(values.properties) ? values.properties : [];
       return (

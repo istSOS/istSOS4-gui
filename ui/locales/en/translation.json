@@ -113,5 +113,13 @@
         "metadata": "Metadata",
         "coordinates": "Coordinates",
         "add_property": "Add Property"
+    },
+    "observations": {
+        "phenomenon_time": "Phenomenon Time",
+        "result_time": "Result Time",
+        "result": "Result",
+        "result_quality": "Result Quality",
+        "datastream": "Datastream",
+        "feature_of_interest": "Feature of Interest"
     }
 }

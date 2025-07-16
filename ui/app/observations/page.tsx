@@ -14,12 +14,11 @@ import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
+import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
 
-// Constants
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Observations");
 
-// Main component
 export default function Observations() {
   // Hooks
   const { t } = useTranslation();
@@ -43,6 +42,10 @@ export default function Observations() {
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
+  // State for new FeatureOfInterest creation
+  const [foiModalOpen, setFoiModalOpen] = React.useState(false);
+  const [pendingFoi, setPendingFoi] = React.useState<any>(null);
+
   const defaultValues = {
     phenomenonTime: "2023-01-01T00:00:00Z",
     resultTime: "2023-01-01T00:00:00Z",
@@ -64,10 +67,36 @@ export default function Observations() {
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
 
-  // Filter observations based on search input
-  const filtered = observations.filter(o =>
-    JSON.stringify(o).toLowerCase().includes(search.toLowerCase())
-  );
+  // FILTERS (for nested entities)
+  const [filters, setFilters] = React.useState({
+    datastream: "",
+    featureOfInterest: ""
+  });
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  // Filter observations based on search input and filters
+  const filtered = observations.filter(o => {
+    // Nested entities
+    const id = o["@iot.id"];
+    const nested = nestedEntitiesMap[id] || {};
+
+    const datastream = nested.Datastream || o.Datastream;
+    const featureOfInterest = nested.FeatureOfInterest || o.FeatureOfInterest;
+
+    const datastreamId = datastream && datastream["@iot.id"] ? String(datastream["@iot.id"]) : "";
+    const featureOfInterestId = featureOfInterest && featureOfInterest["@iot.id"] ? String(featureOfInterest["@iot.id"]) : "";
+
+    // Textual search
+    const matchesSearch = JSON.stringify(o).toLowerCase().includes(search.toLowerCase());
+
+    // Filter by nested entity IDs
+    const matchesDatastream = !filters.datastream || datastreamId === String(filters.datastream);
+    const matchesFeatureOfInterest = !filters.featureOfInterest || featureOfInterestId === String(filters.featureOfInterest);
+
+    return matchesSearch && matchesDatastream && matchesFeatureOfInterest;
+  });
 
   // Options for dropdowns
   const datastreamOptions = (entities?.datastreams || []).map(ds => ({
@@ -87,24 +116,68 @@ export default function Observations() {
     { name: "result", label: t("observations.result"), required: true, defaultValue: defaultValues.result, type: "number" },
     { name: "resultQuality", label: t("observations.result_quality"), required: false, defaultValue: defaultValues.resultQuality, type: "text" },
     { name: "Datastream", label: t("observations.datastream"), required: false, defaultValue: defaultValues.Datastream, type: "select", options: datastreamOptions },
-    { name: "FeatureOfInterest", label: t("observations.feature_of_interest"), required: false, defaultValue: defaultValues.FeatureOfInterest, type: "select", options: featureOfInterestOptions }
+    {
+      name: "FeatureOfInterest",
+      label: t("observations.feature_of_interest"),
+      required: false,
+      defaultValue: defaultValues.FeatureOfInterest,
+      type: "select",
+      options: featureOfInterestOptions,
+      // Custom render for FeatureOfInterest field
+      render: ({ value, onChange }) => (
+        <div className="flex flex-col gap-2">
+          <select
+            value={value || ""}
+            onChange={e => onChange(e.target.value)}
+          >
+            <option value="">Select FeatureOfInterest</option>
+            {featureOfInterestOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
+            onClick={() => setFoiModalOpen(true)}
+          >
+            + Create new FeatureOfInterest
+          </button>
+          {pendingFoi && (
+            <span className="text-green-700 text-xs">
+              New FeatureOfInterest ready to be created!
+            </span>
+          )}
+        </div>
+      )
+    }
   ];
 
   // Handlers for CRUD operations
-  const handleCancelCreate = () => setShowCreate(false);
+  const handleCancelCreate = () => {
+    setShowCreate(false);
+    setPendingFoi(null);
+  };
   const handleCancelEdit = () => setEditObservation(null);
 
+  // Create Observation, with support for new FeatureOfInterest
   const handleCreate = async (newObservation) => {
     setCreateLoading(true);
     setCreateError(null);
     try {
+      let foiId = newObservation.FeatureOfInterest;
+      // If a new FeatureOfInterest is pending, create it first
+      if (pendingFoi) {
+        const foiRes = await createData("FeaturesOfInterest", token, pendingFoi);
+        foiId = foiRes["@iot.id"];
+        setPendingFoi(null);
+      }
       const payload = {
         phenomenonTime: newObservation.phenomenonTime,
         resultTime: newObservation.resultTime,
         result: newObservation.result,
         resultQuality: newObservation.resultQuality,
-        Datastream: { "@iot.id": parseInt(newObservation.Datastream) }, // Ensure the Datastream ID is an integer
-        FeatureOfInterest: newObservation.FeatureOfInterest ? { "@iot.id": parseInt(newObservation.FeatureOfInterest) } : null
+        Datastream: { "@iot.id": parseInt(newObservation.Datastream) },
+        FeatureOfInterest: foiId ? { "@iot.id": parseInt(foiId) } : null
       };
       await createData(item.root, token, payload);
       setShowCreate(false);
@@ -137,7 +210,7 @@ export default function Observations() {
         resultTime: updatedObservation.resultTime,
         result: updatedObservation.result,
         resultQuality: updatedObservation.resultQuality,
-        Datastream: { "@iot.id": parseInt(updatedObservation.Datastream) }, // Ensure the Datastream ID is an integer
+        Datastream: { "@iot.id": parseInt(updatedObservation.Datastream) },
         FeatureOfInterest: updatedObservation.FeatureOfInterest ? { "@iot.id": parseInt(updatedObservation.FeatureOfInterest) } : null
       };
       await updateData(`${item.root}(${originalObservation["@iot.id"]})`, token, payload);
@@ -182,7 +255,7 @@ export default function Observations() {
     }));
   };
 
-  // Example call on mount
+  // Fetch expanded data on mount/update
   React.useEffect(() => {
     if (observations.length > 0) {
       observations.forEach(o => {
@@ -219,10 +292,10 @@ export default function Observations() {
       editError={editError}
       token={token}
       nestedEntities={nestedEntitiesMap}
+    // Pass pendingFoi to EntityList for custom field rendering
     />
   );
 
-  // Main render
   return (
     <div className="min-h-screen p-4">
       <EntityActions
@@ -235,13 +308,28 @@ export default function Observations() {
         }}
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
+        filters={{
+          datastream: { label: t("observations.datastream"), options: datastreamOptions, value: filters.datastream },
+          featureOfInterest: { label: t("observations.feature_of_interest"), options: featureOfInterestOptions, value: filters.featureOfInterest }
+        }}
+        onFilterChange={handleFilterChange}
       />
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={null}
-        showRightPanel={null} //null to hide map
+        showRightPanel={null}
         initialSplit={split}
       />
+      {/* Modal for creating new FeatureOfInterest */}
+      {foiModalOpen && (
+        <FeatureOfInterestCreator
+          onCreate={foi => {
+            setPendingFoi(foi);
+            setFoiModalOpen(false);
+          }}
+          onCancel={() => setFoiModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

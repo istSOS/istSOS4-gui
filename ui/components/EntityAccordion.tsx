@@ -4,7 +4,7 @@ import { Accordion, AccordionItem, Button, Input } from "@heroui/react";
 import EntityCreator from "../components/EntityCreator";
 import DeleteButton from "../components/customButtons/deleteButton";
 import { useTranslation } from "react-i18next";
-import EntityModal from "./EntityModal";
+import EntityModal from "./modals/EntityModal";
 import { useRouter } from "next/navigation";
 
 const EntityAccordion = ({
