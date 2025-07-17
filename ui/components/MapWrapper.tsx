@@ -111,9 +111,22 @@ export default function MapWrapper({
         import("leaflet").then((L) => {
             if (!mapContainerRef.current) return;
 
+            
+            if (!mapContainerRef.current) {
+                try {
+                    mapInstanceRef.current?.remove();
+                } catch (e) {
+                    
+                }
+                mapInstanceRef.current = null;
+            }
+
             if (!mapInstanceRef.current) {
+                let center: [number, number] = [0, 0];
                 const first = items[0] && getCoordinates(items[0]);
-                const center = first || [0, 0];
+                if (first && typeof first[0] === "number" && typeof first[1] === "number") {
+                    center = [first[1], first[0]]; // [lat, lon]
+                }
                 const leafletMap = L.map(mapContainerRef.current, {
                     worldCopyJump: false,
                     maxBounds: [
@@ -166,9 +179,7 @@ export default function MapWrapper({
                 if (geoJSON) {
                     const geoJSONLayer = L.geoJSON(geoJSON, {
                         style: (feature) => {
-
                             const color = getColorFromId(id);
-                            console.log("ID:", id, "Color:", color, "GeoJSON:", geoJSON);
                             return {
                                 color,
                                 weight: 2,
@@ -187,7 +198,6 @@ export default function MapWrapper({
                                     layer.closePopup();
                                 },
                             });
-
                         },
                     }).addTo(mapInstanceRef.current);
                     geoJSONLayersRef.current.push(geoJSONLayer);
@@ -239,7 +249,6 @@ export default function MapWrapper({
             style={{
                 flexBasis: `${(1 - split) * 100}%`,
                 minWidth: 150,
-                //maxWidth: "100%",
                 height: "calc(100vh - 300px)",
                 background: "#fff",
                 borderRadius: 8,

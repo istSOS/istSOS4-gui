@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { Input, Button } from "@heroui/react";
 import DrawGeometryModal from "../../components/modals/DrawGeometryModal";
+import createData from "../../server/createData";
+import { useAuth } from "../../context/AuthContext";
+
+import { siteConfig } from "../../config/site";
+const item = siteConfig.items.find(i => i.label === "FeaturesOfInterest");
 
 type Props = {
     onCreate: (foi: any) => void;
@@ -19,29 +24,44 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
     const [description, setDescription] = useState("");
     const [geometry, setGeometry] = useState<any>(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
+    const auth = useAuth();
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!geometry) return;
-        onCreate({
-            name,
-            description,
-            encodingType: "application/vnd.geo+json",
-            feature: geometry,
-        });
+        setSubmitLoading(true);
+        setSubmitError(null);
+        try {
+            const foiPayload = {
+                name,
+                description,
+                encodingType: "application/vnd.geo+json",
+                feature: geometry,
+            };
+            // Call API
+            const foiRes = await createData(item.root, auth.token, foiPayload);
+            onCreate(foiRes);
+        } catch (err: any) {
+            setSubmitError(err.message || "Error creating FeatureOfInterest");
+        } finally {
+            setSubmitLoading(false);
+        }
     };
 
     return (
         <>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+
                 <Input
-                    label="Nome"
+                    label="Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
                 />
                 <Input
-                    label="Descrizione"
+                    label="Description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
@@ -51,7 +71,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                     color={geometry ? "success" : "primary"}
                     onPress={() => {
                         setModalOpen(true);
-                        console.log("Modal open:", modalOpen);
+                        //console.log("Modal open:", modalOpen);
                     }}
                     type="button"
                 >
@@ -62,28 +82,30 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                     <DrawGeometryModal
                         isOpen={modalOpen}
                         onOpenChange={setModalOpen}
+                        onGeometryDrawn={(geojson) => {
+                            setGeometry(geojson.geometry);
+                            setModalOpen(false);
+                        }}
                     />
                 )}
 
-
-                {error && <span className="text-red-500">{error}</span>}
+                {submitError && <span className="text-red-500">{submitError}</span>}
                 <div className="flex gap-2 mt-2">
                     <Button
                         color="primary"
                         type="submit"
-                        isLoading={isLoading}
+                        isLoading={submitLoading}
                         disabled={!geometry}
                     >
-                        Crea FeatureOfInterest
+                        Create FeatureOfInterest
                     </Button>
                     <Button color="default" type="button" onPress={onCancel}>
-                        Annulla
+                        Cancel
                     </Button>
                 </div>
             </form>
 
         </>
-
 
     );
 };

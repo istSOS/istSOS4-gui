@@ -18,6 +18,7 @@ import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
 
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Observations");
+const foiItem = siteConfig.items.find(i => i.label === "FeaturesOfInterest");
 
 export default function Observations() {
   // Hooks
@@ -167,7 +168,7 @@ export default function Observations() {
       let foiId = newObservation.FeatureOfInterest;
       // If a new FeatureOfInterest is pending, create it first
       if (pendingFoi) {
-        const foiRes = await createData("FeaturesOfInterest", token, pendingFoi);
+        const foiRes = await createData(foiItem.root, token, pendingFoi);
         foiId = foiRes["@iot.id"];
         setPendingFoi(null);
       }
