@@ -15,6 +15,7 @@
         "add_property": "Add Property",
         "property_key": "Name",
         "property_value": "Value",
+        "show_all": "Show All",
         "datastreams_info": "A collection of Observations and the Observations in a Datastream measure the same ObservedProperty and are produced by the same Sensor.",
         "things_info": "An object of the physical world (physical things) or the information world (virtual things) that is capable of being identified and integrated into communication networks.",
         "locations_info": "The Location entity locates the Thing or the Things it associated with. A Thing’s Location entity is defined as the last known location of the Thing.",

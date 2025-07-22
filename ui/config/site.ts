@@ -44,6 +44,23 @@ export const siteConfig = {
       root: API_ROOT + "Things",
       weight: 2,
     },
+
+    {
+      label: "Sensors",
+      href: "/sensors",
+      root: API_ROOT + "Sensors",
+      nested: ["Datastreams"],
+      weight: 2,
+    },
+
+    {
+      label: "Observations",
+      href: "/observations",
+      nested: ["Datastream", "FeatureOfInterest"],
+      root: API_ROOT + "Observations",
+      weight: 2,
+    },
+
     {
       label: "Locations",
       href: "/locations",
@@ -57,27 +74,14 @@ export const siteConfig = {
       weight: 4,
     },
 
-    {
-      label: "Sensors",
-      href: "/sensors",
-      root: API_ROOT + "Sensors",
-      nested: ["Datastreams"],
-      weight: 2,
-    },
+
     {
       label: "ObservedProperties",
       href: "/observed-properties",
       root: API_ROOT + "ObservedProperties",
-      weight: 2,
+      weight: 3,
     },
 
-    {
-      label: "Observations",
-      href: "/observations",
-      nested: ["Datastream", "FeatureOfInterest"],
-      root: API_ROOT + "Observations",
-      weight: 2,
-    },
     {
       label: "FeaturesOfInterest",
       href: "/features-of-interest",

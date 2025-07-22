@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Card, Spinner, Divider } from "@heroui/react";
+import { Card, Switch, Spinner, Divider } from "@heroui/react";
 import { useEntities } from "../../context/EntitiesContext";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import { useSearchParams } from "next/navigation";
@@ -24,6 +24,13 @@ function labelToEntityKey(label: string) {
 }
 
 export default function Page() {
+  const [showAll, setShowAll] = React.useState(false);
+
+  const filteredItems = showAll
+    ? siteConfig.items
+    : siteConfig.items.filter(item => item.weight < 3);
+
+
   const router = useRouter();
   const { loading: authLoading } = useAuth();
   const { entities, loading: entitiesLoading, refetchAll } = useEntities();
@@ -75,10 +82,26 @@ export default function Page() {
     <div className="min-h-screen p-4">
       <div className="flex items-center justify-between mb-2">
         <SecNavbar title={selectedNetwork} />
+
+        <div className="flex items-center gap-2"
+          style={{
+            padding: "15px"
+          }}
+        >
+
+          <span className="text-sm font-medium text-white">{t("general.show_all")}</span>
+
+          <Switch
+            checked={showAll}
+            onChange={e => setShowAll(e.target.checked)}
+          >
+          </Switch>
+
+        </div>
       </div>
 
       <div className="max-w-7xl mx-auto grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
-        {siteConfig.items.map((item) => (
+        {(showAll ? siteConfig.items : siteConfig.items.filter(item => item.weight < 3)).map((item) => (
           <Card
             key={item.href}
             isPressable
@@ -139,15 +162,12 @@ export default function Page() {
               : getLocationGeoJSON(item)
           }
           expandedId={null}
-
           onMarkerClick={id => {
-            
             const isDatastream = !!datastreams.find(ds => String(ds["@iot.id"]) === id);
             if (isDatastream) {
               router.push(`/datastreams?expanded=${id}`);
             }
           }}
-          
           showMap={true}
           split={0.5}
           setSplit={() => { }}
@@ -156,6 +176,8 @@ export default function Page() {
       </div>
     </div>
   );
+
+
 }
 
 const layoutMap = {
