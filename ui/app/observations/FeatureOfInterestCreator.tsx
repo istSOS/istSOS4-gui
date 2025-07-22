@@ -26,7 +26,27 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
     const [modalOpen, setModalOpen] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    const [latitude, setLatitude] = useState<string>("");
+    const [longitude, setLongitude] = useState<string>("");
     const auth = useAuth();
+
+    
+    React.useEffect(() => {
+        if (latitude && longitude) {
+            const lat = parseFloat(latitude);
+            const lon = parseFloat(longitude);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                setGeometry({
+                    type: "Point",
+                    coordinates: [lat, lon],
+                });
+            } else {
+                setGeometry(null);
+            }
+        } else if (!latitude && !longitude) {
+            setGeometry(null);
+        }
+    }, [latitude, longitude]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -50,6 +70,11 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
         }
     };
 
+    // Disabilita il bottone se lat/lon sono compilati
+    const isLatLonFilled = latitude !== "" || longitude !== "";
+
+       const isGeometryValid = geometry !== null;
+
     return (
         <>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -66,17 +91,40 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                     onChange={(e) => setDescription(e.target.value)}
                 />
 
-
-                <Button
-                    color={geometry ? "success" : "primary"}
-                    onPress={() => {
-                        setModalOpen(true);
-                        //console.log("Modal open:", modalOpen);
-                    }}
-                    type="button"
-                >
-                    {geometry ? "Geometry selected" : "Select a geometry on the map"}
-                </Button>
+                <div className="flex gap-2 items-end">
+                    <Button
+                        color={geometry && !isLatLonFilled ? "success" : "primary"}
+                        onPress={() => setModalOpen(true)}
+                        type="button"
+                        disabled={isLatLonFilled}
+                    >
+                        {geometry && !isLatLonFilled
+                            ? "Geometry selected"
+                            : "Select a geometry on the map"}
+                    </Button>
+                    <Input
+                        label="Latitude"
+                        type="number"
+                        value={latitude}
+                        onChange={e => setLatitude(e.target.value)}
+                        step="any"
+                        min={-90}
+                        max={90}
+                        className="w-32"
+                        placeholder="Lat"
+                    />
+                    <Input
+                        label="Longitude"
+                        type="number"
+                        value={longitude}
+                        onChange={e => setLongitude(e.target.value)}
+                        step="any"
+                        min={-180}
+                        max={180}
+                        className="w-36"
+                        placeholder="Lon"
+                    />
+                </div>
 
                 {modalOpen && (
                     <DrawGeometryModal
@@ -84,6 +132,8 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                         onOpenChange={setModalOpen}
                         onGeometryDrawn={(geojson) => {
                             setGeometry(geojson.geometry);
+                            setLatitude("");
+                            setLongitude("");
                             setModalOpen(false);
                         }}
                     />
@@ -95,7 +145,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                         color="primary"
                         type="submit"
                         isLoading={submitLoading}
-                        disabled={!geometry}
+                        disabled={!isGeometryValid}
                     >
                         Create FeatureOfInterest
                     </Button>
@@ -104,9 +154,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                     </Button>
                 </div>
             </form>
-
         </>
-
     );
 };
 

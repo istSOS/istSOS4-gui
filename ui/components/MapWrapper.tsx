@@ -1,5 +1,7 @@
 import * as React from "react";
 import "leaflet/dist/leaflet.css";
+import { Input, Button } from "@heroui/react";
+import L from "leaflet";
 
 type MapWrapperProps = {
     items: any[];
@@ -16,7 +18,6 @@ type MapWrapperProps = {
     mapRef?: React.MutableRefObject<any>;
 };
 
-// Color palette for features
 const colorPalette = [
     "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
     "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
@@ -24,11 +25,10 @@ const colorPalette = [
     "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080"
 ];
 
-// Generate a stable color from an id using a hash function
 function getColorFromId(id: string) {
     let hash = 4353;
     for (let i = 0; i < id.length; i++) {
-        hash = ((hash << 5) + hash) + id.charCodeAt(i); // hash * 33 + c
+        hash = ((hash << 5) + hash) + id.charCodeAt(i);
     }
     return colorPalette[Math.abs(hash) % colorPalette.length];
 }
@@ -54,6 +54,7 @@ export default function MapWrapper({
     const [isSplitting, setIsSplitting] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isSearching, setIsSearching] = React.useState(false);
+    const [manualMarker, setManualMarker] = React.useState<any>(null);
 
     const handleSearch = async (query: string) => {
         if (!query.trim()) return;
@@ -68,6 +69,35 @@ export default function MapWrapper({
                 if (mapInstanceRef.current) {
                     mapInstanceRef.current.setView([parseFloat(lat), parseFloat(lon)], 12, {
                         animate: true,
+                    });
+
+                    // Add a temporary marker at the found position
+                    import("leaflet").then((L) => {
+                        if (!mapInstanceRef.current) return;
+
+                        // Remove any previous temporary markers
+                        if (manualMarker) {
+                            mapInstanceRef.current.removeLayer(manualMarker);
+                        }
+
+                        // Create a new temporary marker
+                        const newMarker = L.marker([parseFloat(lat), parseFloat(lon)], {
+                            icon: L.divIcon({
+                                className: 'temporary-marker',
+                                html: `<div style="background-color:red;width:20px;height:20px;border-radius:50%;"></div>`
+                            })
+                        }).addTo(mapInstanceRef.current);
+
+                        // Set the new marker in state
+                        setManualMarker(newMarker);
+
+                        // Remove the marker after 5 seconds
+                        setTimeout(() => {
+                            if (mapInstanceRef.current && newMarker) {
+                                mapInstanceRef.current.removeLayer(newMarker);
+                                setManualMarker(null);
+                            }
+                        }, 5000);
                     });
                 }
             }
@@ -110,22 +140,17 @@ export default function MapWrapper({
         if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
         import("leaflet").then((L) => {
             if (!mapContainerRef.current) return;
-
-            
             if (!mapContainerRef.current) {
                 try {
                     mapInstanceRef.current?.remove();
-                } catch (e) {
-                    
-                }
+                } catch (e) { }
                 mapInstanceRef.current = null;
             }
-
             if (!mapInstanceRef.current) {
                 let center: [number, number] = [0, 0];
                 const first = items[0] && getCoordinates(items[0]);
                 if (first && typeof first[0] === "number" && typeof first[1] === "number") {
-                    center = [first[1], first[0]]; // [lat, lon]
+                    center = [first[1], first[0]];
                 }
                 const leafletMap = L.map(mapContainerRef.current, {
                     worldCopyJump: false,
@@ -143,19 +168,16 @@ export default function MapWrapper({
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 }).addTo(leafletMap);
             }
-
             markersRef.current.forEach((m) => m.remove());
             markersRef.current = [];
             geoJSONLayersRef.current.forEach((layer) => layer.remove());
             geoJSONLayersRef.current = [];
-
             items.forEach((item) => {
                 const coords = getCoordinates(item);
                 const id = getId(item);
                 const geoJSON = getGeoJSON(item)
                     ? JSON.parse(JSON.stringify(getGeoJSON(item)))
                     : null;
-
                 if (showMarkers !== false && Array.isArray(coords)) {
                     const marker = L.circleMarker([coords[1], coords[0]], {
                         radius: 6,
@@ -175,7 +197,6 @@ export default function MapWrapper({
                         });
                     markersRef.current.push(marker);
                 }
-
                 if (geoJSON) {
                     const geoJSONLayer = L.geoJSON(geoJSON, {
                         style: (feature) => {
@@ -203,7 +224,6 @@ export default function MapWrapper({
                     geoJSONLayersRef.current.push(geoJSONLayer);
                 }
             });
-
             setTimeout(() => {
                 mapInstanceRef.current?.invalidateSize();
             }, 200);
@@ -233,7 +253,7 @@ export default function MapWrapper({
                 !isNaN(coords[0]) &&
                 !isNaN(coords[1])
             ) {
-                mapInstanceRef.current.setView([coords[1], coords[0]], 13, {
+                mapInstanceRef.current.setView([coords[1], coords[0]], 8, {
                     animate: true,
                 });
             }
@@ -241,7 +261,6 @@ export default function MapWrapper({
     }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick, mapRef]);
 
     if (!showMap) return null;
-
     return (
         <div
             id="resizable-map-wrapper"
@@ -260,39 +279,27 @@ export default function MapWrapper({
                 position: "relative",
             }}
         >
-            <div style={{ padding: "5px", zIndex: 900, display: "flex", justifyContent: "flex-end" }}>
-                <form onSubmit={handleSearchSubmit} style={{ display: "flex", alignItems: "center" }}>
-                    <input
+            <div style={{ padding: "4px", zIndex: 100, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+                <form onSubmit={handleSearchSubmit} style={{ display: "flex", alignItems: "center", marginRight: "16px" }}>
+                    <Input
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search for a location..."
                         style={{
-                            padding: "4px",
                             width: "200px",
-                            borderRadius: "4px",
-                            border: "1px solid #ccc",
-                            fontSize: "14px",
-                            boxSizing: "border-box",
                         }}
                     />
-                    <button
+                    <Button
                         type="submit"
                         style={{
-                            width: "70px",
-                            padding: "4px 0",
-                            marginLeft: "8px",
                             backgroundColor: "#007BFF",
                             color: "white",
-                            border: "none",
-                            borderRadius: "4px",
-                            cursor: "pointer",
-                            fontSize: "14px",
                         }}
                         disabled={isSearching}
                     >
                         {isSearching ? "Searching..." : "Search"}
-                    </button>
+                    </Button>
                 </form>
             </div>
             <div
@@ -300,7 +307,7 @@ export default function MapWrapper({
                 className="w-full border border-gray-300 shadow bg-white"
                 style={{
                     minHeight: 0,
-                    borderRadius: "0 0 8px 8px",
+                    borderRadius: "8px",
                     overflow: "hidden",
                     position: "absolute",
                     top: 0,

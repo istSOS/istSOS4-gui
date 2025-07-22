@@ -55,6 +55,16 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   const [foiModalOpen, setFoiModalOpen] = React.useState(false);
   const [newFoi, setNewFoi] = React.useState<any>(null);
 
+  // State for FeatureOfInterest options
+  const [foiOptions, setFoiOptions] = React.useState(
+    fields.find(f => f.name === "FeatureOfInterest")?.options || []
+  );
+
+  // Keep foiOptions in sync with fields if fields change
+  React.useEffect(() => {
+    setFoiOptions(fields.find(f => f.name === "FeatureOfInterest")?.options || []);
+  }, [fields]);
+
   const handleCoordinateChange = (index: number, lngOrLat: "lng" | "lat", value: string) => {
     setValues((prev) => {
       const coords = [...(prev.coordinates || [])];
@@ -78,6 +88,29 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     }));
   };
 
+  // When a new FOI is created, add it to the options and select it
+  const handleFoiCreate = (foi: any) => {
+    setNewFoi(foi);
+    setFoiModalOpen(false);
+    const foiId = foi["@iot.id"] || foi.id || foi.name || "";
+    const foiLabel = foi.name || foi["@iot.id"] || foi.id;
+    setFoiOptions(prev => {
+      // Avoid duplicates
+      if (prev.some(opt => opt.value === foiId)) return prev;
+      return [
+        ...prev,
+        {
+          label: foiLabel,
+          value: foiId,
+        }
+      ];
+    });
+    setValues((prev) => ({
+      ...prev,
+      FeatureOfInterest: foiId,
+    }));
+  };
+
   const handleChange = (name: string, value: any) => {
     setValues((prev) => ({ ...prev, [name]: value }));
   };
@@ -98,26 +131,29 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     if (field.name === "FeatureOfInterest") {
       return (
         <div className="flex flex-col gap-2 w-full">
-          <Select
-            size="sm"
-            value={values.FeatureOfInterest}
-            onChange={(e) => handleChange(field.name, e.target.value)}
-            className="flex-1"
-            required={field.required}
-            items={field.options || []}
-            placeholder={t("observations.select_feature_of_interest") || "Select FeatureOfInterest"}
-          >
-            {(item) => (
-              <SelectItem key={item.value}>
-                {item.label}
-              </SelectItem>
-            )}
-          </Select>
+          {!foiModalOpen && (
+            <Select
+              size="sm"
+              value={values.FeatureOfInterest}
+              onChange={(e) => handleChange(field.name, e.target.value)}
+              className="flex-1"
+              required={field.required}
+              items={foiOptions}
+              //placeholder={t("observations.select_feature_of_interest") || "Select FeatureOfInterest"}
+            >
+              {(item) => (
+                <SelectItem key={item.value}>
+                  {item.label}
+                </SelectItem>
+              )}
+            </Select>
+          )}
           <Button
             size="sm"
             color="primary"
             onPress={() => setFoiModalOpen(true)}
             type="button"
+            disabled={foiModalOpen}
           >
             + {t("observations.create_new_feature_of_interest") || "Create new FeatureOfInterest"}
           </Button>
@@ -128,10 +164,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           )}
           {foiModalOpen && (
             <FeatureOfInterestCreator
-              onCreate={foi => {
-                setNewFoi(foi);
-                setFoiModalOpen(false);
-              }}
+              onCreate={handleFoiCreate}
               onCancel={() => setFoiModalOpen(false)}
             />
           )}

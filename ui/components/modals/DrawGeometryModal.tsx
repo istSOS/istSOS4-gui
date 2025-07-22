@@ -20,17 +20,14 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
     useEffect(() => {
         if (!isOpen) return;
 
-        
         const initializeMap = async () => {
             const L = await import("leaflet");
-            await import("leaflet-draw"); // importa come side-effect
+            await import("leaflet-draw");
 
-            // Recupera L patchato da window, se necessario
             const Leaflet = (window as any).L || L;
 
             if (!mapContainerRef.current || mapRef.current) return;
 
-            // Inizializza la mappa
             mapRef.current = Leaflet.map(mapContainerRef.current, {
                 center: [40, 15],
                 zoom: 2
@@ -40,19 +37,45 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(mapRef.current);
 
-            // Inizializza il layer per gli elementi disegnati
             drawnItemsRef.current = new Leaflet.FeatureGroup();
             mapRef.current.addLayer(drawnItemsRef.current);
 
-            // Aggiungi i controlli di disegno
+            //CUSTOM STYLES FOR POINT AND POLYGON
             const drawControl = new Leaflet.Control.Draw({
                 draw: {
                     polyline: false,
                     rectangle: false,
                     circle: false,
-                    marker: true,
-                    polygon: true,
+
+                    marker: {
+                        icon: new Leaflet.DivIcon({
+                            className: "custom-red-dot",
+                            html: `<div style="width: 18px; height: 18px; background-color: #e53935; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);"></div>`,
+                            iconSize: [18, 18],
+                            iconAnchor: [9, 9],
+                        })
+
+                    },
+
+                    polygon: {
+                        shapeOptions: {
+                            color: "#1976d2",
+                            weight: 3,
+                            opacity: 0.8,
+                            fillColor: "#90caf9",
+                            fillOpacity: 0.4,
+                            dashArray: "5.5",
+                        },
+                        icon: new Leaflet.DivIcon({
+                            className: "custom-vertex-dot",
+                            html: `<span style=" display: block; width: 10px; height: 10px; background: #1976d2; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 2px #3333; "></span>`,
+                            iconSize: [10, 10],
+                            iconAnchor: [5, 5],
+                        }),
+
+                    }
                 },
+
                 edit: {
                     featureGroup: drawnItemsRef.current
                 }
@@ -60,7 +83,6 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
 
             mapRef.current.addControl(drawControl);
 
-            // Gestisci gli eventi
             mapRef.current.on(Leaflet.Draw.Event.CREATED, (e: any) => {
                 const layer = e.layer;
                 drawnItemsRef.current.addLayer(layer);
@@ -73,7 +95,6 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
 
             setIsMapInitialized(true);
         };
-        
 
         initializeMap();
 
@@ -88,7 +109,6 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
     }, [isOpen]);
 
     useEffect(() => {
-        // Pulisci la mappa quando il modal viene chiuso
         if (!isOpen && mapRef.current) {
             mapRef.current.remove();
             mapRef.current = null;

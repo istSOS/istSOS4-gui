@@ -1,11 +1,11 @@
 import React from "react";
-import { Button, Divider, Select } from "@heroui/react";
+import { Button, Divider, Select, SelectItem } from "@heroui/react";
 import { SearchBar } from "../bars/searchBar";
 import { SecNavbar } from "../bars/secNavbar";
 import { useTranslation } from "react-i18next";
 
 interface EntityActionsProps {
-  hasMap?: boolean; //Indicates if the map feature is available
+  hasMap?: boolean;
   onCreatePress: () => void;
   showMap?: boolean;
   onToggleMap?: () => void;
@@ -30,55 +30,88 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
   const { t } = useTranslation();
 
   return (
-
-    <><div className="flex items-center justify-between mb-2">
-      <SecNavbar title={title} />
-    </div><Divider style={{ backgroundColor: "white", height: 1, margin: "8px 0" }} />
-      <div className="flex">
-        <SearchBar
-          value={search}
-          onChange={onSearchChange}
-          placeholder={t("general.search")} />
-
-        <Button
-          color="primary"
-          size="sm"
-          onPress={onCreatePress}
-          style={{ fontSize: 24, padding: "0 12px", minWidth: 0 }}
-          aria-label="Add Entity"
-        >
-          +
-        </Button>
+    <>
 
 
-        {/*FILTERS*/}
-        {Object.entries(filters).map(([key, filter]) => (
-          <select
-            key={key}
-            value={filter.value}
-            onChange={e => onFilterChange && onFilterChange(key, e.target.value)}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            <option value="">{filter.label}</option>
-            {filter.options.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-        ))}
-        
+      <div className="flex items-center justify-between mb-2">
+        <SecNavbar title={title} />
+      </div>
 
 
+      <Divider style={{ backgroundColor: "white", height: 1, margin: "8px 0" }} />
 
-        {onToggleMap && hasMap && (
+      
+      <div className="flex flex-col justify-between items-start" style={{ marginBottom: "20px" }}>
+
+
+        <div className="flex items-center w-full">
+          <SearchBar
+            value={search}
+            onChange={onSearchChange}
+            placeholder={t("general.search")}
+          />
           <Button
-            size="sm"
-            variant="flat"
-            className="ml-auto"
-            onPress={onToggleMap}
+            color="primary"
+            onPress={onCreatePress}
+            style={{ fontSize: 24, padding: "0 20px", minWidth: 0 }}
+            aria-label="Add Entity"
           >
-            {showMap ? t("locations.hide_map") : t("locations.show_map")}
+            +
           </Button>
-        )}
-      </div></>
+        </div>
+
+
+
+        <div className="flex items-center justify-between w-full mt-2">
+          
+          <div className="flex items-center">
+            {/* FILTERS */}
+            {Object.entries(filters).map(([key, filter]) => (
+              <Select
+                key={key}
+                selectedKeys={filter.value !== undefined && filter.value !== null ? [filter.value] : []}
+                onSelectionChange={(selection) => {
+                  if (onFilterChange) {
+                    const selectedValue = Array.from(selection)[0];
+                    onFilterChange(key, selectedValue);
+                  }
+                }}
+                className="ml-2"
+                aria-label={filter.label}
+                style={{
+                  minWidth: "180px",
+                  maxWidth: "300px",
+                  width: "auto",
+                }}
+              >
+                <SelectItem key="">{filter.label}</SelectItem>
+                <>
+                  {filter.options.map(opt => (
+                    <SelectItem key={opt.value}>{opt.label}</SelectItem>
+                  ))}
+                </>
+              </Select>
+            ))}
+          </div>
+
+
+          <div className="flex items-center">
+
+            {onToggleMap && hasMap && (
+              <Button
+                size="sm"
+                variant="flat"
+                onPress={onToggleMap}
+                className="ml-2"
+              >
+                {showMap ? t("locations.hide_map") : t("locations.show_map")}
+              </Button>
+            )}
+          </div>
+          
+        </div>
+      </div>
+      <Divider style={{ backgroundColor: "white", height: 3, margin: "8px 0" }} />
+    </>
   );
 };

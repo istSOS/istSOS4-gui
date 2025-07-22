@@ -243,11 +243,7 @@ const EntityAccordion = ({
                     )}
 
 
-                    <div
-                      className="absolute bottom-0 right-0 w-full flex justify-end gap-2"
-                      style={{ padding: "8px" }}
-                    >
-
+                    <div className="flex justify-end gap-2 mt-4" style={{ padding: "8px" }}>
                       <Button color="warning" variant="bordered" onPress={() => handleEditClick(entity)}>
                         {t("general.edit")}
                       </Button>

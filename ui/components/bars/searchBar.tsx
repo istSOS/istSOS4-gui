@@ -16,9 +16,8 @@ export function SearchBar({
   className = "w-64",
 }: SearchBarProps) {
   return (
-    <div className="flex mb-4">
+    <div className="flex">
       <Input
-        size="sm"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

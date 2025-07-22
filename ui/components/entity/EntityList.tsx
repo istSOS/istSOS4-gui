@@ -45,7 +45,7 @@ export const EntityList: React.FC<EntityListProps> = ({
   nestedEntities
 }) => {
   if (items.length === 0 && !showCreateForm) {
-    return <p>Nessuna entità disponibile.</p>;
+    return <p>No entities available.</p>;
   }
 
   return (

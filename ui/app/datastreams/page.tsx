@@ -6,6 +6,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
 import { unitOfMeasurementOptions, observationTypeURIs } from "./utils";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "next/navigation";
+
 import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
@@ -28,6 +30,8 @@ export default function Datastreams() {
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const expandedFromQuery = searchParams.get("expanded");
 
   // State management
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
@@ -55,6 +59,11 @@ export default function Datastreams() {
   React.useEffect(() => {
     refetchAll();
   }, []);
+
+  // Set expanded state from query param
+  React.useEffect(() => {
+    if (expandedFromQuery) setExpanded(expandedFromQuery);
+  }, [expandedFromQuery]);
 
   // Set datastreams and loading/error states
   React.useEffect(() => {
@@ -235,6 +244,8 @@ export default function Datastreams() {
       }
 
       await createData(item.root, token, payload);
+
+      
       setShowCreate(false);
       setExpanded(null);
       const data = await fetchData(item.root, token);

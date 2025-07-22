@@ -10,16 +10,17 @@ import { useEntities } from "../../context/EntitiesContext";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import { useSearchParams } from "next/navigation";
 import { useTranslation } from "react-i18next";
+import MapWrapper from "../../components/MapWrapper";
 
 export const mainColor = siteConfig.main_color;
 export const secondaryColor = siteConfig.secondary_color;
 
 function labelToEntityKey(label: string) {
-  //remove spaces and hyphens and convert first letter to lowercase
-  //Example: "FeaturesOfInterest" or "Features Of Interest" → "featuresOfInterest"
+  // Remove spaces and hyphens and convert first letter to lowercase
+  // Example: "FeaturesOfInterest" or "Features Of Interest" → "featuresOfInterest"
   return label
-    .replace(/[\s\-]/g, "") //remove spaces and hyphens
-    .replace(/^([A-Z])/, (m) => m.toLowerCase()); //first letter to lowercase
+    .replace(/[\s\-]/g, "")
+    .replace(/^([A-Z])/, (m) => m.toLowerCase());
 }
 
 export default function Page() {
@@ -29,10 +30,9 @@ export default function Page() {
   const [hovered, setHovered] = React.useState<string | null>(null);
   const searchParams = useSearchParams();
   const selectedNetwork = searchParams.get("label") || "Network";
-
   const { t } = useTranslation();
 
-  //refetch all entities on mount
+  // Refetch all entities on mount
   React.useEffect(() => {
     refetchAll();
   }, []);
@@ -49,17 +49,35 @@ export default function Page() {
 
   const loading = authLoading || entitiesLoading;
 
+  // Get datastreams and locations from entities
+  const datastreams = entities?.datastreams || [];
+  const locations = entities?.locations || [];
+
+  //MapWrapper functions for datastreams and locations
+  //If observedArea is a Polygon, return null for coordinates (no points to show, just area)
+  const getDatastreamCoordinates = (ds: any) =>
+    ds.observedArea?.type === "Polygon" ? null : (
+      ds.observedArea?.coordinates?.[0]?.[0] || null
+    );
+
+  const getDatastreamId = (ds: any) =>
+    ds["@iot.id"] ? String(ds["@iot.id"]) : JSON.stringify(ds.observedArea?.coordinates);
+  const getDatastreamLabel = (ds: any) => ds.name ?? "-";
+  const getDatastreamGeoJSON = (ds: any) => ds.observedArea;
+
+  const getLocationCoordinates = (loc: any) =>
+    Array.isArray(loc.location?.coordinates) ? loc.location.coordinates : null;
+  const getLocationId = (loc: any) => String(loc["@iot.id"]);
+  const getLocationLabel = (loc: any) => loc.name ?? "-";
+  const getLocationGeoJSON = (_: any) => null;
+
   return (
     <div className="min-h-screen p-4">
-
       <div className="flex items-center justify-between mb-2">
-        <SecNavbar 
-        title={selectedNetwork} 
-        />
+        <SecNavbar title={selectedNetwork} />
       </div>
 
       <div className="max-w-7xl mx-auto grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
-
         {siteConfig.items.map((item) => (
           <Card
             key={item.href}
@@ -89,12 +107,52 @@ export default function Page() {
                   : "opacity-0 max-h-0"
                   }`}
               >
-                
                 {t(`general.${item.label.toLowerCase()}_info`)}
               </div>
             </div>
           </Card>
         ))}
+      </div>
+
+      {/* Map render */}
+      <div className="max-w-7xl mx-auto mt-8">
+        <MapWrapper
+          items={[...datastreams, ...locations]}
+          getCoordinates={item =>
+            item.observedArea
+              ? getDatastreamCoordinates(item)
+              : getLocationCoordinates(item)
+          }
+          getId={item =>
+            item.observedArea
+              ? getDatastreamId(item)
+              : getLocationId(item)
+          }
+          getLabel={item =>
+            item.observedArea
+              ? getDatastreamLabel(item)
+              : getLocationLabel(item)
+          }
+          getGeoJSON={item =>
+            item.observedArea
+              ? getDatastreamGeoJSON(item)
+              : getLocationGeoJSON(item)
+          }
+          expandedId={null}
+
+          onMarkerClick={id => {
+            
+            const isDatastream = !!datastreams.find(ds => String(ds["@iot.id"]) === id);
+            if (isDatastream) {
+              router.push(`/datastreams?expanded=${id}`);
+            }
+          }}
+          
+          showMap={true}
+          split={0.5}
+          setSplit={() => { }}
+          showMarkers={true}
+        />
       </div>
     </div>
   );
@@ -106,4 +164,3 @@ const layoutMap = {
   3: "col-span-1",
   4: "col-span-1",
 };
-
