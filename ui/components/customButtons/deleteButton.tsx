@@ -33,7 +33,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
   return (
     <div className="relative">
       {showConfirm && (
-        <div className="absolute right-0 -top-24 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center">
+        <div className="absolute right-0 -top-10 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center">
           <p className="mb-2 text-sm">{t("general.confirm_delete")}</p>
           <div className="flex gap-2">
             <Button
@@ -57,11 +57,20 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
         </div>
       )}
       <Button
+        isIconOnly
         color="danger"
         onPress={() => setShowConfirm(true)}
         disabled={isLoading}
       >
+        {/*}
         {t("general.delete")}
+        */}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        />
       </Button>
     </div>
   );

@@ -26,6 +26,10 @@
 
     "leaflet-draw": "^1.0.4",
 
+    "mapbox": "^1.0.0-beta10",
+
+    "mapbox-gl": "^3.13.0",
+
     "next": "^15.3.3",
 
     "react": "^19.1.0",

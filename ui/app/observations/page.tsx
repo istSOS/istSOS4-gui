@@ -1,4 +1,3 @@
-
 "use client";
 import * as React from "react";
 import { useRouter } from "next/navigation";
@@ -15,16 +14,21 @@ import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
 import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
+
 export const mainColor = siteConfig.main_color;
+
+//Find the item in siteConfig with labels matching "Observations" and "FeaturesOfInterest"
 const item = siteConfig.items.find(i => i.label === "Observations");
 const foiItem = siteConfig.items.find(i => i.label === "FeaturesOfInterest");
+
 export default function Observations() {
-  // Hooks
+  //Initialize hooks for translation, routing, authentication, and entity management
   const { t } = useTranslation();
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
-  // State management
+
+  //State management for observations, UI states, and form inputs
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
   const [observations, setObservations] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -39,9 +43,11 @@ export default function Observations() {
   const [expanded, setExpanded] = React.useState(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
-  // State for new FeatureOfInterest creation
+  //State for managing modal visibility and pending FeatureOfInterest
   const [foiModalOpen, setFoiModalOpen] = React.useState(false);
   const [pendingFoi, setPendingFoi] = React.useState<any>(null);
+
+  //Default values for form fields
   const defaultValues = {
     phenomenonTime: "2023-01-01T00:00:00Z",
     resultTime: "2023-01-01T00:00:00Z",
@@ -50,50 +56,59 @@ export default function Observations() {
     Datastream: null,
     FeatureOfInterest: null
   };
-  // Fetch all entities on mount
+
+  //Fetch all entities on component mount
   React.useEffect(() => {
     refetchAll();
   }, []);
-  // Set observations and loading/error states
+
+  //Effect to update observations and loading/error states when entities change
   React.useEffect(() => {
     setObservations(entities.observations || []);
     setLoading(entitiesLoading);
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
-  // FILTERS (for nested entities)
+
+  //FILTERS state for nested entity filtering
   const [filters, setFilters] = React.useState({
     datastream: "",
     featureOfInterest: ""
   });
+
+  //Handler function to update filters
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
-  // Filter observations based on search input and filters
+
+  //Filter observations based on search input and filters
   const filtered = observations.filter(o => {
-    // Nested entities
     const id = o["@iot.id"];
     const nested = nestedEntitiesMap[id] || {};
     const datastream = nested.Datastream || o.Datastream;
     const featureOfInterest = nested.FeatureOfInterest || o.FeatureOfInterest;
+
     const datastreamId = datastream && datastream["@iot.id"] ? String(datastream["@iot.id"]) : "";
     const featureOfInterestId = featureOfInterest && featureOfInterest["@iot.id"] ? String(featureOfInterest["@iot.id"]) : "";
-    // Textual search
+
     const matchesSearch = JSON.stringify(o).toLowerCase().includes(search.toLowerCase());
-    // Filter by nested entity IDs
     const matchesDatastream = !filters.datastream || datastreamId === String(filters.datastream);
     const matchesFeatureOfInterest = !filters.featureOfInterest || featureOfInterestId === String(filters.featureOfInterest);
+
     return matchesSearch && matchesDatastream && matchesFeatureOfInterest;
   });
-  // Options for dropdowns
+
+  //Generate dropdown options for datastreams and features of interest
   const datastreamOptions = (entities?.datastreams || []).map(ds => ({
     label: ds.name || `Datastream ${ds["@iot.id"]}`,
     value: ds["@iot.id"]
   }));
+
   const featureOfInterestOptions = (entities?.featuresOfInterest || []).map(foi => ({
     label: foi.name || `Feature of Interest ${foi["@iot.id"]}`,
     value: foi["@iot.id"]
   }));
-  // Observation fields configuration
+
+  //Configuration for observation fields in the form
   const observationFields = [
     { name: "phenomenonTime", label: t("observations.phenomenon_time"), required: true, defaultValue: defaultValues.phenomenonTime, type: "datetime-local" },
     { name: "resultTime", label: t("observations.result_time"), required: false, defaultValue: defaultValues.resultTime, type: "datetime-local" },
@@ -142,27 +157,29 @@ export default function Observations() {
     }
   ];
 
-
-
-
-  // Handlers for CRUD operations
+  //Handlers for CRUD operations
   const handleCancelCreate = () => {
     setShowCreate(false);
     setPendingFoi(null);
   };
+
   const handleCancelEdit = () => setEditObservation(null);
-  // Create Observation, with support for new FeatureOfInterest
+
+  //Function to handle the creation of a new Observation
   const handleCreate = async (newObservation) => {
     setCreateLoading(true);
     setCreateError(null);
+
     try {
       let foiId = newObservation.FeatureOfInterest;
-      // If a new FeatureOfInterest is pending, create it first
+
+      //If a new FeatureOfInterest is pending, create it first
       if (pendingFoi) {
         const foiRes = await createData(foiItem.root, token, pendingFoi);
         foiId = foiRes["@iot.id"];
         setPendingFoi(null);
       }
+
       const payload = {
         phenomenonTime: newObservation.phenomenonTime,
         resultTime: newObservation.resultTime,
@@ -171,12 +188,14 @@ export default function Observations() {
         Datastream: { "@iot.id": Number(newObservation.Datastream) },
         FeatureOfInterest: foiId ? { "@iot.id": Number(foiId) } : null
       };
+
       await createData(item.root, token, payload);
       setShowCreate(false);
       setExpanded(null);
+
+      //Fetch updated list of observations and set the newly created one as expanded
       const data = await fetchData(item.root, token);
       setObservations(data?.value || []);
-      // Auto-expand the newly created observation
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
         setExpanded(String(newId));
@@ -188,29 +207,27 @@ export default function Observations() {
       setCreateLoading(false);
     }
   };
+
+  //Function to edit an observation
   const handleEdit = (entity) => {
     setEditObservation(entity);
   };
-  // Update Observation, handling nested entities logic like in datastreams
+
+  //Function to handle saving of an edited observation
   const handleSaveEdit = async (updatedObservation, originalObservation) => {
     setEditLoading(true);
     setEditError(null);
+
     try {
-      // Extract nested entity IDs from updatedObservation
-
-
       const payload = {
         phenomenonTime: updatedObservation.phenomenonTime,
         resultTime: updatedObservation.resultTime,
         result: updatedObservation.result,
         resultQuality: updatedObservation.resultQuality != null ? String(updatedObservation.resultQuality) : "",
-
         ...(updatedObservation.Datastream && { Datastream: { "@iot.id": Number(updatedObservation.Datastream) } }),
-
-        //NEXT LINE GENERATE A BUG IF FOI IS EDITED
         ...(updatedObservation.FeatureOfInterest && { FeatureOfInterest: { "@iot.id": Number(updatedObservation.FeatureOfInterest) } }),
-
       };
+
       await updateData(`${item.root}(${originalObservation["@iot.id"]})`, token, payload);
       const data = await fetchData(item.root, token);
       setObservations(data?.value || []);
@@ -223,6 +240,8 @@ export default function Observations() {
       setEditLoading(false);
     }
   };
+
+  //Function to handle deletion of an observation
   const handleDelete = async (id) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
@@ -232,10 +251,12 @@ export default function Observations() {
       console.error("Error deleting observation:", err);
     }
   };
-  // Fetch observations with expanded nested entities
+
+  //Function to fetch additional data for a specific observation
   const fetchObservationWithExpand = async (observationId) => {
     const nested = siteConfig.items.find(i => i.label === "Observations").nested;
     const nestedData = {};
+
     await Promise.all(
       nested.map(async (nestedKey) => {
         const url = `${item.root}(${observationId})?$expand=${nestedKey}`;
@@ -245,12 +266,14 @@ export default function Observations() {
         }
       })
     );
+
     setNestedEntitiesMap(prev => ({
       ...prev,
       [observationId]: nestedData
     }));
   };
-  // Fetch expanded data on mount/update
+
+  //Fetch nested entities data on observations update
   React.useEffect(() => {
     if (observations.length > 0) {
       observations.forEach(o => {
@@ -260,10 +283,12 @@ export default function Observations() {
     setLoading(entitiesLoading);
     setError(entitiesError);
   }, [entitiesLoading, entitiesError, token, observations]);
-  // Render loading and error states
+
+  //Render loading and error states
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
-  // Render components
+
+  //Component for rendering the list of entities
   const entityListComponent = (
     <EntityList
       items={filtered}
@@ -287,6 +312,7 @@ export default function Observations() {
       nestedEntities={nestedEntitiesMap}
     />
   );
+
   return (
     <div className="min-h-screen p-4">
       <EntityActions

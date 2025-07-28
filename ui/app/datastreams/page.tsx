@@ -6,14 +6,14 @@ import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
 import { unitOfMeasurementOptions, observationTypeURIs } from "./utils";
 import { useTranslation } from "react-i18next";
+import { useEnrichedDatastreams } from "../../components/hooks/useEnrichedDatastreams";
 import { useSearchParams } from "next/navigation";
-
 import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import deleteData from "../../server/deleteData";
 
-//Reusable components
+// Reusable components
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
@@ -23,7 +23,6 @@ import MapWrapper from "../../components/MapWrapper";
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Datastreams");
 
-// Main component
 export default function Datastreams() {
   // Hooks
   const { t } = useTranslation();
@@ -35,9 +34,6 @@ export default function Datastreams() {
 
   // State management
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
-  const [datastreams, setDatastreams] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
@@ -49,59 +45,43 @@ export default function Datastreams() {
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
-  const defaultValues = {
-    name: "New Datastream",
-    description: "Datastream Description",
+  // Date filter state
+  const [dateFilter, setDateFilter] = React.useState("");
+  const [customStart, setCustomStart] = React.useState("");
+  const [customEnd, setCustomEnd] = React.useState("");
 
-  }
+  const dateFilterOptions = [
+    { label: "New", value: "new" },
+    { label: "Old", value: "old" },
+    { label: "Custom Range", value: "custom" }
+  ];
 
-  // Fetch all entities on mount
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
-
-  // Set expanded state from query param
-  React.useEffect(() => {
-    if (expandedFromQuery) setExpanded(expandedFromQuery);
-  }, [expandedFromQuery]);
-
-  // Set datastreams and loading/error states
-  React.useEffect(() => {
-    setDatastreams(entities.datastreams || []);
-    setLoading(entitiesLoading);
-    setError(entitiesError);
-  }, [entities, entitiesLoading, entitiesError]);
-
-
-
-  //FILTERS
+  // Filters
   const [filters, setFilters] = React.useState({
     sensor: "",
     thing: "",
     observedProperty: ""
   });
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  // Filter datastreams (maybe overcomplicated?)
-  const filtered = datastreams.filter(ds => {
+  // Get datastreams enriched with last value, last measurement, timeAgo, etc.
+  const rawDatastreams = entities?.datastreams || [];
+  const datastreams = useEnrichedDatastreams(rawDatastreams, token);
+
+  // Filter datastreams
+  let filtered = datastreams.filter(ds => {
     const id = ds["@iot.id"];
     const nested = nestedEntitiesMap[id] || {};
-
-    //take nested entities or fallback to main datastream properties
     const sensor = nested.Sensor || ds.Sensor;
     const thing = nested.Thing || ds.Thing;
     const observedProperty = nested.ObservedProperty || ds.ObservedProperty;
-
     const sensorId = sensor && sensor["@iot.id"] ? String(sensor["@iot.id"]) : "";
     const thingId = thing && thing["@iot.id"] ? String(thing["@iot.id"]) : "";
     const observedPropertyId = observedProperty && observedProperty["@iot.id"] ? String(observedProperty["@iot.id"]) : "";
-
-    //textual search
     const matchesSearch = JSON.stringify(ds).toLowerCase().includes(search.toLowerCase());
-
-    //id filter for nested entities
     const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
     const matchesThing = !filters.thing || thingId === String(filters.thing);
     const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
@@ -109,7 +89,27 @@ export default function Datastreams() {
     return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty;
   });
 
-
+  // Date/time filtering and sorting using phenomenonTime
+  if (dateFilter === "new") {
+    filtered = [...filtered].sort((a, b) => {
+      const dateA = a.lastMeasurement;
+      const dateB = b.lastMeasurement;
+      return dateB && dateA ? new Date(dateB).getTime() - new Date(dateA).getTime() : 0;
+    });
+  } else if (dateFilter === "old") {
+    filtered = [...filtered].sort((a, b) => {
+      const dateA = a.lastMeasurement;
+      const dateB = b.lastMeasurement;
+      return dateA && dateB ? new Date(dateA).getTime() - new Date(dateB).getTime() : 0;
+    });
+  } else if (dateFilter === "custom" && customStart && customEnd) {
+    filtered = filtered.filter(ds => {
+      const date = ds.lastMeasurement;
+      if (!date) return false;
+      const d = new Date(date);
+      return d >= new Date(customStart) && d <= new Date(customEnd);
+    });
+  }
 
   // Options for dropdowns
   const thingOptions = (entities?.things || []).map(thing => ({
@@ -128,6 +128,11 @@ export default function Datastreams() {
   }));
 
   // Datastream fields configuration
+  const defaultValues = {
+    name: "New Datastream",
+    description: "Datastream Description",
+  };
+
   const datastreamFields = [
     { name: "name", label: t("datastreams.name"), required: true, defaultValue: defaultValues.name },
     { name: "description", label: t("datastreams.description"), required: false, defaultValue: defaultValues.description },
@@ -206,11 +211,15 @@ export default function Datastreams() {
       const payload: {
         name: any;
         description: any;
-        unitOfMeasurement: { name: string; symbol: string; definition: string; };
+        unitOfMeasurement: {
+          name: string;
+          symbol: string;
+          definition: string;
+        };
         observationType: any;
-        Thing: { "@iot.id": number; };
-        Sensor: { "@iot.id": number; };
-        ObservedProperty: { "@iot.id": number; };
+        Thing: { "@iot.id": number };
+        Sensor: { "@iot.id": number };
+        ObservedProperty: { "@iot.id": number };
         network: string;
         phenomenonTime?: string;
         properties?: Record<string, any>;
@@ -245,13 +254,10 @@ export default function Datastreams() {
 
       await createData(item.root, token, payload);
 
-      
       setShowCreate(false);
       setExpanded(null);
       const data = await fetchData(item.root, token);
-      setDatastreams(data?.value || []);
-
-      // Auto-expand the newly created datastream
+      // No need to setDatastreams, useEnrichedDatastreams will update automatically
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
         setExpanded(String(newId));
@@ -297,7 +303,6 @@ export default function Datastreams() {
         observationType: obsType,
         network: "acsot",
         properties: {},
-        //updated relations
         ...(updatedDatastream.thingId && { Thing: { "@iot.id": Number(updatedDatastream.thingId) } }),
         ...(updatedDatastream.sensorId && { Sensor: { "@iot.id": Number(updatedDatastream.sensorId) } }),
         ...(updatedDatastream.observedPropertyId && { ObservedProperty: { "@iot.id": Number(updatedDatastream.observedPropertyId) } }),
@@ -316,7 +321,7 @@ export default function Datastreams() {
 
       await updateData(`${item.root}(${originalDatastream["@iot.id"]})`, token, payload);
       const data = await fetchData(item.root, token);
-      setDatastreams(data?.value || []);
+      // No need to setDatastreams, useEnrichedDatastreams will update automatically
       setExpanded(String(originalDatastream["@iot.id"]));
       setEditDatastream(null);
       await fetchDatastreamWithExpand(originalDatastream["@iot.id"]);
@@ -331,7 +336,7 @@ export default function Datastreams() {
     try {
       await deleteData(`${item.root}(${id})`, token);
       const data = await fetchData(item.root, token);
-      setDatastreams(data?.value || []);
+      // No need to setDatastreams, useEnrichedDatastreams will update automatically
     } catch (err) {
       console.error("Error deleting datastream:", err);
     }
@@ -358,23 +363,26 @@ export default function Datastreams() {
     }));
   };
 
-  // Example call on mount
+  React.useEffect(() => {
+    refetchAll();
+  }, []);
+
+  React.useEffect(() => {
+    if (expandedFromQuery) setExpanded(expandedFromQuery);
+  }, [expandedFromQuery]);
+
   React.useEffect(() => {
     if (datastreams.length > 0) {
       datastreams.forEach(ds => {
         fetchDatastreamWithExpand(ds["@iot.id"]);
       });
     }
-    setLoading(entitiesLoading);
-    setError(entitiesError);
-  }, [entitiesLoading, entitiesError, token, datastreams]);
+  }, [datastreams, token]);
 
-
-  // Render loading and error states
+  const loading = authLoading || entitiesLoading;
   if (loading) return <p>Loading...</p>;
-  if (error) return <p>{error}</p>;
+  if (entitiesError) return <p>{entitiesError}</p>;
 
-  // Render components
   const entityListComponent = (
     <EntityList
       items={filtered}
@@ -415,10 +423,8 @@ export default function Datastreams() {
     />
   ) : null;
 
-  // Main render
   return (
     <div className="min-h-screen p-4">
-
       <EntityActions
         title="Datastreams"
         search={search}
@@ -429,14 +435,41 @@ export default function Datastreams() {
         }}
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
-        hasMap={true} // Enable map toggle
+        hasMap={true}
         filters={{
           thing: { label: "Thing", options: thingOptions, value: filters.thing },
           sensor: { label: "Sensor", options: sensorOptions, value: filters.sensor },
-          observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty }
+          observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty },
+          date: { label: "Date Filter", options: dateFilterOptions, value: dateFilter }
         }}
-        onFilterChange={handleFilterChange}
+        onFilterChange={(key, value) => {
+          if (key === "date") {
+            setDateFilter(String(value));
+          } else {
+            handleFilterChange(key, value);
+          }
+        }}
       />
+
+      {/* Custom range inputs, shown only if dateFilter === "custom" */}
+      {dateFilter === "custom" && (
+        <div className="flex gap-4 items-center mb-4">
+          <input
+            type="datetime-local"
+            value={customStart}
+            onChange={e => setCustomStart(e.target.value)}
+            className="border rounded px-2 py-1"
+            placeholder="Start date"
+          />
+          <input
+            type="datetime-local"
+            value={customEnd}
+            onChange={e => setCustomEnd(e.target.value)}
+            className="border rounded px-2 py-1"
+            placeholder="End date"
+          />
+        </div>
+      )}
 
       <SplitPanel
         leftPanel={entityListComponent}

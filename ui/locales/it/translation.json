@@ -8,6 +8,7 @@
         "yes": "Sì",
         "no": "No",
         "confirm_delete": "Sei sicuro?",
+        "confirm_delete_datastream": "Sei sicuro di voler eliminare questo Datastream? Tutte le Osservazioni associate saranno anch'esse eliminate.",
         "create": "Crea",
         "cancel": "Annulla",
         "close": "Chiudi",

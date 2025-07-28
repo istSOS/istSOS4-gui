@@ -8,6 +8,7 @@
         "yes": "Yes",
         "no": "No",
         "confirm_delete": "Are you sure?",
+        "confirm_delete_datastream": "Are you sure you want to delete this Datastream? All associated Observations will also be deleted.",
         "create": "Create",
         "cancel": "Cancel",
         "close": "Close",

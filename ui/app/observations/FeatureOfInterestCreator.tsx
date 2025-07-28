@@ -3,95 +3,120 @@ import { Input, Button } from "@heroui/react";
 import DrawGeometryModal from "../../components/modals/DrawGeometryModal";
 import createData from "../../server/createData";
 import { useAuth } from "../../context/AuthContext";
-
 import { siteConfig } from "../../config/site";
+
+//Find the item with label "FeaturesOfInterest" in siteConfig
 const item = siteConfig.items.find(i => i.label === "FeaturesOfInterest");
 
+//Define the Props type for the FeatureOfInterestCreator component
 type Props = {
-    onCreate: (foi: any) => void;
-    onCancel: () => void;
-    isLoading?: boolean;
-    error?: string | null;
+    onCreate: (foi: any) => void;  //Function to call when a new FeatureOfInterest is created
+    onCancel: () => void;          //Function to call when the form is canceled
+    isLoading?: boolean;           //Optional prop to indicate loading state
+    error?: string | null;         //Optional prop to display error message
 };
 
+//Functional component for creating a new FeatureOfInterest
 const FeatureOfInterestCreator: React.FC<Props> = ({
     onCreate,
     onCancel,
     isLoading,
     error,
 }) => {
-    const [name, setName] = useState("");
-    const [description, setDescription] = useState("");
-    const [geometry, setGeometry] = useState<any>(null);
-    const [modalOpen, setModalOpen] = useState(false);
-    const [submitLoading, setSubmitLoading] = useState(false);
-    const [submitError, setSubmitError] = useState<string | null>(null);
-    const [latitude, setLatitude] = useState<string>("");
-    const [longitude, setLongitude] = useState<string>("");
-    const auth = useAuth();
+    // State for form inputs
+    const [name, setName] = useState("");              //State for the name input
+    const [description, setDescription] = useState(""); //State for the description input
+    const [geometry, setGeometry] = useState<any>(null); //State for the geometry data
+    const [modalOpen, setModalOpen] = useState(false);  //State for controlling the modal visibility
+    const [submitLoading, setSubmitLoading] = useState(false); //State for submit button loading state
+    const [submitError, setSubmitError] = useState<string | null>(null); //State for error message during submission
+    const [latitude, setLatitude] = useState<string>(""); //State for the latitude input
+    const [longitude, setLongitude] = useState<string>(""); //State for the longitude input
+    const auth = useAuth(); //Access authentication context
 
-    
+    //Effect to update geometry based on latitude and longitude inputs
     React.useEffect(() => {
         if (latitude && longitude) {
+            // Parse latitude and longitude values to floats
             const lat = parseFloat(latitude);
             const lon = parseFloat(longitude);
+
+            //If both lat and lon are valid numbers, set the geometry to a Point with these coordinates
             if (!isNaN(lat) && !isNaN(lon)) {
                 setGeometry({
                     type: "Point",
-                    coordinates: [lat, lon],
+                    coordinates: [lon, lat], //GeoJSON uses [longitude, latitude] so the order is this
                 });
             } else {
+                //If parsing fails, reset geometry to null
                 setGeometry(null);
             }
         } else if (!latitude && !longitude) {
+            //Reset geometry if both lat and lon are empty
             setGeometry(null);
         }
     }, [latitude, longitude]);
 
+    //Function to handle form submission
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+        e.preventDefault(); //Prevent default form submission behavior
+
+        //Check if geometry is selected
         if (!geometry) return;
-        setSubmitLoading(true);
-        setSubmitError(null);
+
+        setSubmitLoading(true); //Set loading state
+        setSubmitError(null);   //Reset error state
+
         try {
+            //Create payload for the new FeatureOfInterest
             const foiPayload = {
                 name,
                 description,
                 encodingType: "application/vnd.geo+json",
-                feature: geometry,
+                feature: geometry, //Add the geometry to the payload
             };
-            // Call API
+
+            //Call the API to create the new FeatureOfInterest
             const foiRes = await createData(item.root, auth.token, foiPayload);
+
+            //Call onCreate callback with the response from the API
             onCreate(foiRes);
         } catch (err: any) {
+            //If an error occurs during submission, set the error state
             setSubmitError(err.message || "Error creating FeatureOfInterest");
         } finally {
+            //Reset loading state regardless of success or failure
             setSubmitLoading(false);
         }
     };
 
-    // Disabilita il bottone se lat/lon sono compilati
+    //Check if latitude or longitude inputs are filled
     const isLatLonFilled = latitude !== "" || longitude !== "";
 
-       const isGeometryValid = geometry !== null;
+    //Check if geometry is valid (not null)
+    const isGeometryValid = geometry !== null;
 
     return (
         <>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-
+                {/* Input field for name */}
                 <Input
                     label="Name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
                 />
+
+                {/* Input field for description */}
                 <Input
                     label="Description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
 
+                {/* Geometry selection controls */}
                 <div className="flex gap-2 items-end">
+                    {/* Button to open modal for geometry selection on map */}
                     <Button
                         color={geometry && !isLatLonFilled ? "success" : "primary"}
                         onPress={() => setModalOpen(true)}
@@ -102,6 +127,8 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                             ? "Geometry selected"
                             : "Select a geometry on the map"}
                     </Button>
+
+                    {/* Input fields for latitude and longitude */}
                     <Input
                         label="Latitude"
                         type="number"
@@ -113,6 +140,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                         className="w-32"
                         placeholder="Lat"
                     />
+
                     <Input
                         label="Longitude"
                         type="number"
@@ -126,6 +154,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                     />
                 </div>
 
+                {/* Modal for drawing geometry */}
                 {modalOpen && (
                     <DrawGeometryModal
                         isOpen={modalOpen}
@@ -139,16 +168,20 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                     />
                 )}
 
+                {/* Display submit error if any */}
                 {submitError && <span className="text-red-500">{submitError}</span>}
+
+                {/* Form submission and cancel buttons */}
                 <div className="flex gap-2 mt-2">
                     <Button
                         color="primary"
                         type="submit"
                         isLoading={submitLoading}
-                        disabled={!isGeometryValid}
+                        disabled={!isGeometryValid} // Disable if geometry is not valid
                     >
                         Create FeatureOfInterest
                     </Button>
+
                     <Button color="default" type="button" onPress={onCancel}>
                         Cancel
                     </Button>

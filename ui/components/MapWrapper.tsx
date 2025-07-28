@@ -1,7 +1,10 @@
 import * as React from "react";
 import "leaflet/dist/leaflet.css";
-import { Input, Button } from "@heroui/react";
+import { Input, Button, Chip } from "@heroui/react";
+import { MAP_TILE_LAYER } from "../config/site";
+import { getColorScale } from "./hooks/useColorScale";
 import L from "leaflet";
+import { usePolygonCenter } from "./hooks/usePolygonCenter";
 
 type MapWrapperProps = {
     items: any[];
@@ -136,6 +139,79 @@ export default function MapWrapper({
         };
     }, [isSplitting, setSplit]);
 
+    function getPopupContent(item: any) {
+        const chipColor = getColorScale(items, item);
+        let color;
+        switch (chipColor) {
+            case "success": color = "#4ade80"; break;
+            case "warning": color = "#facc15"; break;
+            case "danger": color = "#ef4444"; break;
+            default: color = "#e5e7eb";
+        }
+
+        return `
+        <div style="min-width:180px">
+            <div>
+                <strong>${item.name ?? "-"}</strong>
+                <span style="
+                    display:inline-block;
+                    padding:2px 8px;
+                    border-radius:12px;
+                    background:${color};
+                    color:#222;
+                    font-weight:600;
+                    font-size:13px;
+                ">
+                    ${item.timeAgo ?? "-"}
+                </span>
+            </div>
+            <div>${item.lastValue !== undefined ? `Last value: <b>${item.lastValue}${item.unitOfMeasurement.symbol}</b>` : ""}</div>
+            <div>${item.lastMeasurement ? `Date: <b>${item.lastMeasurement}</b>` : ""}</div>
+        </div>
+    `;
+    }
+
+    // Helper to update value labels at polygon centers based on zoom
+    function updateCenterLabels(L, mapInstance, items, getGeoJSON) {
+        // Remove previous markers
+        if (mapInstance._centerValueMarkers) {
+            mapInstance._centerValueMarkers.forEach(m => mapInstance.removeLayer(m));
+        }
+        mapInstance._centerValueMarkers = [];
+        items.forEach(item => {
+            const geoJSON = getGeoJSON(item)
+                ? JSON.parse(JSON.stringify(getGeoJSON(item)))
+                : null;
+            if (geoJSON) {
+                const center = usePolygonCenter(geoJSON);
+                if (
+                    center &&
+                    typeof mapInstance.getZoom === "function" &&
+                    mapInstance.getZoom() >= 12 // zoom threshold
+                ) {
+                    const valueLabel = L.divIcon({
+                        className: "datastream-value-label",
+                        html: `<span style="
+                            font-weight: bold;
+                            font-size: 25px;
+                            opacity: 0.5;
+                            white-space: nowrap;
+                            padding: 0;
+                            margin: 0;
+                            text-align: left;
+                            position: relative;
+                            left: -40px;
+                        ">
+                            ${item.lastValue ?? item.name ?? ""} ${item.unitOfMeasurement?.symbol ?? ""}
+                        </span>`,
+                    });
+                    const marker = L.marker([center[1], center[0]], { icon: valueLabel, interactive: false }).addTo(mapInstance);
+                    mapInstance._centerValueMarkers.push(marker);
+                }
+            }
+        });
+    }
+
     React.useEffect(() => {
         if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
         import("leaflet").then((L) => {
@@ -164,8 +240,10 @@ export default function MapWrapper({
                 if (mapRef) {
                     mapRef.current = leafletMap;
                 }
-                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+
+                // Tile layer (Style) from site config
+                L.tileLayer(MAP_TILE_LAYER.url, {
+                    attribution: MAP_TILE_LAYER.attribution,
                 }).addTo(leafletMap);
             }
             markersRef.current.forEach((m) => m.remove());
@@ -190,7 +268,7 @@ export default function MapWrapper({
                         .addTo(mapInstanceRef.current)
                         .on("click", () => onMarkerClick && onMarkerClick(id))
                         .on("mouseover", function () {
-                            marker.bindPopup(getLabel(item)).openPopup();
+                            marker.bindPopup(getPopupContent(item)).openPopup();
                         })
                         .on("mouseout", function () {
                             marker.closePopup();
@@ -213,7 +291,7 @@ export default function MapWrapper({
                             layer.on({
                                 click: () => onMarkerClick && onMarkerClick(id),
                                 mouseover: function () {
-                                    layer.bindPopup(getLabel(item)).openPopup();
+                                    layer.bindPopup(getPopupContent(item)).openPopup();
                                 },
                                 mouseout: function () {
                                     layer.closePopup();
@@ -223,6 +301,11 @@ export default function MapWrapper({
                     }).addTo(mapInstanceRef.current);
                     geoJSONLayersRef.current.push(geoJSONLayer);
                 }
+            });
+            // Add value labels at polygon centers (and update on zoom)
+            updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
+            mapInstanceRef.current.on("zoomend", () => {
+                updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
             });
             setTimeout(() => {
                 mapInstanceRef.current?.invalidateSize();
@@ -253,7 +336,7 @@ export default function MapWrapper({
                 !isNaN(coords[0]) &&
                 !isNaN(coords[1])
             ) {
-                mapInstanceRef.current.setView([coords[1], coords[0]], 8, {
+                mapInstanceRef.current.setView([coords[1], coords[0]], 12, {
                     animate: true,
                 });
             }

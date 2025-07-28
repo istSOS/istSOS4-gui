@@ -6,6 +6,13 @@ export type SiteConfig = typeof siteConfig;
 
 export const API_ROOT = "http://api:5000/istsos4/v1.1/";
 
+export const MAP_TILE_LAYER = {
+    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  
+
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+};
+
 export const siteConfig = {
   name: "istSOS4 admin ui",
   versioning: true,
@@ -33,8 +40,7 @@ export const siteConfig = {
       label: "Datastreams",
       href: "/datastreams",
       root: API_ROOT + "Datastreams",
-      nested: ["Thing", "Sensor", "ObservedProperty", "FeatureOfInterest"],
-      //nested: ["Thing", "Sensor", "ObservedProperty", "FeatureOfInterest", "Observations"],
+      nested: ["Thing", "Sensor", "ObservedProperty", "FeatureOfInterest", "Observations"],
       weight: 1,
     },
 

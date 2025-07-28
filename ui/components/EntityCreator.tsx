@@ -134,12 +134,12 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           {!foiModalOpen && (
             <Select
               size="sm"
+              radius="sm"
               value={values.FeatureOfInterest}
               onChange={(e) => handleChange(field.name, e.target.value)}
               className="flex-1"
               required={field.required}
               items={foiOptions}
-              //placeholder={t("observations.select_feature_of_interest") || "Select FeatureOfInterest"}
             >
               {(item) => (
                 <SelectItem key={item.value}>
@@ -174,11 +174,13 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     if (field.type === "properties") {
       const properties = Array.isArray(values.properties) ? values.properties : [];
       return (
-        <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col gap-2 pl-2 w-full">
           {properties.map((prop, idx) => (
             <div key={idx} className="flex gap-2 items-center">
               <Input
                 size="sm"
+                variant="bordered"
+                label={t("general.property_key") || "Key"}
                 placeholder={t("general.property_key") || "Key"}
                 value={prop.key || ""}
                 onChange={e => {
@@ -193,6 +195,8 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               />
               <Input
                 size="sm"
+                variant="bordered"
+                label={t("general.property_value") || "Value"}
                 placeholder={t("general.property_value") || "Value"}
                 value={prop.value || ""}
                 onChange={e => {
@@ -207,6 +211,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               />
               <Button
                 size="sm"
+                variant="bordered"
                 color="danger"
                 onPress={() => {
                   setValues(v => ({
@@ -236,6 +241,9 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
         return (
           <Select
             size="sm"
+            variant="bordered"
+            label={field.label}
+            name={field.name}
             value={values[field.name]}
             onChange={(e) => handleChange(field.name, e.target.value)}
             className="flex-1"
@@ -248,17 +256,13 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             ))}
           </Select>
         );
-      case "textarea":
-        return (
-          <Textarea
-            value={values[field.name]}
-            onChange={(e) => handleChange(field.name, e.target.value)}
-            className="flex-1"
-          />
-        );
+
       case "datetime-local":
         return (
           <Input
+            size="sm"
+            variant="bordered"
+            label={field.label}
             type="datetime-local"
             value={values[field.name]}
             onChange={(e) => handleChange(field.name, e.target.value)}
@@ -268,6 +272,9 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
       case "number":
         return (
           <Input
+            size="sm"
+            variant="bordered"
+            label={field.label}
             type="number"
             value={values[field.name]}
             onChange={(e) => handleChange(field.name, e.target.value)}
@@ -278,6 +285,9 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
       default:
         return (
           <Input
+            size="sm"
+            variant="bordered"
+            label={field.label}
             type="text"
             value={values[field.name]}
             onChange={(e) => handleChange(field.name, e.target.value)}
@@ -289,25 +299,20 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   };
 
   return (
-    <div className="mt-2 flex flex-row gap-8">
-      <div className="flex-1 flex flex-col gap-2">
-        {fields.map((field) => (
-          <div key={field.name} className="flex items-center gap-2">
-            <label className="w-40 text-sm text-gray-700">
-              {field.label}
-            </label>
-            {renderField(field)}
-          </div>
-        ))}
-        {error && <div style={{ color: "red", marginBottom: 8, marginTop: 4 }}>{error}</div>}
-        <div className="flex items-center gap-2 mt-2">
-          <Button color="primary" size="sm" isLoading={isLoading} onPress={handleSubmit}>
-            {t("general.create")}
-          </Button>
-          <Button variant="bordered" size="sm" onPress={onCancel} disabled={isLoading}>
-            {t("general.cancel")}
-          </Button>
+    <div className="grid grid-cols-2 gap-2">
+      {fields.map((field) => (
+        <div key={field.name} className="flex items-center gap-2">
+          {renderField(field)}
         </div>
+      ))}
+      {error && <div className="col-span-2" style={{ color: "red", marginBottom: 8, marginTop: 4 }}>{error}</div>}
+      <div className="col-span-2 flex items-center gap-2 mt-2">
+        <Button color="primary" size="sm" isLoading={isLoading} onPress={handleSubmit}>
+          {t("general.create")}
+        </Button>
+        <Button variant="bordered" size="sm" onPress={onCancel} disabled={isLoading}>
+          {t("general.cancel")}
+        </Button>
       </div>
     </div>
   );
