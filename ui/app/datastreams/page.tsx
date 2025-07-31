@@ -12,13 +12,11 @@ import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import deleteData from "../../server/deleteData";
-
 // Reusable components
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
-
 // Constants
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Datastreams");
@@ -49,7 +47,6 @@ export default function Datastreams() {
   const [dateFilter, setDateFilter] = React.useState("");
   const [customStart, setCustomStart] = React.useState("");
   const [customEnd, setCustomEnd] = React.useState("");
-
   const dateFilterOptions = [
     { label: "New", value: "new" },
     { label: "Old", value: "old" },
@@ -62,7 +59,6 @@ export default function Datastreams() {
     thing: "",
     observedProperty: ""
   });
-
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -85,7 +81,6 @@ export default function Datastreams() {
     const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
     const matchesThing = !filters.thing || thingId === String(filters.thing);
     const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
-
     return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty;
   });
 
@@ -116,12 +111,10 @@ export default function Datastreams() {
     label: thing.name || `Thing ${thing["@iot.id"]}`,
     value: thing["@iot.id"]
   }));
-
   const sensorOptions = (entities?.sensors || []).map(sensor => ({
     label: sensor.name || `Sensor ${sensor["@iot.id"]}`,
     value: sensor["@iot.id"]
   }));
-
   const observedPropertyOptions = (entities?.observedProperties || []).map(op => ({
     label: op.name || `Observed Property ${op["@iot.id"]}`,
     value: op["@iot.id"]
@@ -132,7 +125,6 @@ export default function Datastreams() {
     name: "New Datastream",
     description: "Datastream Description",
   };
-
   const datastreamFields = [
     { name: "name", label: t("datastreams.name"), required: true, defaultValue: defaultValues.name },
     { name: "description", label: t("datastreams.description"), required: false, defaultValue: defaultValues.description },
@@ -184,6 +176,10 @@ export default function Datastreams() {
   const handleCancelCreate = () => setShowCreate(false);
   const handleCancelEdit = () => setEditDatastream(null);
 
+  const refreshDatastreams = async () => {
+    await refetchAll();
+  };
+
   const handleCreate = async (newDatastream) => {
     setCreateLoading(true);
     setCreateError(null);
@@ -194,28 +190,21 @@ export default function Datastreams() {
         setCreateLoading(false);
         return;
       }
-
       const obsType = newDatastream.observationType;
       if (!obsType) {
         setCreateError("Invalid Observation Type");
         setCreateLoading(false);
         return;
       }
-
       if (!newDatastream.thingId || !newDatastream.sensorId || !newDatastream.observedPropertyId) {
         setCreateError("Thing ID, Sensor ID, and Observed Property ID are required");
         setCreateLoading(false);
         return;
       }
-
       const payload: {
         name: any;
         description: any;
-        unitOfMeasurement: {
-          name: string;
-          symbol: string;
-          definition: string;
-        };
+        unitOfMeasurement: { name: string; symbol: string; definition: string };
         observationType: any;
         Thing: { "@iot.id": number };
         Sensor: { "@iot.id": number };
@@ -237,11 +226,9 @@ export default function Datastreams() {
         ObservedProperty: { "@iot.id": Number(newDatastream.observedPropertyId) },
         network: "acsot",
       };
-
       if (newDatastream.phenomenonTime) {
         payload.phenomenonTime = newDatastream.phenomenonTime;
       }
-
       if (Array.isArray(newDatastream.properties) && newDatastream.properties.length > 0) {
         payload.properties = Object.fromEntries(
           newDatastream.properties
@@ -251,13 +238,11 @@ export default function Datastreams() {
       } else {
         payload.properties = {};
       }
-
       await createData(item.root, token, payload);
-
       setShowCreate(false);
       setExpanded(null);
+      await refreshDatastreams();
       const data = await fetchData(item.root, token);
-      // No need to setDatastreams, useEnrichedDatastreams will update automatically
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
         setExpanded(String(newId));
@@ -284,14 +269,12 @@ export default function Datastreams() {
         setEditLoading(false);
         return;
       }
-
       const obsType = updatedDatastream.observationType;
       if (!obsType) {
         setEditError("Invalid Observation Type");
         setEditLoading(false);
         return;
       }
-
       const payload = {
         name: updatedDatastream.name,
         description: updatedDatastream.description,
@@ -307,7 +290,6 @@ export default function Datastreams() {
         ...(updatedDatastream.sensorId && { Sensor: { "@iot.id": Number(updatedDatastream.sensorId) } }),
         ...(updatedDatastream.observedPropertyId && { ObservedProperty: { "@iot.id": Number(updatedDatastream.observedPropertyId) } }),
       };
-
       if (Array.isArray(updatedDatastream.properties) && updatedDatastream.properties.length > 0) {
         const props = Object.fromEntries(
           updatedDatastream.properties
@@ -318,10 +300,8 @@ export default function Datastreams() {
           payload.properties = props;
         }
       }
-
       await updateData(`${item.root}(${originalDatastream["@iot.id"]})`, token, payload);
-      const data = await fetchData(item.root, token);
-      // No need to setDatastreams, useEnrichedDatastreams will update automatically
+      await refreshDatastreams();
       setExpanded(String(originalDatastream["@iot.id"]));
       setEditDatastream(null);
       await fetchDatastreamWithExpand(originalDatastream["@iot.id"]);
@@ -335,8 +315,7 @@ export default function Datastreams() {
   const handleDelete = async (id) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
-      const data = await fetchData(item.root, token);
-      // No need to setDatastreams, useEnrichedDatastreams will update automatically
+      await refreshDatastreams();
     } catch (err) {
       console.error("Error deleting datastream:", err);
     }
@@ -346,7 +325,6 @@ export default function Datastreams() {
   const fetchDatastreamWithExpand = async (datastreamId) => {
     const nested = siteConfig.items.find(i => i.label === "Datastreams").nested;
     const nestedData = {};
-
     await Promise.all(
       nested.map(async (nestedKey) => {
         const url = `${item.root}(${datastreamId})?$expand=${nestedKey}`;
@@ -356,7 +334,6 @@ export default function Datastreams() {
         }
       })
     );
-
     setNestedEntitiesMap(prev => ({
       ...prev,
       [datastreamId]: nestedData
@@ -364,7 +341,7 @@ export default function Datastreams() {
   };
 
   React.useEffect(() => {
-    refetchAll();
+    refreshDatastreams();
   }, []);
 
   React.useEffect(() => {
@@ -450,7 +427,6 @@ export default function Datastreams() {
           }
         }}
       />
-
       {/* Custom range inputs, shown only if dateFilter === "custom" */}
       {dateFilter === "custom" && (
         <div className="flex gap-4 items-center mb-4">
@@ -470,7 +446,6 @@ export default function Datastreams() {
           />
         </div>
       )}
-
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={entityMapComponent}

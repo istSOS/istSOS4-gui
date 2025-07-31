@@ -34,10 +34,10 @@ const EntitiesContext = createContext<EntitiesContextType>({
     observedProperties: [],
     historicalLocations: [],
   },
-  setEntities: () => {},
+  setEntities: () => { },
   loading: true,
   error: null,
-  refetchAll: async () => {},
+  refetchAll: async () => { },
 });
 
 export function EntitiesProvider({ children }: { children: React.ReactNode }) {

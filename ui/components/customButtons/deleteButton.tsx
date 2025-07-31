@@ -2,6 +2,7 @@ import * as React from "react";
 import { Button } from "@heroui/react";
 import deleteData from "../../server/deleteData";
 import { useTranslation } from "react-i18next";
+import { DeleteIcon } from "../icons"
 
 type DeleteButtonProps = {
   endpoint: string; // endpoint completo, es: "/Observations(1)"
@@ -59,18 +60,18 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
       <Button
         isIconOnly
         color="danger"
+
         onPress={() => setShowConfirm(true)}
         disabled={isLoading}
       >
-        {/*}
-        {t("general.delete")}
-        */}
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        />
+        {
+          isLoading ? (
+            <span className="loader"></span>
+          ) : (
+            <DeleteIcon/>
+          )
+        }
+
       </Button>
     </div>
   );

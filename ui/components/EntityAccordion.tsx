@@ -3,6 +3,7 @@ import React from "react";
 import { Accordion, AccordionItem, Button, Input, Textarea, Chip } from "@heroui/react";
 import EntityCreator from "../components/EntityCreator";
 import DeleteButton from "../components/customButtons/deleteButton";
+import { EditIcon } from "../components/icons";
 import { useTranslation } from "react-i18next";
 import EntityModal from "./modals/EntityModal";
 import { useRouter } from "next/navigation";
@@ -269,7 +270,7 @@ const EntityAccordion = ({
                     color="warning"
                     onPress={() => handleEditClick(entity)}
                   >
-                    {/* Edit icon here */}
+                    <EditIcon />
                   </Button>
                   <DeleteButton
                     endpoint={`${entityType}(${entity["@iot.id"]})`}
