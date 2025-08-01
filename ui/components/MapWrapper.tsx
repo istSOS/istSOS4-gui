@@ -287,6 +287,16 @@ export default function MapWrapper({
                                 fillColor: color,
                             };
                         },
+                        pointToLayer: (feature, latlng) => {
+                            return L.circleMarker(latlng, {
+                                radius: 8,
+                                fillColor: "#007bffff",
+                                color: "#0056b3",
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9,
+                            });
+                        },
                         onEachFeature: function (feature, layer) {
                             layer.on({
                                 click: () => onMarkerClick && onMarkerClick(id),
