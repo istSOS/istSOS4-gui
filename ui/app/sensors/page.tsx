@@ -49,6 +49,14 @@ export default function Sensors() {
     metadata: "Default sensor"
   }
 
+  // Filter sensors
+  const filtered = sensors.filter(sensor => {
+    const id = sensor["@iot.id"];
+    const nested = nestedEntitiesMap[id] || {};
+    const matchesSearch = JSON.stringify(sensor).toLowerCase().includes(search.toLowerCase());
+    return matchesSearch;
+  });
+
   // Fetch all entities on mount
   React.useEffect(() => {
     refetchAll();
@@ -59,19 +67,7 @@ export default function Sensors() {
     setLoading(entitiesLoading);
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
-  // Filter sensors based on search input
-  const filtered = sensors.filter(s =>
-    JSON.stringify(s).toLowerCase().includes(search.toLowerCase())
-  );
-  // Options for dropdowns
-  const thingOptions = (entities?.things || []).map(thing => ({
-    label: thing.name || `Thing ${thing["@iot.id"]}`,
-    value: thing["@iot.id"]
-  }));
-  const observedPropertyOptions = (entities?.observedProperties || []).map(op => ({
-    label: op.name || `Observed Property ${op["@iot.id"]}`,
-    value: op["@iot.id"]
-  }));
+
   // Sensor fields configuration
   const sensorFields = [
     { name: "name", label: t("sensors.name"), required: true, defaultValue: defaultValues.name },
@@ -184,7 +180,7 @@ export default function Sensors() {
   // Render loading and error states
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
-  
+
   // Render components
   const entityListComponent = (
     <EntityList
@@ -221,6 +217,7 @@ export default function Sensors() {
           setShowCreate(true);
           setExpanded("new-entity");
         }}
+
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
       />

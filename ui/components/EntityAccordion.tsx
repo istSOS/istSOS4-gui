@@ -3,6 +3,7 @@ import React from "react";
 import { Accordion, AccordionItem, Button, Input, Textarea, Chip } from "@heroui/react";
 import EntityCreator from "../components/EntityCreator";
 import DeleteButton from "../components/customButtons/deleteButton";
+import EditButton from "../components/customButtons/editButton";
 import { EditIcon } from "../components/icons";
 import { useTranslation } from "react-i18next";
 import EntityModal from "./modals/EntityModal";
@@ -59,9 +60,9 @@ const EntityAccordion = ({
   };
 
   const handleEditClick = (entity) => {
-    if (onEdit) {
-      onEdit(entity);
-    }
+    if (onEdit) onEdit(entity);
+    //when the edit button is clicked, the accordion will expand
+    if (onItemSelect) onItemSelect(String(entity["@iot.id"]));
   };
 
   // Helper to get the nested entity object from the map
@@ -155,18 +156,24 @@ const EntityAccordion = ({
                       title={
                         <div className="grid grid-cols-5 w-full">
                           <span className="font-bold text-gray-800">{entity.name ?? entity["@iot.id"] ?? "-"}</span>
-
-                          <Chip
-                            className="capitalize"
-                            variant="solid"
-                            color={getColorScale(items, entity)}
-                          >
-                            {entity.timeAgo ?? "-"}
-                          </Chip>
-
-                          <span className="text-gray-600">{entity.lastValue ?? "-"}{entity.unitOfMeasurement?.symbol ?? "-"}</span>
-                          <span className="text-gray-600">{entity.startDate ?? "-"}</span>
-                          <span className="text-gray-600">{entity.endDate ?? "-"}</span>
+                          {entityType === "datastreams" ? (
+                            <>
+                              <Chip
+                                className="capitalize"
+                                variant="solid"
+                                color={getColorScale(items, entity)}
+                              >
+                                {entity.timeAgo ?? "-"}
+                              </Chip>
+                              <span className="text-gray-600">{entity.lastValue ?? "-"}{entity.unitOfMeasurement?.symbol ?? "-"}</span>
+                              <span className="text-gray-600">{entity.startDate ?? "-"}</span>
+                              <span className="text-gray-600">{entity.endDate ?? "-"}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-gray-600">{entity.description ?? "-"}</span>
+                            </>
+                          )}
                         </div>
                       }
                       value={String(entity["@iot.id"] ?? idx)}
@@ -240,6 +247,7 @@ const EntityAccordion = ({
                                       <span className="text-sm font-medium">{key}:</span>
                                       {entitiesArray.map((ent, idx) => (
                                         <Button
+                                          radius="sm"
                                           key={ent["@iot.id"] || idx}
                                           size="sm"
                                           variant="solid"
@@ -265,13 +273,10 @@ const EntityAccordion = ({
                 </div>
                 {/* EDIT AND DELETE BUTTONS */}
                 <div className="flex items-center gap-1 pr-2">
-                  <Button
-                    isIconOnly
-                    color="warning"
-                    onPress={() => handleEditClick(entity)}
-                  >
-                    <EditIcon />
-                  </Button>
+                  <EditButton
+                    onEdit={() => handleEditClick(entity)}
+                    isLoading={isEditing && editEntity && editEntity["@iot.id"] === entity["@iot.id"]}
+                  />
                   <DeleteButton
                     endpoint={`${entityType}(${entity["@iot.id"]})`}
                     token={token}

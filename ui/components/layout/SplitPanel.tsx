@@ -74,6 +74,7 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
               background: "#eee",
               zIndex: 20,
               userSelect: "none",
+              borderRadius: "4px",
             }}
             onMouseDown={() => setIsSplitting(true)}
           />

@@ -118,6 +118,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                 <div className="flex gap-2 items-end">
                     {/* Button to open modal for geometry selection on map */}
                     <Button
+                        radius="sm"
                         color={geometry && !isLatLonFilled ? "success" : "primary"}
                         onPress={() => setModalOpen(true)}
                         type="button"
@@ -174,6 +175,7 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                 {/* Form submission and cancel buttons */}
                 <div className="flex gap-2 mt-2">
                     <Button
+                        radius="sm"
                         color="primary"
                         type="submit"
                         isLoading={submitLoading}
@@ -182,7 +184,11 @@ const FeatureOfInterestCreator: React.FC<Props> = ({
                         Create FeatureOfInterest
                     </Button>
 
-                    <Button color="default" type="button" onPress={onCancel}>
+                    <Button
+                        radius="sm"
+                        color="default"
+                        type="button"
+                        onPress={onCancel}>
                         Cancel
                     </Button>
                 </div>

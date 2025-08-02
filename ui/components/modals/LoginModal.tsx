@@ -69,7 +69,7 @@ export default function LoginModal({ open, onClose }) {
               <LogoIstSOS style={{ width: "100%", height: "auto" }} />
             </div>
           </Link>
-          
+
           <Link isExternal aria-label="OSGeo" href={siteConfig.links.OSGeo}>
             <div style={{ width: 120, height: "auto", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <LogoOSGeo style={{ width: "100%", height: "auto" }} />
@@ -136,6 +136,7 @@ export default function LoginModal({ open, onClose }) {
                 Need help?
               </a>
               <Button
+                radius="sm"
                 type="submit"
                 style={{
                   padding: "14px 24px",

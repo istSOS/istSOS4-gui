@@ -167,6 +167,7 @@ export default function Things() {
       <div className="flex mb-4">
         <SearchBar value={search} onChange={setSearch} />
         <Button
+          radius="sm"
           color="primary"
           size="sm"
           onPress={() => {
@@ -283,6 +284,7 @@ export default function Things() {
                               {key.includes("@iot") ? key.split("@")[0] : key}
                             </label>
                             <Button
+                              radius="sm"
                               size="sm"
                               variant="solid"
                               onPress={() => {
@@ -299,6 +301,7 @@ export default function Things() {
                       {/* EDIT AND DELETE BUTTONS */}
                       <div className="flex justify-end mt-4 gap-2 relative">
                         <Button
+                          radius="sm"
                           color="warning"
                           variant="bordered"
                           onPress={() => setEditThing(tgs)}

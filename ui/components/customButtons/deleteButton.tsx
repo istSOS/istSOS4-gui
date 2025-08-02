@@ -5,9 +5,9 @@ import { useTranslation } from "react-i18next";
 import { DeleteIcon } from "../icons"
 
 type DeleteButtonProps = {
-  endpoint: string; // endpoint completo, es: "/Observations(1)"
+  endpoint: string; //complete endpoint URL for deletion
   token: string;
-  onDeleted?: () => void; // callback opzionale dopo la cancellazione
+  onDeleted?: () => void;
 };
 
 const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted }) => {
@@ -38,6 +38,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
           <p className="mb-2 text-sm">{t("general.confirm_delete")}</p>
           <div className="flex gap-2">
             <Button
+              radius="sm"
               color="danger"
               size="sm"
               onPress={handleDelete}
@@ -46,6 +47,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               {t("general.yes")}
             </Button>
             <Button
+              radius="sm"
               size="sm"
               variant="bordered"
               onPress={() => setShowConfirm(false)}
@@ -58,6 +60,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
         </div>
       )}
       <Button
+        radius="sm"
         isIconOnly
         color="danger"
 
@@ -68,7 +71,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
           isLoading ? (
             <span className="loader"></span>
           ) : (
-            <DeleteIcon/>
+            <DeleteIcon />
           )
         }
 

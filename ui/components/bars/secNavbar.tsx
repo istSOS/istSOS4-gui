@@ -19,6 +19,7 @@ export function SecNavbar({
     <div className="flex mb-4 items-center gap-4">
       {showBack && (
         <Button
+          radius="sm"
           isIconOnly
           onPress={onBack ? onBack : () => window.history.back()}
         >

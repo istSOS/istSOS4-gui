@@ -40,7 +40,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
 
       <Divider style={{ backgroundColor: "white", height: 1, margin: "8px 0" }} />
 
-      
+
       <div className="flex flex-col justify-between items-start" style={{ marginBottom: "20px" }}>
 
 
@@ -51,6 +51,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
             placeholder={t("general.search")}
           />
           <Button
+            radius="sm"
             color="primary"
             onPress={onCreatePress}
             style={{ fontSize: 24, padding: "0 20px", minWidth: 0 }}
@@ -63,15 +64,15 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
 
 
         <div className="flex items-center justify-between w-full mt-2">
-          
+
           <div className="flex items-center">
             {/* FILTERS */}
             {Object.entries(filters).map(([key, filter]) => (
               <Select
-                
-                key={key}        
+
+                key={key}
                 radius="sm"
-                
+
                 selectedKeys={filter.value !== undefined && filter.value !== null ? [filter.value] : []}
                 onSelectionChange={(selection) => {
                   if (onFilterChange) {
@@ -79,9 +80,10 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
                     onFilterChange(key, selectedValue);
                   }
                 }}
-                className="ml-2"
+                
                 aria-label={filter.label}
                 style={{
+                  marginRight: "8px",
                   minWidth: "180px",
                   maxWidth: "300px",
                   width: "auto",
@@ -102,6 +104,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
 
             {onToggleMap && hasMap && (
               <Button
+                radius="sm"
                 size="sm"
                 variant="flat"
                 onPress={onToggleMap}
@@ -111,10 +114,11 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
               </Button>
             )}
           </div>
-          
+
         </div>
       </div>
-      <Divider style={{ backgroundColor: "white", height: 3, margin: "8px 0" }} />
+      { /* Divider to separate actions from content */ }
+      <Divider style={{ backgroundColor: "white", height: 3, margin: "8px 0", borderRadius: "8px" }} />
     </>
   );
 };

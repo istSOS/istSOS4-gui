@@ -149,6 +149,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             </Select>
           )}
           <Button
+            radius="sm"
             size="sm"
             color="primary"
             onPress={() => setFoiModalOpen(true)}
@@ -210,6 +211,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
                 className="flex-1"
               />
               <Button
+                radius="sm"
                 size="sm"
                 variant="bordered"
                 color="danger"
@@ -223,6 +225,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             </div>
           ))}
           <Button
+            radius="sm"
             size="sm"
             color="primary"
             variant="bordered"
@@ -307,10 +310,16 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
       ))}
       {error && <div className="col-span-2" style={{ color: "red", marginBottom: 8, marginTop: 4 }}>{error}</div>}
       <div className="col-span-2 flex items-center gap-2 mt-2">
-        <Button color="primary" size="sm" isLoading={isLoading} onPress={handleSubmit}>
+        <Button
+          radius="sm"
+          color="primary"
+          size="sm" isLoading={isLoading} onPress={handleSubmit}>
           {t("general.create")}
         </Button>
-        <Button variant="bordered" size="sm" onPress={onCancel} disabled={isLoading}>
+        <Button
+          radius="sm"
+          variant="bordered"
+          size="sm" onPress={onCancel} disabled={isLoading}>
           {t("general.cancel")}
         </Button>
       </div>

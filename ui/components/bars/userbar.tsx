@@ -13,7 +13,7 @@ export const mainColor = siteConfig.main_color;
 
 export default function UserBar({
     onLoginClick,
-    
+
 }) {
     const { token, setToken } = useAuth();
     const [selectedLang, setSelectedLang] = useState(i18n.language || "en");
@@ -74,6 +74,7 @@ export default function UserBar({
                     <>
                         <span> {t("general.cheer")} <b>{username}</b></span>
                         <Button
+                            radius="sm"
                             color="danger"
                             size="sm"
                             onPress={async () => {
@@ -90,7 +91,10 @@ export default function UserBar({
                 {/* Language selector */}
                 <Dropdown>
                     <DropdownTrigger>
-                        <Button variant="flat" size="sm">
+                        <Button
+                            radius="sm"
+                            variant="flat"
+                            size="sm">
                             {languages.find(lang => lang.code === selectedLang)?.label || selectedLang}
                         </Button>
                     </DropdownTrigger>

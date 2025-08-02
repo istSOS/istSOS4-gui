@@ -384,6 +384,7 @@ export default function MapWrapper({
                         }}
                     />
                     <Button
+                        radius="sm"
                         type="submit"
                         style={{
                             backgroundColor: "#007BFF",

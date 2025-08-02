@@ -86,6 +86,7 @@ const EntityModal: React.FC<EntityModalProps> = ({
       return (
         <div key={relationName} className="mt-4 border-t pt-4">
           <Button
+            radius="sm"
             variant="light"
             onPress={() => toggleExpand(relationName)}
             className="flex items-center justify-between w-full"
@@ -104,6 +105,7 @@ const EntityModal: React.FC<EntityModalProps> = ({
     return (
       <div key={relationName} className="mt-4 border-t pt-4">
         <Button
+          radius="sm"
           variant="light"
           onPress={() => toggleExpand(relationName)}
           className="flex items-center justify-between w-full"
@@ -178,6 +180,7 @@ const EntityModal: React.FC<EntityModalProps> = ({
                       <h3 className="text-sm font-medium mb-2">{t("fields.links")}</h3>
                       <div className="flex flex-wrap gap-2">
                         <Button
+                          radius="sm"
                           size="sm"
                           variant="bordered"
                           onPress={() => window.open(entity["@iot.selfLink"], "_blank")}
@@ -191,7 +194,10 @@ const EntityModal: React.FC<EntityModalProps> = ({
               )}
             </ModalBody>
             <ModalFooter>
-              <Button color="primary" onPress={onClose}>
+              <Button
+                radius="sm"
+                color="primary"
+                onPress={onClose}>
                 {t("general.close")}
               </Button>
             </ModalFooter>

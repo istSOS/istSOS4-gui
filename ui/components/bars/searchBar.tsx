@@ -18,6 +18,7 @@ export function SearchBar({
   return (
     <div className="flex">
       <Input
+        radius = "sm"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}

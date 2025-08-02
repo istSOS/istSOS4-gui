@@ -55,7 +55,7 @@ export default function ObservedProperties() {
         style={{ backgroundColor: "white", height: 1, margin: "8px 0", }}
       ></Divider>
 
-      <SearchBar value={search} onChange={setSearch}/>
+      <SearchBar value={search} onChange={setSearch} />
 
       {filtered.length === 0 ? (
         <p>No available observed properties.</p>
@@ -109,6 +109,7 @@ export default function ObservedProperties() {
                           {key.includes("@iot") ? key.split("@")[0] : key}
                         </label>
                         <Button
+                          radius="sm"
                           size="sm"
                           variant="solid"
                           onPress={() => {
@@ -126,7 +127,10 @@ export default function ObservedProperties() {
                   {/* EDIT AND DELETE BUTTONS */}
                   <div className="flex justify-end mt-4 gap-2 relative">
 
-                    <Button color="warning" variant="bordered">
+                    <Button
+                      radius="sm"
+                      color="warning"
+                      variant="bordered">
                       Edit
                     </Button>
 

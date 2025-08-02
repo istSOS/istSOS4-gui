@@ -255,10 +255,14 @@ export default function Datastreams() {
     }
   };
 
+  //called when user clicks on edit button, sets the datastream to be edited.
+  //the edit form will be shown for that datastream through the editEntity prop in EntityList
   const handleEdit = (entity) => {
     setEditDatastream(entity);
   };
 
+  //called when the user confirm the edit form, it will update the datastream with the new values.
+  //it will also refresh the datastreams list and fetch the updated datastream with expanded
   const handleSaveEdit = async (updatedDatastream, originalDatastream) => {
     setEditLoading(true);
     setEditError(null);
@@ -387,7 +391,17 @@ export default function Datastreams() {
   const entityMapComponent = showMap ? (
     <MapWrapper
       items={filtered}
-      getCoordinates={ds => ds.observedArea?.coordinates?.[0]?.[0] ? ds.observedArea.coordinates[0][0] : null}
+      getCoordinates={ds => {
+        const area = ds.observedArea;
+        if (!area) return null;
+        if (area.type === "Polygon" && area.coordinates?.[0]?.[0]) {
+          return area.coordinates[0][0];
+        }
+        if (area.type === "Point" && Array.isArray(area.coordinates)) {
+          return area.coordinates;
+        }
+        return null;
+      }}
       getId={ds => ds["@iot.id"] ? String(ds["@iot.id"]) : JSON.stringify(ds.observedArea?.coordinates)}
       getLabel={ds => ds.name ?? "-"}
       getGeoJSON={ds => ds.observedArea}

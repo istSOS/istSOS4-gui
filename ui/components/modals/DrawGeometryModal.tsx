@@ -175,6 +175,7 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
                     {/* Buttons for confirming selection or canceling */}
                     <div className="flex mt-6">
                         <Button
+                            radius="sm"
                             color="primary"
                             onPress={handleConfirm}
                             className="mr-4"
@@ -182,7 +183,9 @@ const DrawGeometryModal: React.FC<Props> = ({ isOpen, onOpenChange, title, onGeo
                         >
                             Confirm Selection
                         </Button>
-                        <Button onPress={() => onOpenChange(false)}>
+                        <Button
+                            radius="sm"
+                            onPress={() => onOpenChange(false)}>
                             Cancel
                         </Button>
                     </div>
