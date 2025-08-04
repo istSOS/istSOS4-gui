@@ -63,7 +63,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
 
 
 
-        <div className="flex items-center justify-between w-full mt-2">
+        <div className="flex items-center justify-between w-full mt-2 mb-2">
 
           <div className="flex items-center">
             {/* FILTERS */}

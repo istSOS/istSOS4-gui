@@ -16,7 +16,8 @@ import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
-import { Button, Input } from "@heroui/react";
+import { Button, DateInput, DatePicker, Input } from "@heroui/react";
+import { DateValue, now } from "@internationalized/date";
 
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Datastreams");
@@ -42,9 +43,11 @@ export default function Datastreams() {
   const [split, setSplit] = React.useState(0.5);
 
   // Date range state
-  const [customStart, setCustomStart] = React.useState("");
-  const [customEnd, setCustomEnd] = React.useState("");
+  const [customStart, setCustomStart] = React.useState<DateValue | null>(null);
+  const [customEnd, setCustomEnd] = React.useState<DateValue | null>(now("UTC"));
   const [sortOrder, setSortOrder] = React.useState<"desc" | "asc">("desc");
+
+
 
   // Filters
   const [filters, setFilters] = React.useState({
@@ -79,11 +82,14 @@ export default function Datastreams() {
 
   // Date range filtering and sorting
   if (customStart && customEnd) {
+    // Convert DateValue to JS Date (NOTE: UTC IS A PLACEHOLDER)
+    const startDate = customStart && "toDate" in customStart ? customStart.toDate("UTC") : new Date(customStart as any);
+    const endDate = customEnd && "toDate" in customEnd ? customEnd.toDate("UTC") : new Date(customEnd as any);
     filtered = filtered.filter(ds => {
       const date = ds.lastMeasurement;
       if (!date) return false;
       const d = new Date(date);
-      return d >= new Date(customStart) && d <= new Date(customEnd);
+      return d >= startDate && d <= endDate;
     });
   }
   // Always sort by date (descending or ascending)
@@ -404,46 +410,50 @@ export default function Datastreams() {
 
   return (
     <div className="min-h-screen p-4">
-      
-        <EntityActions
-          title="Datastreams"
-          search={search}
-          onSearchChange={setSearch}
-          onCreatePress={() => {
-            setShowCreate(true);
-            setExpanded("new-entity");
-          }}
-          showMap={showMap}
-          onToggleMap={() => setShowMap(prev => !prev)}
-          hasMap={true}
-          filters={{
-            thing: { label: "Thing", options: thingOptions, value: filters.thing },
-            sensor: { label: "Sensor", options: sensorOptions, value: filters.sensor },
-            observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty }
-          }}
-          onFilterChange={handleFilterChange}
-        />
+
+      <EntityActions
+        title="Datastreams"
+        search={search}
+        onSearchChange={setSearch}
+        onCreatePress={() => {
+          setShowCreate(true);
+          setExpanded("new-entity");
+        }}
+        showMap={showMap}
+        onToggleMap={() => setShowMap(prev => !prev)}
+        hasMap={true}
+        filters={{
+          thing: { label: "Thing", options: thingOptions, value: filters.thing },
+          sensor: { label: "Sensor", options: sensorOptions, value: filters.sensor },
+          observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty }
+        }}
+        onFilterChange={handleFilterChange}
+      />
 
 
-      <div className="flex flex-row items-end gap-2 mb-4 mt-2">
-        <Input
+      <div className="flex flex-row items-end gap-2 mb-2">
+        <DatePicker
+          granularity="minute"
+          hourCycle={24}
           size="sm"
-          type="datetime-local"
           value={customStart}
-          onChange={e => setCustomStart(e.target.value)}
-          placeholder="Start date"
+          onChange={setCustomStart}
           label="Start date"
           className="w-50"
+          placeholderValue={now("UTC")}
+          
         />
-        <Input
+        <DatePicker
+          granularity="minute"
+          hourCycle={24}
           size="sm"
-          type="datetime-local"
           value={customEnd}
-          onChange={e => setCustomEnd(e.target.value)}
-          placeholder="End date"
+          onChange={setCustomEnd}
           label="End date"
           className="w-50"
+          placeholderValue={now("UTC")}
         />
+
         <div className="flex items-center ml-auto">
           <Button
             radius="sm"
