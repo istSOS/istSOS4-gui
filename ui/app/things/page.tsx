@@ -1,40 +1,74 @@
 "use client";
-
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
-import { SecNavbar } from "../../components/bars/secNavbar";
-import fetchData from "../../server/fetchData";
 import { useAuth } from "../../context/AuthContext";
-import { Accordion, AccordionItem, Button, Divider, Input } from "@heroui/react";
-import { SearchBar } from "../../components/bars/searchBar";
-import DeleteButton from "../../components/customButtons/deleteButton";
-import createData from "../../server/createData";
-import EntityCreator from "../../components/EntityCreator";
-import updateData from "../../server/updateData";
 import { useEntities } from "../../context/EntitiesContext";
 import { useTranslation } from "react-i18next";
-
-// Define color from site configuration
+import createData from "../../server/createData";
+import updateData from "../../server/updateData";
+import fetchData from "../../server/fetchData";
+import deleteData from "../../server/deleteData";
+//Reusable components
+import { EntityActions } from "../../components/entity/EntityActions";
+import { SplitPanel } from "../../components/layout/SplitPanel";
+import { EntityList } from "../../components/entity/EntityList";
+import MapWrapper from "../../components/MapWrapper";
+// Constants
 export const mainColor = siteConfig.main_color;
-
-// Retrieve specific items from site configuration
 const item = siteConfig.items.find(i => i.label === "Things");
-
+// Main component
 export default function Things() {
-  // Initialize translation hook
+  // Hooks
   const { t } = useTranslation();
-
-  // Retrieve entities from context and refetch on mount
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+  const { token, loading: authLoading } = useAuth();
+  const router = useRouter();
+  // State management
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
+  const [things, setThings] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const [search, setSearch] = React.useState("");
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState(null);
+  const [editThing, setEditThing] = React.useState(null);
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [editError, setEditError] = React.useState(null);
+  const [expanded, setExpanded] = React.useState(null);
+  const [showMap, setShowMap] = React.useState(true);
+  const [split, setSplit] = React.useState(0.5);
+
+  const defaultValues = {
+    name: "New Thing",
+    description: "Default Description",
+    properties: {}
+  };
+
+  // Filter things
+  const filtered = things.filter(thing => {
+    const id = thing["@iot.id"];
+    const nested = nestedEntitiesMap[id] || {};
+    const matchesSearch = JSON.stringify(thing).toLowerCase().includes(search.toLowerCase());
+    return matchesSearch;
+  });
+
+  // Fetch all entities on mount
   React.useEffect(() => {
     refetchAll();
   }, []);
+  // Set things and loading/error states
+  React.useEffect(() => {
+    setThings(entities.things || []);
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entities, entitiesLoading, entitiesError]);
 
-  // Define the fields for thing creation
+  // Thing fields configuration
   const thingFields = [
-    { name: "name", label: t("things.name"), required: true },
-    { name: "description", label: t("things.description"), required: false },
+    { name: "name", label: t("things.name"), required: true, defaultValue: defaultValues.name },
+    { name: "description", label: t("things.description"), required: false, defaultValue: defaultValues.description },
     {
       name: "properties",
       label: t("things.properties"),
@@ -43,287 +77,161 @@ export default function Things() {
     },
   ];
 
-  // Labels for columns in the things table
-  const getLabel = (key) => {
-    // Map keys to translated labels
-    const map = {
-      name: t("things.name"),
-      description: t("things.description"),
-      properties: t("things.properties"),
-    };
-    return map[key] || key;
-  };
-
-  const { token, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [things, setThings] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-  const [search, setSearch] = React.useState("");
-
-  // State for creating things
-  const [showCreate, setShowCreate] = React.useState(false);
-  const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState(null);
-
-  // State for editing things
-  const [editThing, setEditThing] = React.useState(null);
-  const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState(null);
-
-  // State for expanded accordion items
-  const [expanded, setExpanded] = React.useState(null);
-
-  // Update things state when entities change
-  React.useEffect(() => {
-    setThings(entities.things);
-    setLoading(entitiesLoading);
-    setError(entitiesError);
-  }, [entities, entitiesLoading, entitiesError]);
-
-  // Filter things based on search input
-  const filtered = things.filter(thing =>
-    JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
-  );
-
-  // --- CREATION ---
+  // Handlers for CRUD operations
+  const handleCancelCreate = () => setShowCreate(false);
+  const handleCancelEdit = () => setEditThing(null);
   const handleCreate = async (newThing) => {
     setCreateLoading(true);
     setCreateError(null);
     try {
       const payload = {
         name: newThing.name,
-        description: newThing.description || "",
-        properties: {},
+        description: newThing.description,
+        properties: Array.isArray(newThing.properties) && newThing.properties.length > 0
+          ? Object.fromEntries(
+            newThing.properties
+              .filter(p => p.key)
+              .map(p => [p.key, p.value])
+          )
+          : {},
       };
 
-      // If properties are provided, convert to object
-      if (Array.isArray(newThing.properties) && newThing.properties.length > 0) {
-        payload.properties = Object.fromEntries(
-          newThing.properties
-            .filter(p => p.key)
-            .map(p => [p.key, p.value])
-        );
-      }
-
-      // Create the thing using the server function
       await createData(item.root, token, payload);
       setShowCreate(false);
       setExpanded(null);
-
-      // Refetch things after creation
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
+      // Auto-expand the newly created thing
+      if (data?.value && data.value.length > 0) {
+        const newId = data.value[data.value.length - 1]["@iot.id"];
+        setExpanded(String(newId));
+        fetchThingWithExpand(newId);
+      }
     } catch (err) {
       setCreateError(err.message || "Error creating thing");
     } finally {
       setCreateLoading(false);
     }
   };
-
-  // --- EDITING ---
-  const handleEdit = async (thing) => {
+  const handleEdit = (entity) => {
+    setEditThing(entity);
+  };
+  const handleSaveEdit = async (updatedThing, originalThing) => {
     setEditLoading(true);
     setEditError(null);
     try {
       const payload = {
-        name: thing.name,
-        description: thing.description || "",
-        properties: {},
+        name: updatedThing.name,
+        description: updatedThing.description,
+        properties: Array.isArray(updatedThing.properties) && updatedThing.properties.length > 0
+          ? Object.fromEntries(
+            updatedThing.properties
+              .filter(p => p.key)
+              .map(p => [p.key, p.value])
+          )
+          : {},
       };
 
-      if (Array.isArray(thing.properties) && thing.properties.length > 0) {
-        const props = Object.fromEntries(
-          thing.properties
-            .filter(p => p.key)
-            .map(p => [p.key, p.value])
-        );
-        if (Object.keys(props).length > 0) {
-          payload.properties = props;
-        }
-      }
-
-      await updateData(`${item.root}(${editThing["@iot.id"]})`, token, payload);
-      setEditThing(null);
-
-      // Refetch things after editing
+      await updateData(`${item.root}(${originalThing["@iot.id"]})`, token, payload);
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
+      setExpanded(String(originalThing["@iot.id"]));
+      setEditThing(null);
+      await fetchThingWithExpand(originalThing["@iot.id"]);
     } catch (err) {
-      setEditError(err.message || "Error editing thing");
+      setEditError(err.message || "Error updating thing");
     } finally {
       setEditLoading(false);
     }
   };
-
-  // -- RENDER --
+  const handleDelete = async (id) => {
+    try {
+      await deleteData(`${item.root}(${id})`, token);
+      const data = await fetchData(item.root, token);
+      setThings(data?.value || []);
+    } catch (err) {
+      console.error("Error deleting thing:", err);
+    }
+  };
+  // Fetch things with expanded nested entities
+  const fetchThingWithExpand = async (thingId) => {
+    const nested = siteConfig.items.find(i => i.label === "Things").nested;
+    const nestedData = {};
+    await Promise.all(
+      nested.map(async (nestedKey) => {
+        const url = `${item.root}(${thingId})?$expand=${nestedKey}`;
+        const data = await fetchData(url, token);
+        if (data && data[nestedKey]) {
+          nestedData[nestedKey] = data[nestedKey];
+        }
+      })
+    );
+    setNestedEntitiesMap(prev => ({
+      ...prev,
+      [thingId]: nestedData
+    }));
+  };
+  // Example call on mount
+  React.useEffect(() => {
+    if (things.length > 0) {
+      things.forEach(t => {
+        fetchThingWithExpand(t["@iot.id"]);
+      });
+    }
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entitiesLoading, entitiesError, token, things]);
+  // Render loading and error states
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
+  // Render components
+  const entityListComponent = (
+    <EntityList
+      items={filtered}
+      fields={thingFields}
+      expandedId={expanded}
+      onItemSelect={setExpanded}
+      entityType="things"
+      onEdit={handleEdit}
+      onSaveEdit={handleSaveEdit}
+      onDelete={handleDelete}
+      onCreate={handleCreate}
+      handleCancelCreate={handleCancelCreate}
+      handleCancelEdit={handleCancelEdit}
+      showCreateForm={showCreate}
+      isCreating={createLoading}
+      createError={createError}
+      editEntity={editThing}
+      isEditing={editLoading}
+      editError={editError}
+      token={token}
+      nestedEntities={nestedEntitiesMap}
+      sortOrder=""
+      setSortOrder={() => {}}
+    />
+  );
+
+  // Main render
   return (
     <div className="min-h-screen p-4">
-      <SecNavbar title="Things" />
-      <Divider style={{ backgroundColor: "white", height: 1, margin: "8px 0" }} />
-      <div className="flex mb-4">
-        <SearchBar value={search} onChange={setSearch} />
-        <Button
-          radius="sm"
-          color="primary"
-          size="sm"
-          onPress={() => {
-            setShowCreate(true);
-            setExpanded("new-thing");
-          }}
-          style={{ fontSize: 24, padding: "0 12px", minWidth: 0, marginLeft: 8 }}
-          aria-label="Add Thing"
-        >
-          +
-        </Button>
-      </div>
-      {filtered.length === 0 ? (
-        <p>No available things.</p>
-      ) : (
-        <Accordion
-          variant="splitted"
-          selectedKeys={expanded ? [expanded] : []}
-          onSelectionChange={(key) => {
-            if (typeof key === "string") setExpanded(key);
-            else if (key && typeof key === "object" && "has" in key) {
-              const arr = Array.from(key);
-              setExpanded(arr[0] != null ? String(arr[0]) : null);
-            } else if (Array.isArray(key)) {
-              setExpanded(key[0] ?? null);
-            } else {
-              setExpanded(null);
-            }
-          }}
-        >
-          {[
-            ...(showCreate ? [
-              <AccordionItem
-                key="new-thing"
-                id="thing-accordion-item-new-thing"
-                title={
-                  <div className="flex items-baseline gap-3">
-                    <span className="font-bold text-lg text-gray-800">New Thing</span>
-                  </div>
-                }
-                value="new-thing"
-              >
-                <EntityCreator
-                  fields={thingFields}
-                  onCreate={handleCreate}
-                  onCancel={() => setShowCreate(false)}
-                  isLoading={createLoading}
-                  error={createError}
-                  initialValues={{
-                    name: "New Thing",
-                    description: "Thing Description",
-                    properties: [],
-                  }}
-                />
-              </AccordionItem>
-            ] : []),
-            ...filtered.map((tgs, idx) => (
-              <AccordionItem
-                key={tgs["@iot.id"] ?? idx}
-                title={
-                  <div className="flex items-baseline gap-3">
-                    <span className="font-bold text-lg text-gray-800">{tgs.name ?? "-"}</span>
-                    <span className="text-xs text-gray-500">{tgs.description ?? "-"}</span>
-                  </div>
-                }
-              >
-                {/* EDITING THING */}
-                {editThing && editThing["@iot.id"] === tgs["@iot.id"] ? (
-                  <EntityCreator
-                    fields={thingFields}
-                    onCreate={handleEdit}
-                    onCancel={() => setEditThing(null)}
-                    isLoading={editLoading}
-                    error={editError}
-                    initialValues={{
-                      "@iot.id": tgs["@iot.id"],
-                      name: tgs.name,
-                      description: tgs.description,
-                      properties: Object.entries(tgs.properties || {}).map(([key, value]) => ({ key, value })),
-                    }}
-                  />
-                ) : (
-                  <div className="mt-2 flex flex-row gap-8">
-                    {/* SX col with self attributes */}
-                    <div className="flex-1 flex flex-col gap-2">
-                      {Object.entries(tgs).map(([key, value]) =>
-                        (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
-                          <div key={key} className="flex items-center gap-2">
-                            <label className="w-40 text-sm text-gray-700">
-                              {key.includes("@iot") ? key.split("@")[0] : t(getLabel(key))}
-                            </label>
-                            <Input
-                              size="sm"
-                              readOnly
-                              value={
-                                typeof value === "object"
-                                  ? JSON.stringify(value)
-                                  : value?.toString() ?? "-"
-                              }
-                              className="flex-1"
-                            />
-                          </div>
-                        )
-                      )}
-                    </div>
-                    {/* Vertical divider */}
-                    <div className="w-px bg-gray-300 mx-4" />
-                    {/* DX col with linked attributes */}
-                    <div className="flex-1 flex flex-col gap-2">
-                      {Object.entries(tgs).map(([key, value]) =>
-                        (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[A-Z]/.test(key)) ? null : (
-                          <div key={key} className="flex items-center gap-2">
-                            <label className="w-40 text-sm text-gray-700">
-                              {key.includes("@iot") ? key.split("@")[0] : key}
-                            </label>
-                            <Button
-                              radius="sm"
-                              size="sm"
-                              variant="solid"
-                              onPress={() => {
-                                alert(`Go to ${value}`);
-                              }}
-                            >
-                              {typeof value === "object"
-                                ? JSON.stringify(value)
-                                : String(value).split("/").pop() || String(value)}
-                            </Button>
-                          </div>
-                        )
-                      )}
-                      {/* EDIT AND DELETE BUTTONS */}
-                      <div className="flex justify-end mt-4 gap-2 relative">
-                        <Button
-                          radius="sm"
-                          color="warning"
-                          variant="bordered"
-                          onPress={() => setEditThing(tgs)}
-                        >
-                          {t("general.edit")}
-                        </Button>
-                        <DeleteButton
-                          endpoint={`${item.root}(${tgs["@iot.id"]})`}
-                          token={token}
-                          onDeleted={() =>
-                            setThings(prev => prev.filter(o => o["@iot.id"] !== tgs["@iot.id"]))
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </AccordionItem>
-            )),
-          ]}
-        </Accordion>
-      )}
+      <EntityActions
+        title="Things"
+        search={search}
+        onSearchChange={setSearch}
+        onCreatePress={() => {
+          setShowCreate(true);
+          setExpanded("new-entity");
+        }}
+        showMap={showMap}
+        onToggleMap={() => setShowMap(prev => !prev)}
+      />
+      <SplitPanel
+        leftPanel={entityListComponent}
+        rightPanel={null}
+        showRightPanel={null} //null to hide map
+        initialSplit={split}
+      />
     </div>
   );
 }

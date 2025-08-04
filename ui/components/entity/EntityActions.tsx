@@ -41,7 +41,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
       <Divider style={{ backgroundColor: "white", height: 1, margin: "8px 0" }} />
 
 
-      <div className="flex flex-col justify-between items-start" style={{ marginBottom: "20px" }}>
+      <div className="flex flex-col justify-between items-start" >
 
 
         <div className="flex items-center w-full">
@@ -99,26 +99,16 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
             ))}
           </div>
 
-
-          <div className="flex items-center">
-
-            {onToggleMap && hasMap && (
-              <Button
-                radius="sm"
-                size="sm"
-                variant="flat"
-                onPress={onToggleMap}
-                className="ml-2"
-              >
-                {showMap ? t("locations.hide_map") : t("locations.show_map")}
-              </Button>
-            )}
-          </div>
-
         </div>
       </div>
+
+      
       { /* Divider to separate actions from content */ }
+
+      { /*
       <Divider style={{ backgroundColor: "white", height: 3, margin: "8px 0", borderRadius: "8px" }} />
+      */}
+
     </>
   );
 };

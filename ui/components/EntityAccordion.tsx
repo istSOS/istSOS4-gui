@@ -31,6 +31,8 @@ const EntityAccordion = ({
   editError,
   token,
   nestedEntities = {},
+  sortOrder,
+  setSortOrder
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -80,7 +82,14 @@ const EntityAccordion = ({
         {entityType === "datastreams" && !showCreateForm && (
           <div className="grid grid-cols-5 gap-x-8 pl-2 py-1 pr-60 font-semibold text-gray-700 text-sm">
             <span>{getLabel("name")}</span>
-            <span className="pl-4">{getLabel("Last")}</span>
+            <span
+              className="pl-4 cursor-pointer select-none hover:underline"
+              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+              title={sortOrder === "desc" ? "Sort by oldest" : "Sort by newest"}
+            >
+              {getLabel("Last")}
+              {sortOrder === "desc" ? " ↓" : " ↑"}
+            </span>
             <span className="pl-8">{getLabel("Last value")}</span>
             <span className="pl-12">{getLabel("Start date")}</span>
             <span className="pl-16">{getLabel("End date")}</span>

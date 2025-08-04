@@ -48,6 +48,7 @@ export const siteConfig = {
       label: "Things",
       href: "/things",
       root: API_ROOT + "Things",
+      nested: ["Location", "Datastream"],
       weight: 2,
     },
 
@@ -71,13 +72,14 @@ export const siteConfig = {
       label: "Locations",
       href: "/locations",
       root: API_ROOT + "Locations",
+      nested: ["Things"],
       weight: 3,
     },
     {
       label: "HistoricalLocations",
       href: "/historical-locations",
       root: API_ROOT + "HistoricalLocations",
-      weight: 4,
+      weight: 3,
     },
 
 

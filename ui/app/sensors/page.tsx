@@ -203,6 +203,8 @@ export default function Sensors() {
       editError={editError}
       token={token}
       nestedEntities={nestedEntitiesMap}
+      sortOrder=""
+      setSortOrder={() => {}}
     />
   );
 

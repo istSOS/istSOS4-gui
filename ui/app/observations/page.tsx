@@ -310,6 +310,8 @@ export default function Observations() {
       editError={editError}
       token={token}
       nestedEntities={nestedEntitiesMap}
+      sortOrder= ""
+      setSortOrder={() => {}}
     />
   );
 

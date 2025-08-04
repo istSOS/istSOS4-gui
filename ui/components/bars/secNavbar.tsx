@@ -16,7 +16,7 @@ export function SecNavbar({
   const router = useRouter();
 
   return (
-    <div className="flex mb-4 items-center gap-4">
+    <div className="flex items-center gap-4">
       {showBack && (
         <Button
           radius="sm"

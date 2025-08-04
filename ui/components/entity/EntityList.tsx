@@ -21,6 +21,8 @@ interface EntityListProps {
   editError: string | null;
   token: string;
   nestedEntities: Record<string, any>;
+  sortOrder: string;
+  setSortOrder: (order: string) => void;
 }
 
 export const EntityList: React.FC<EntityListProps> = ({
@@ -42,7 +44,9 @@ export const EntityList: React.FC<EntityListProps> = ({
   isEditing,
   editError,
   token,
-  nestedEntities
+  nestedEntities,
+  sortOrder,
+  setSortOrder
 }) => {
   if (items.length === 0 && !showCreateForm) {
     return <p>No entities available.</p>;
@@ -69,6 +73,8 @@ export const EntityList: React.FC<EntityListProps> = ({
       editError={editError}
       token={token}
       nestedEntities={nestedEntities}
+      sortOrder={sortOrder}
+      setSortOrder={setSortOrder}
     />
   );
 };

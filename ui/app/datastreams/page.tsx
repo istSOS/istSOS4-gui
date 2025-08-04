@@ -12,17 +12,16 @@ import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import deleteData from "../../server/deleteData";
-// Reusable components
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
-// Constants
+import { Button, Input } from "@heroui/react";
+
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Datastreams");
 
 export default function Datastreams() {
-  // Hooks
   const { t } = useTranslation();
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   const { token, loading: authLoading } = useAuth();
@@ -30,7 +29,6 @@ export default function Datastreams() {
   const searchParams = useSearchParams();
   const expandedFromQuery = searchParams.get("expanded");
 
-  // State management
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
@@ -43,15 +41,10 @@ export default function Datastreams() {
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
-  // Date filter state
-  const [dateFilter, setDateFilter] = React.useState("");
+  // Date range state
   const [customStart, setCustomStart] = React.useState("");
   const [customEnd, setCustomEnd] = React.useState("");
-  const dateFilterOptions = [
-    { label: "New", value: "new" },
-    { label: "Old", value: "old" },
-    { label: "Custom Range", value: "custom" }
-  ];
+  const [sortOrder, setSortOrder] = React.useState<"desc" | "asc">("desc");
 
   // Filters
   const [filters, setFilters] = React.useState({
@@ -84,20 +77,8 @@ export default function Datastreams() {
     return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty;
   });
 
-  // Date/time filtering and sorting using phenomenonTime
-  if (dateFilter === "new") {
-    filtered = [...filtered].sort((a, b) => {
-      const dateA = a.lastMeasurement;
-      const dateB = b.lastMeasurement;
-      return dateB && dateA ? new Date(dateB).getTime() - new Date(dateA).getTime() : 0;
-    });
-  } else if (dateFilter === "old") {
-    filtered = [...filtered].sort((a, b) => {
-      const dateA = a.lastMeasurement;
-      const dateB = b.lastMeasurement;
-      return dateA && dateB ? new Date(dateA).getTime() - new Date(dateB).getTime() : 0;
-    });
-  } else if (dateFilter === "custom" && customStart && customEnd) {
+  // Date range filtering and sorting
+  if (customStart && customEnd) {
     filtered = filtered.filter(ds => {
       const date = ds.lastMeasurement;
       if (!date) return false;
@@ -105,6 +86,15 @@ export default function Datastreams() {
       return d >= new Date(customStart) && d <= new Date(customEnd);
     });
   }
+  // Always sort by date (descending or ascending)
+  filtered = [...filtered].sort((a, b) => {
+    const dateA = a.lastMeasurement;
+    const dateB = b.lastMeasurement;
+    if (!dateA || !dateB) return 0;
+    return sortOrder === "desc"
+      ? new Date(dateB).getTime() - new Date(dateA).getTime()
+      : new Date(dateA).getTime() - new Date(dateB).getTime();
+  });
 
   // Options for dropdowns
   const thingOptions = (entities?.things || []).map(thing => ({
@@ -255,14 +245,10 @@ export default function Datastreams() {
     }
   };
 
-  //called when user clicks on edit button, sets the datastream to be edited.
-  //the edit form will be shown for that datastream through the editEntity prop in EntityList
   const handleEdit = (entity) => {
     setEditDatastream(entity);
   };
 
-  //called when the user confirm the edit form, it will update the datastream with the new values.
-  //it will also refresh the datastreams list and fetch the updated datastream with expanded
   const handleSaveEdit = async (updatedDatastream, originalDatastream) => {
     setEditLoading(true);
     setEditError(null);
@@ -385,6 +371,8 @@ export default function Datastreams() {
       editError={editError}
       token={token}
       nestedEntities={nestedEntitiesMap}
+      sortOrder={sortOrder}
+      setSortOrder={order => setSortOrder(order === "asc" ? "asc" : "desc")}
     />
   );
 
@@ -416,50 +404,58 @@ export default function Datastreams() {
 
   return (
     <div className="min-h-screen p-4">
-      <EntityActions
-        title="Datastreams"
-        search={search}
-        onSearchChange={setSearch}
-        onCreatePress={() => {
-          setShowCreate(true);
-          setExpanded("new-entity");
-        }}
-        showMap={showMap}
-        onToggleMap={() => setShowMap(prev => !prev)}
-        hasMap={true}
-        filters={{
-          thing: { label: "Thing", options: thingOptions, value: filters.thing },
-          sensor: { label: "Sensor", options: sensorOptions, value: filters.sensor },
-          observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty },
-          date: { label: "Date Filter", options: dateFilterOptions, value: dateFilter }
-        }}
-        onFilterChange={(key, value) => {
-          if (key === "date") {
-            setDateFilter(String(value));
-          } else {
-            handleFilterChange(key, value);
-          }
-        }}
-      />
-      {/* Custom range inputs, shown only if dateFilter === "custom" */}
-      {dateFilter === "custom" && (
-        <div className="flex gap-4 items-center mb-4">
-          <input
-            type="datetime-local"
-            value={customStart}
-            onChange={e => setCustomStart(e.target.value)}
-            className="border rounded px-2 py-1"
-            placeholder="Start date"
-          />
-          <input
-            type="datetime-local"
-            value={customEnd}
-            onChange={e => setCustomEnd(e.target.value)}
-            className="border rounded px-2 py-1"
-            placeholder="End date"
-          />
+      
+        <EntityActions
+          title="Datastreams"
+          search={search}
+          onSearchChange={setSearch}
+          onCreatePress={() => {
+            setShowCreate(true);
+            setExpanded("new-entity");
+          }}
+          showMap={showMap}
+          onToggleMap={() => setShowMap(prev => !prev)}
+          hasMap={true}
+          filters={{
+            thing: { label: "Thing", options: thingOptions, value: filters.thing },
+            sensor: { label: "Sensor", options: sensorOptions, value: filters.sensor },
+            observedProperty: { label: "Observed Property", options: observedPropertyOptions, value: filters.observedProperty }
+          }}
+          onFilterChange={handleFilterChange}
+        />
+
+
+      <div className="flex flex-row items-end gap-2 mb-4 mt-2">
+        <Input
+          size="sm"
+          type="datetime-local"
+          value={customStart}
+          onChange={e => setCustomStart(e.target.value)}
+          placeholder="Start date"
+          label="Start date"
+          className="w-50"
+        />
+        <Input
+          size="sm"
+          type="datetime-local"
+          value={customEnd}
+          onChange={e => setCustomEnd(e.target.value)}
+          placeholder="End date"
+          label="End date"
+          className="w-50"
+        />
+        <div className="flex items-center ml-auto">
+          <Button
+            radius="sm"
+            size="sm"
+            variant="flat"
+            onPress={() => setShowMap(prev => !prev)}
+            className="ml-2"
+          >
+            {showMap ? t("locations.hide_map") : t("locations.show_map")}
+          </Button>
         </div>
-      )}
+      </div>
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={entityMapComponent}

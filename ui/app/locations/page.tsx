@@ -284,7 +284,10 @@ export default function Locations() {
             isEditing={editLoading}
             editError={editError}
             handleCancelCreate={handleCancelCreate}
-            handleCancelEdit={handleCancelEdit} onSaveEdit={undefined}          />
+            handleCancelEdit={handleCancelEdit} onSaveEdit={undefined}
+            sortOrder={""}
+            setSortOrder={undefined}
+            />
         </div>
         {/* SPLITTER */}
         {showMap && (
