@@ -48,7 +48,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
           <SearchBar
             value={search}
             onChange={onSearchChange}
-            placeholder={t("general.search")}
+            placeholder={t("general.search_placeholder")}
           />
           <Button
             radius="sm"

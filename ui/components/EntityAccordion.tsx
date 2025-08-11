@@ -9,7 +9,10 @@ import { useTranslation } from "react-i18next";
 import EntityModal from "./modals/EntityModal";
 import { useRouter } from "next/navigation";
 import { getTimeAgoDays, getColorScale } from "./hooks/useColorScale";
-
+import { useTimezone } from "../context/TimezoneContext";
+import { DateTime } from "luxon";
+import { formatDateWithTimezone } from "./hooks/formatDateWithTimezone";
+import LocationCreator from "../app/things/LocationCreator"; // <-- Importa il componente
 
 const EntityAccordion = ({
   items,
@@ -42,6 +45,11 @@ const EntityAccordion = ({
   const [modalEntity, setModalEntity] = React.useState<any>(null);
   const [modalNestedEntities, setModalNestedEntities] = React.useState<Record<string, any>>({});
 
+  const { timezone } = useTimezone();
+
+  // Stato per mostrare il LocationCreator inline per una Thing
+  const [locationCreateForId, setLocationCreateForId] = React.useState<string | null>(null);
+
   const getLabel = (key) => {
     const map = {
       name: t(`${entityType}.name`),
@@ -57,22 +65,25 @@ const EntityAccordion = ({
       latitude: t(`${entityType}.latitude`),
       longitude: t(`${entityType}.longitude`),
       encodingType: t(`${entityType}.encoding_type`),
+      timeAgo: t(`general.last`),
+      lastMeasurement: t(`general.end_date`),
+      lastValue: t(`general.last_value`),
+      startDate: t(`general.start_date`),
+      endDate: t(`general.end_date`),
     };
     return map[key] || key;
   };
 
   const handleEditClick = (entity) => {
     if (onEdit) onEdit(entity);
-    //when the edit button is clicked, the accordion will expand
     if (onItemSelect) onItemSelect(String(entity["@iot.id"]));
   };
 
-  // Helper to get the nested entity object from the map
-  const getNestedEntity = (entity, key) => {
-    if (!entity || !entity["@iot.id"] || !nestedEntities) return null;
-    const nested = nestedEntities[entity["@iot.id"]];
-    if (nested && nested[key]) return nested[key];
-    return null;
+  // Handler per la creazione di una nuova Location
+  const handleLocationCreate = (loc, thingId) => {
+    // Puoi gestire qui l'associazione della Location al Thing, oppure solo chiudere il form
+    setLocationCreateForId(null);
+    // Puoi anche chiamare una callback per aggiornare la lista delle Things se necessario
   };
 
   return (
@@ -87,12 +98,12 @@ const EntityAccordion = ({
               onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
               title={sortOrder === "desc" ? "Sort by oldest" : "Sort by newest"}
             >
-              {getLabel("Last")}
+              {t("general.last")}
               {sortOrder === "desc" ? " ↓" : " ↑"}
             </span>
-            <span className="pl-8">{getLabel("Last value")}</span>
-            <span className="pl-12">{getLabel("Start date")}</span>
-            <span className="pl-16">{getLabel("End date")}</span>
+            <span className="pl-8">{t("general.last_value")}</span>
+            <span className="pl-12">{t("general.start_date")}</span>
+            <span className="pl-16">{t("general.end_date")}</span>
           </div>
         )}
 
@@ -128,6 +139,7 @@ const EntityAccordion = ({
                         }, {})
                       }
                     />
+
                   </AccordionItem>
                 </Accordion>
               </div>
@@ -158,8 +170,6 @@ const EntityAccordion = ({
                       }
                     }}
                   >
-
-
                     <AccordionItem
                       key={entity["@iot.id"] ?? idx}
                       title={
@@ -169,14 +179,18 @@ const EntityAccordion = ({
                             <>
                               <Chip
                                 className="capitalize"
-                                variant="solid"
+                                variant="dot"
                                 color={getColorScale(items, entity)}
                               >
                                 {entity.timeAgo ?? "-"}
                               </Chip>
                               <span className="text-gray-600">{entity.lastValue ?? "-"}{entity.unitOfMeasurement?.symbol ?? "-"}</span>
-                              <span className="text-gray-600">{entity.startDate ?? "-"}</span>
-                              <span className="text-gray-600">{entity.endDate ?? "-"}</span>
+                              <span className="text-gray-600">
+                                {formatDateWithTimezone(entity.startDate, timezone)}
+                              </span>
+                              <span className="text-gray-600">
+                                {formatDateWithTimezone(entity.endDate, timezone)}
+                              </span>
                             </>
                           ) : (
                             <>
@@ -187,8 +201,6 @@ const EntityAccordion = ({
                       }
                       value={String(entity["@iot.id"] ?? idx)}
                     >
-
-
                       {editEntity && editEntity["@iot.id"] === entity["@iot.id"] ? (
                         <div className="mt-2 flex flex-row gap-8">
                           <div className="flex-[2] gap-2">
@@ -225,54 +237,75 @@ const EntityAccordion = ({
                       ) : (
                         <div className="mt-2 flex flex-row gap-8">
                           <div className="flex-[2] grid grid-cols-2 gap-2">
-                            {Object.entries(entity).map(([key, value]) =>
-                              (value == null || key == "@iot.id" || key == "@iot.selfLink" || !/^[a-z]/.test(key)) ? null : (
-                                <div key={key} className="flex items-center gap-2">
+                            {fields.map(field => {
+                              const value = entity[field.name];
+                              if (value == null) return null;
+                              return (
+                                <div key={field.name} className="flex items-center gap-2">
                                   <Textarea
                                     disableAutosize
                                     readOnly
                                     variant="bordered"
                                     size="sm"
-                                    label={getLabel(key)}
+                                    label={field.label || getLabel(field.name)}
                                     value={
                                       typeof value === "object"
                                         ? JSON.stringify(value)
                                         : value?.toString() ?? "-"
                                     }
-                                    className="flex-1 "
+                                    className="flex-1"
                                   />
                                 </div>
-                              )
-                            )}
-                            <div className="flex gap-2 items-center">
-                              {/* Render buttons for nested entities */}
-                              {Object.entries(nestedEntities?.[entity["@iot.id"]] || {})
-                                .filter(([key]) => key !== "Observations")
-                                .map(([key, nestedEntity]) => {
-                                  if (!nestedEntity) return null;
-                                  const entitiesArray = Array.isArray(nestedEntity) ? nestedEntity : [nestedEntity];
-                                  return (
-                                    <div key={key} className="flex items-center gap-2">
-                                      <span className="text-sm font-medium">{key}:</span>
-                                      {entitiesArray.map((ent, idx) => (
-                                        <Button
-                                          radius="sm"
-                                          key={ent["@iot.id"] || idx}
-                                          size="sm"
-                                          variant="solid"
-                                          onPress={() => {
-                                            setModalEntity(ent);
-                                            const nestedId = ent?.["@iot.id"];
-                                            setModalNestedEntities(nestedEntities?.[nestedId] || {});
-                                            setModalOpen(true);
-                                          }}
-                                        >
-                                          {(ent.name || ent.description || ent["@iot.id"] || "Details")}
-                                        </Button>
-                                      ))}
-                                    </div>
-                                  );
-                                })}
+                              );
+                            })}
+
+                            <div className="col-span-2">
+                              <hr className="my-1" />
+                              <span className="font-semibold text-gray-700 block mb-1">
+                                {t("general.nested_entities") || "Nested Entities"}:
+                              </span>
+
+                              <div className="flex gap-2 items-center mb-2">
+                                {/* Render buttons for nested entities */}
+                                {Object.entries(nestedEntities?.[entity["@iot.id"]] || {})
+                                  .filter(([key]) => key !== "Observations")
+                                  .map(([key, nestedEntity]) => {
+                                    if (!nestedEntity) return null;
+                                    const entitiesArray = Array.isArray(nestedEntity) ? nestedEntity : [nestedEntity];
+                                    return (
+                                      <div key={key} className="flex items-center gap-2">
+                                        <span className="text-sm font-medium">{key}:</span>
+                                        {entitiesArray.map((ent, idx) => (
+                                          <Button
+                                            radius="sm"
+                                            key={ent["@iot.id"] || idx}
+                                            size="sm"
+                                            variant="solid"
+                                            onPress={() => {
+                                              setModalEntity(ent);
+                                              const nestedId = ent?.["@iot.id"];
+                                              setModalNestedEntities(nestedEntities?.[nestedId] || {});
+                                              setModalOpen(true);
+                                            }}
+                                          >
+                                            {(ent.name || ent.description || ent["@iot.id"] || "Details")}
+                                          </Button>
+                                        ))}
+                                      </div>
+                                    );
+                                  })}
+
+                              </div>
+
+                              {/* Se il bottone è stato premuto, mostra il LocationCreator inline */}
+                              {entityType === "things" && locationCreateForId === String(entity["@iot.id"]) && (
+                                <div className="mt-2 p-2 border rounded bg-white">
+                                  <LocationCreator
+                                    onCreate={loc => handleLocationCreate(loc, entity["@iot.id"])}
+                                    onCancel={() => setLocationCreateForId(null)}
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

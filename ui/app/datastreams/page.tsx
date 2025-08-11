@@ -18,10 +18,11 @@ import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
 import { Button, DateInput, DatePicker, Input } from "@heroui/react";
 import { DateValue, now } from "@internationalized/date";
-
+import { useTimezone } from "../../context/TimezoneContext";
+import { parseDateTime } from "@internationalized/date";
+import { DateTime } from "luxon";
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Datastreams");
-
 export default function Datastreams() {
   const { t } = useTranslation();
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
@@ -29,7 +30,6 @@ export default function Datastreams() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const expandedFromQuery = searchParams.get("expanded");
-
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
@@ -41,28 +41,50 @@ export default function Datastreams() {
   const [expanded, setExpanded] = React.useState(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
-
+  const { timezone } = useTimezone();
+  const currentTime = DateTime.now().setZone(timezone);
   // Date range state
   const [customStart, setCustomStart] = React.useState<DateValue | null>(null);
-  const [customEnd, setCustomEnd] = React.useState<DateValue | null>(now("UTC"));
+  const [customEnd, setCustomEnd] = React.useState<DateValue | null>(null)
   const [sortOrder, setSortOrder] = React.useState<"desc" | "asc">("desc");
-
-
-
   // Filters
   const [filters, setFilters] = React.useState({
     sensor: "",
     thing: "",
     observedProperty: ""
   });
+
+  //bbox status
+  const [bboxInput, setBboxInput] = React.useState("");
+  const [bbox, setBbox] = React.useState("");
+  const [isBboxValid, setIsBboxValid] = React.useState(true);
+
+  const validateBboxInput = (input) => {
+    if (input === "") {
+      return true; //empty input are allowed for reset
+    }
+    const bboxRegex = /^-?\d+\.?\d*,\s*-?\d+\.?\d*,\s*-?\d+\.?\d*,\s*-?\d+\.?\d*$/;
+    return bboxRegex.test(input);
+  };
+
+  const handleBboxInputChange = (e) => {
+    const input = e.target.value;
+    setBboxInput(input);
+    setIsBboxValid(validateBboxInput(input));
+  };
+
+  const handleSetBbox = () => {
+    if (isBboxValid) {
+      setBbox(bboxInput);
+    }
+  };
+
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
-
   // Get datastreams enriched with last value, last measurement, timeAgo, etc.
   const rawDatastreams = entities?.datastreams || [];
   const datastreams = useEnrichedDatastreams(rawDatastreams, token);
-
   // Filter datastreams
   let filtered = datastreams.filter(ds => {
     const id = ds["@iot.id"];
@@ -77,9 +99,26 @@ export default function Datastreams() {
     const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
     const matchesThing = !filters.thing || thingId === String(filters.thing);
     const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
-    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty;
-  });
 
+
+    //bbox filter
+    const matchesBbox = () => {
+      if (!bbox) return true;
+      const [minLat, minLon, maxLat, maxLon] = bbox.split(',').map(Number);
+      const area = ds.observedArea;
+      if (!area || !area.coordinates) return false;
+      if (area.type === "Polygon" && area.coordinates?.[0]?.[0]) {
+        const [lon, lat] = area.coordinates[0][0];
+        return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
+      }
+      if (area.type === "Point" && Array.isArray(area.coordinates)) {
+        const [lon, lat] = area.coordinates;
+        return lat >= minLat && lat <= maxLat && lon >= minLon && lon <= maxLon;
+      }
+      return false;
+    };
+    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
+  });
   // Date range filtering and sorting
   if (customStart && customEnd) {
     // Convert DateValue to JS Date (NOTE: UTC IS A PLACEHOLDER)
@@ -101,7 +140,6 @@ export default function Datastreams() {
       ? new Date(dateB).getTime() - new Date(dateA).getTime()
       : new Date(dateA).getTime() - new Date(dateB).getTime();
   });
-
   // Options for dropdowns
   const thingOptions = (entities?.things || []).map(thing => ({
     label: thing.name || `Thing ${thing["@iot.id"]}`,
@@ -115,7 +153,6 @@ export default function Datastreams() {
     label: op.name || `Observed Property ${op["@iot.id"]}`,
     value: op["@iot.id"]
   }));
-
   // Datastream fields configuration
   const defaultValues = {
     name: "New Datastream",
@@ -138,7 +175,6 @@ export default function Datastreams() {
       type: "select",
       options: observationTypeURIs
     },
-    { name: "phenomenonTime", label: t("datastreams.phenomenon_time"), type: "datetime-local", required: false },
     {
       name: "properties",
       label: t("things.properties"),
@@ -167,15 +203,16 @@ export default function Datastreams() {
       options: observedPropertyOptions
     },
   ];
-
+  const datastreamDetailFields = [
+    ...datastreamFields,
+    { name: "phenomenonTime", label: t("datastreams.phenomenon_time"), type: "datetime-local", required: false },
+  ];
   // Handlers for CRUD operations
   const handleCancelCreate = () => setShowCreate(false);
   const handleCancelEdit = () => setEditDatastream(null);
-
   const refreshDatastreams = async () => {
     await refetchAll();
   };
-
   const handleCreate = async (newDatastream) => {
     setCreateLoading(true);
     setCreateError(null);
@@ -250,11 +287,9 @@ export default function Datastreams() {
       setCreateLoading(false);
     }
   };
-
   const handleEdit = (entity) => {
     setEditDatastream(entity);
   };
-
   const handleSaveEdit = async (updatedDatastream, originalDatastream) => {
     setEditLoading(true);
     setEditError(null);
@@ -307,7 +342,6 @@ export default function Datastreams() {
       setEditLoading(false);
     }
   };
-
   const handleDelete = async (id) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
@@ -316,7 +350,6 @@ export default function Datastreams() {
       console.error("Error deleting datastream:", err);
     }
   };
-
   // Fetch datastreams with expanded nested entities
   const fetchDatastreamWithExpand = async (datastreamId) => {
     const nested = siteConfig.items.find(i => i.label === "Datastreams").nested;
@@ -335,15 +368,12 @@ export default function Datastreams() {
       [datastreamId]: nestedData
     }));
   };
-
   React.useEffect(() => {
     refreshDatastreams();
   }, []);
-
   React.useEffect(() => {
     if (expandedFromQuery) setExpanded(expandedFromQuery);
   }, [expandedFromQuery]);
-
   React.useEffect(() => {
     if (datastreams.length > 0) {
       datastreams.forEach(ds => {
@@ -351,15 +381,15 @@ export default function Datastreams() {
       });
     }
   }, [datastreams, token]);
-
   const loading = authLoading || entitiesLoading;
   if (loading) return <p>Loading...</p>;
   if (entitiesError) return <p>{entitiesError}</p>;
-
   const entityListComponent = (
     <EntityList
       items={filtered}
-      fields={datastreamFields}
+      //during creation and editing, it shows the fields for creating a new datastream without phenomenonTime
+      //when viewing details, it shows the fields with phenomenonTime
+      fields={showCreate || editDatastream ? datastreamFields : datastreamDetailFields}
       expandedId={expanded}
       onItemSelect={setExpanded}
       entityType="datastreams"
@@ -381,7 +411,6 @@ export default function Datastreams() {
       setSortOrder={order => setSortOrder(order === "asc" ? "asc" : "desc")}
     />
   );
-
   const entityMapComponent = showMap ? (
     <MapWrapper
       items={filtered}
@@ -407,10 +436,8 @@ export default function Datastreams() {
       showMarkers={false}
     />
   ) : null;
-
   return (
     <div className="min-h-screen p-4">
-
       <EntityActions
         title="Datastreams"
         search={search}
@@ -429,30 +456,55 @@ export default function Datastreams() {
         }}
         onFilterChange={handleFilterChange}
       />
-
-
       <div className="flex flex-row items-end gap-2 mb-2">
-        <DatePicker
-          granularity="minute"
-          hourCycle={24}
-          size="sm"
-          value={customStart}
-          onChange={setCustomStart}
-          label="Start date"
-          className="w-50"
-          placeholderValue={now("UTC")}
-          
-        />
-        <DatePicker
-          granularity="minute"
-          hourCycle={24}
-          size="sm"
-          value={customEnd}
-          onChange={setCustomEnd}
-          label="End date"
-          className="w-50"
-          placeholderValue={now("UTC")}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <DatePicker
+            granularity="minute"
+            hourCycle={24}
+            size="sm"
+            value={customStart}
+            onChange={setCustomStart}
+            label={t("general.start_date")}
+            className="w-50"
+            placeholderValue={now(timezone)}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <DatePicker
+            granularity="minute"
+            hourCycle={24}
+            size="sm"
+            value={customEnd}
+            onChange={setCustomEnd}
+            label={t("general.end_date")}
+            className="w-50"
+            placeholderValue={now(timezone)}
+          />
+        </div>
+
+
+        {/* Bounding box */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <Input
+            radius="sm"
+            size="sm"
+            label="Bounding Box"
+            placeholder="minLat, minLon, maxLat, maxLon"
+            value={bboxInput}
+            onChange={handleBboxInputChange}
+            color= {isBboxValid ? "default" : "danger"}
+          />
+          <Button
+            radius="sm"
+            variant="flat"
+            
+            onPress={handleSetBbox}
+            disabled={!isBboxValid}
+          >
+            Set BBox
+          </Button>
+        </div>
+
 
         <div className="flex items-center ml-auto">
           <Button

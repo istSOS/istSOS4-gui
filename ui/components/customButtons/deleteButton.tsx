@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Button } from "@heroui/react";
+import { Button, Tooltip } from "@heroui/react";
 import deleteData from "../../server/deleteData";
 import { useTranslation } from "react-i18next";
 import { DeleteIcon } from "../icons"
@@ -41,6 +41,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               radius="sm"
               color="danger"
               size="sm"
+              
               onPress={handleDelete}
               isLoading={isLoading}
             >
@@ -59,23 +60,28 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
         </div>
       )}
-      <Button
-        radius="sm"
-        isIconOnly
-        color="danger"
+      <Tooltip content={t("general.delete")}>
+        <Button
+          radius="sm"
+          isIconOnly
+          color="danger"
+          variant="light"
 
-        onPress={() => setShowConfirm(true)}
-        disabled={isLoading}
-      >
-        {
-          isLoading ? (
-            <span className="loader"></span>
-          ) : (
-            <DeleteIcon />
-          )
-        }
+          onPress={() => setShowConfirm(true)}
+          disabled={isLoading}
+        >
+          {
+            isLoading ? (
+              <span className="loader"></span>
+            ) : (
+              <DeleteIcon />
+            )
+          }
 
-      </Button>
+        </Button>
+
+      </Tooltip>
+
     </div>
   );
 };

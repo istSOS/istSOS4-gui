@@ -1,3 +1,4 @@
+"use client";
 import * as React from "react";
 import "leaflet/dist/leaflet.css";
 import { Input, Button, Chip } from "@heroui/react";
@@ -5,7 +6,10 @@ import { MAP_TILE_LAYER } from "../config/site";
 import { getColorScale } from "./hooks/useColorScale";
 import L from "leaflet";
 import { usePolygonCenter } from "./hooks/usePolygonCenter";
-
+import { useTimezone } from "../context/TimezoneContext";
+import { DateTime } from "luxon";
+import { formatDateWithTimezone } from "./hooks/formatDateWithTimezone";
+import { useTranslation } from "react-i18next";
 type MapWrapperProps = {
     items: any[];
     getCoordinates: (item: any) => [number, number] | null;
@@ -20,14 +24,12 @@ type MapWrapperProps = {
     showMarkers?: boolean;
     mapRef?: React.MutableRefObject<any>;
 };
-
 const colorPalette = [
     "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
     "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
     "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000",
     "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080"
 ];
-
 function getColorFromId(id: string) {
     let hash = 4353;
     for (let i = 0; i < id.length; i++) {
@@ -35,7 +37,6 @@ function getColorFromId(id: string) {
     }
     return colorPalette[Math.abs(hash) % colorPalette.length];
 }
-
 export default function MapWrapper({
     items,
     getCoordinates,
@@ -58,7 +59,44 @@ export default function MapWrapper({
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isSearching, setIsSearching] = React.useState(false);
     const [manualMarker, setManualMarker] = React.useState<any>(null);
-
+    const { timezone } = useTimezone();
+    const { t } = useTranslation();
+    // Cursor coordinates state
+    const [cursorCoords, setCursorCoords] = React.useState<[number, number] | null>(null);
+    // Bounding box state for current map view
+    const [currentBBox, setCurrentBBox] = React.useState<string>("");
+    // State for copy success message
+    const [copySuccess, setCopySuccess] = React.useState<boolean>(false);
+    // Update cursor coordinates when mouse moves over the map
+    React.useEffect(() => {
+        if (!showMap || typeof window === "undefined" || !mapContainerRef.current) return;
+        const mapDiv = mapContainerRef.current;
+        function handleMouseMove(e: MouseEvent) {
+            if (!mapInstanceRef.current) return;
+            const rect = mapDiv.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const point = mapInstanceRef.current.containerPointToLatLng([x, y]);
+            if (point) setCursorCoords([point.lat, point.lng]);
+        }
+        mapDiv.addEventListener("mousemove", handleMouseMove);
+        return () => {
+            mapDiv.removeEventListener("mousemove", handleMouseMove);
+        };
+    }, [showMap, mapContainerRef]);
+    const handleCopyBBox = () => {
+        if (currentBBox) {
+            navigator.clipboard.writeText(currentBBox).then(() => {
+                console.log("BBox copied to clipboard:", currentBBox);
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 2000);
+            }).catch(err => {
+                console.error("Failed to copy BBox: ", err);
+            });
+        } else {
+            console.log("currentBBox is empty");
+        }
+    };
     const handleSearch = async (query: string) => {
         if (!query.trim()) return;
         setIsSearching(true);
@@ -73,16 +111,13 @@ export default function MapWrapper({
                     mapInstanceRef.current.setView([parseFloat(lat), parseFloat(lon)], 12, {
                         animate: true,
                     });
-
                     // Add a temporary marker at the found position
                     import("leaflet").then((L) => {
                         if (!mapInstanceRef.current) return;
-
                         // Remove any previous temporary markers
                         if (manualMarker) {
                             mapInstanceRef.current.removeLayer(manualMarker);
                         }
-
                         // Create a new temporary marker
                         const newMarker = L.marker([parseFloat(lat), parseFloat(lon)], {
                             icon: L.divIcon({
@@ -90,11 +125,7 @@ export default function MapWrapper({
                                 html: `<div style="background-color:red;width:20px;height:20px;border-radius:50%;"></div>`
                             })
                         }).addTo(mapInstanceRef.current);
-
-                        // Set the new marker in state
                         setManualMarker(newMarker);
-
-                        // Remove the marker after 5 seconds
                         setTimeout(() => {
                             if (mapInstanceRef.current && newMarker) {
                                 mapInstanceRef.current.removeLayer(newMarker);
@@ -110,12 +141,10 @@ export default function MapWrapper({
             setIsSearching(false);
         }
     };
-
     const handleSearchSubmit = (event: React.FormEvent) => {
         event.preventDefault();
         handleSearch(searchQuery);
     };
-
     React.useEffect(() => {
         function onMouseMove(e: MouseEvent) {
             if (!mapContainerRef.current) return;
@@ -138,7 +167,6 @@ export default function MapWrapper({
             document.removeEventListener("mouseup", onMouseUp);
         };
     }, [isSplitting, setSplit]);
-
     function getPopupContent(item: any) {
         const chipColor = getColorScale(items, item);
         let color;
@@ -148,7 +176,6 @@ export default function MapWrapper({
             case "danger": color = "#ef4444"; break;
             default: color = "#e5e7eb";
         }
-
         return `
         <div style="min-width:180px">
             <div>
@@ -165,15 +192,12 @@ export default function MapWrapper({
                     ${item.timeAgo ?? "-"}
                 </span>
             </div>
-            <div>${item.lastValue !== undefined ? `Last value: <b>${item.lastValue}${item.unitOfMeasurement.symbol}</b>` : ""}</div>
-            <div>${item.lastMeasurement ? `Date: <b>${item.lastMeasurement}</b>` : ""}</div>
+            <div>${item.lastValue !== undefined ? `${t("general.last_value")}: <b>${item.lastValue}${item.unitOfMeasurement.symbol}</b>` : ""}</div>
+            <div>${item.lastMeasurement ? `${t("general.date")}: <b>${formatDateWithTimezone(item.lastMeasurement, timezone)}</b>` : ""}</div>
         </div>
     `;
     }
-
-    // Helper to update value labels at polygon centers based on zoom
     function updateCenterLabels(L, mapInstance, items, getGeoJSON) {
-        // Remove previous markers
         if (mapInstance._centerValueMarkers) {
             mapInstance._centerValueMarkers.forEach(m => mapInstance.removeLayer(m));
         }
@@ -187,7 +211,7 @@ export default function MapWrapper({
                 if (
                     center &&
                     typeof mapInstance.getZoom === "function" &&
-                    mapInstance.getZoom() >= 12 // zoom threshold
+                    mapInstance.getZoom() >= 12
                 ) {
                     const valueLabel = L.divIcon({
                         className: "datastream-value-label",
@@ -211,7 +235,6 @@ export default function MapWrapper({
             }
         });
     }
-
     React.useEffect(() => {
         if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
         import("leaflet").then((L) => {
@@ -240,11 +263,27 @@ export default function MapWrapper({
                 if (mapRef) {
                     mapRef.current = leafletMap;
                 }
-
-                // Tile layer (Style) from site config
                 L.tileLayer(MAP_TILE_LAYER.url, {
                     attribution: MAP_TILE_LAYER.attribution,
                 }).addTo(leafletMap);
+
+                
+                function updateBBox() {
+                    if (!mapInstanceRef.current) return;
+                    const bounds = mapInstanceRef.current.getBounds();
+                    if (!bounds) return;
+                    // Format: minLat, minLon, maxLat, maxLon
+                    const minLat = bounds.getSouth();
+                    const minLon = bounds.getWest();
+                    const maxLat = bounds.getNorth();
+                    const maxLon = bounds.getEast();
+                    const bboxStr = `${minLat.toFixed(6)}, ${minLon.toFixed(6)}, ${maxLat.toFixed(6)}, ${maxLon.toFixed(6)}`;
+                    setCurrentBBox(bboxStr);
+                    console.log("Updated BBox:", bboxStr);
+                }
+
+                mapInstanceRef.current.on("moveend", updateBBox);
+                updateBBox();
             }
             markersRef.current.forEach((m) => m.remove());
             markersRef.current = [];
@@ -312,7 +351,6 @@ export default function MapWrapper({
                     geoJSONLayersRef.current.push(geoJSONLayer);
                 }
             });
-            // Add value labels at polygon centers (and update on zoom)
             updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
             mapInstanceRef.current.on("zoomend", () => {
                 updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
@@ -322,7 +360,6 @@ export default function MapWrapper({
             }, 200);
         });
     }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick]);
-
     React.useEffect(() => {
         if (!showMap && mapInstanceRef.current) {
             mapInstanceRef.current.remove();
@@ -331,7 +368,6 @@ export default function MapWrapper({
             geoJSONLayersRef.current = [];
         }
     }, [showMap]);
-
     React.useEffect(() => {
         if (!showMap || !expandedId || typeof window === "undefined") return;
         import("leaflet").then(() => {
@@ -352,7 +388,6 @@ export default function MapWrapper({
             }
         });
     }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick, mapRef]);
-
     if (!showMap) return null;
     return (
         <div
@@ -378,7 +413,7 @@ export default function MapWrapper({
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search for a location..."
+                        placeholder={t("general.search_location")}
                         style={{
                             width: "200px",
                         }}
@@ -392,7 +427,7 @@ export default function MapWrapper({
                         }}
                         disabled={isSearching}
                     >
-                        {isSearching ? "Searching..." : "Search"}
+                        {isSearching ? t("general.searching") : t("general.search")}
                     </Button>
                 </form>
             </div>
@@ -412,6 +447,44 @@ export default function MapWrapper({
                     pointerEvents: "auto",
                 }}
             />
+            {/* Cursor coordinates box bottom left */}
+            <div
+                style={{
+                    position: "absolute",
+                    left: 12,
+                    bottom: 12,
+                    background: "rgba(255,255,255,0.95)",
+                    borderRadius: 6,
+                    padding: "6px 12px",
+                    fontSize: "13px",
+                    color: "#222",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
+                    zIndex: 200,
+                    minWidth: "220px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                }}
+            >
+                <div>
+                    <span style={{ fontWeight: 500 }}>{t("general.cursor_coordinates") || "Cursor coordinates"}:</span>
+                    <br />
+                    {cursorCoords
+                        ? `Lat: ${cursorCoords[0].toFixed(5)}, Lon: ${cursorCoords[1].toFixed(5)}`
+                        : "-"}
+                    <br />
+                </div>
+                <Button
+                    radius="sm"
+                    size="sm"
+                    variant="flat"
+                    style={{ minWidth: 32, padding: "0 8px" }}
+                    onPress={handleCopyBBox}
+                >
+                    {"Copy BBox"}
+                </Button>
+                {copySuccess && <span style={{ color: "green", marginLeft: "10px" }}>Copied!</span>}
+            </div>
         </div>
     );
 }

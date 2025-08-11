@@ -4,87 +4,136 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
-import { useTranslation } from "react-i18next";
 import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import deleteData from "../../server/deleteData";
-//Reusable components
+// Reusable components
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
-import MapWrapper from "../../components/MapWrapper";
-// Constants
+import LocationCreator from "./LocationCreator";
+
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Things");
-// Main component
+const locationItem = siteConfig.items.find(i => i.label === "Locations");
+const historicalLocationItem = siteConfig.items.find(i => i.label === "HistoricalLocations");
+
 export default function Things() {
-  // Hooks
-  const { t } = useTranslation();
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
-  const { token, loading: authLoading } = useAuth();
+  const { token } = useAuth();
   const router = useRouter();
-  // State management
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
-  const [things, setThings] = React.useState([]);
+
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
+  const [things, setThings] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [error, setError] = React.useState<any>(null);
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState(null);
-  const [editThing, setEditThing] = React.useState(null);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [editThing, setEditThing] = React.useState<any>(null);
   const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState(null);
-  const [expanded, setExpanded] = React.useState(null);
+  const [editError, setEditError] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
+
+  // Location modal
+  const [locationModalOpen, setLocationModalOpen] = React.useState(false);
+  const [pendingLocation, setPendingLocation] = React.useState<any>(null);
 
   const defaultValues = {
     name: "New Thing",
     description: "Default Description",
-    properties: {}
+    properties: {},
+    Locations: null
   };
 
-  // Filter things
-  const filtered = things.filter(thing => {
-    const id = thing["@iot.id"];
-    const nested = nestedEntitiesMap[id] || {};
-    const matchesSearch = JSON.stringify(thing).toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  const filtered = things.filter(thing =>
+    JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
+  );
 
-  // Fetch all entities on mount
   React.useEffect(() => {
     refetchAll();
   }, []);
-  // Set things and loading/error states
+
   React.useEffect(() => {
     setThings(entities.things || []);
     setLoading(entitiesLoading);
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
 
-  // Thing fields configuration
+  const locationOptions = (entities?.locations || []).map(loc => ({
+    label: loc.name || `Location ${loc["@iot.id"]}`,
+    value: loc["@iot.id"]
+  }));
+
   const thingFields = [
-    { name: "name", label: t("things.name"), required: true, defaultValue: defaultValues.name },
-    { name: "description", label: t("things.description"), required: false, defaultValue: defaultValues.description },
+    { name: "name", label: "Name", required: true, defaultValue: defaultValues.name },
+    { name: "description", label: "Description", required: false, defaultValue: defaultValues.description },
     {
       name: "properties",
-      label: t("things.properties"),
+      label: "Properties",
       type: "properties",
       required: false
     },
+    {
+      name: "Location",
+      label: "Location",
+      required: false,
+      defaultValue: defaultValues.Locations,
+      type: "select",
+      options: locationOptions,
+      render: ({ value, onChange }) => (
+        <div className="flex flex-col gap-2">
+          <select
+            value={value || ""}
+            onChange={e => onChange(e.target.value)}
+            className="border rounded px-2 py-1 text-sm"
+          >
+            <option value="">Select Location</option>
+            {locationOptions.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
+            onClick={() => setLocationModalOpen(true)}
+          >
+            + Create new Location
+          </button>
+          {pendingLocation && (
+            <span className="text-green-700 text-xs">
+              New Location ready to be created!
+            </span>
+          )}
+        </div>
+      )
+    }
   ];
 
-  // Handlers for CRUD operations
-  const handleCancelCreate = () => setShowCreate(false);
+  const handleCancelCreate = () => {
+    setShowCreate(false);
+    setPendingLocation(null);
+  };
   const handleCancelEdit = () => setEditThing(null);
+
+  // Create Thing: attach Location directly (no manual HistoricalLocation here)
   const handleCreate = async (newThing) => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const payload = {
+      let locationId = newThing.Location;
+
+      if (pendingLocation) {
+        const locRes = await createData(locationItem.root, token, pendingLocation);
+        locationId = locRes["@iot.id"];
+        setPendingLocation(null);
+      }
+
+      const thingPayload: any = {
         name: newThing.name,
         description: newThing.description,
         properties: Array.isArray(newThing.properties) && newThing.properties.length > 0
@@ -93,34 +142,47 @@ export default function Things() {
               .filter(p => p.key)
               .map(p => [p.key, p.value])
           )
-          : {},
+          : {}
       };
 
-      await createData(item.root, token, payload);
+      // Include Location reference if provided
+      if (locationId) {
+        thingPayload.Locations = [{ "@iot.id": Number(locationId) }];
+      }
+
+      const createdThing = await createData(item.root, token, thingPayload);
+      const thingId = createdThing["@iot.id"];
+
       setShowCreate(false);
       setExpanded(null);
+
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
-      // Auto-expand the newly created thing
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
         setExpanded(String(newId));
         fetchThingWithExpand(newId);
       }
-    } catch (err) {
-      setCreateError(err.message || "Error creating thing");
+    } catch (err: any) {
+      setCreateError(err.message || "Error creating Thing");
     } finally {
       setCreateLoading(false);
     }
   };
+
   const handleEdit = (entity) => {
     setEditThing(entity);
   };
+
+  // Edit: if Location changed, add a HistoricalLocation
   const handleSaveEdit = async (updatedThing, originalThing) => {
     setEditLoading(true);
     setEditError(null);
     try {
-      const payload = {
+      const originalLocId = originalThing?.Locations?.[0]?.["@iot.id"];
+      const newLocId = updatedThing.Location || null;
+
+      const payload: any = {
         name: updatedThing.name,
         description: updatedThing.description,
         properties: Array.isArray(updatedThing.properties) && updatedThing.properties.length > 0
@@ -129,34 +191,47 @@ export default function Things() {
               .filter(p => p.key)
               .map(p => [p.key, p.value])
           )
-          : {},
+          : {}
       };
 
       await updateData(`${item.root}(${originalThing["@iot.id"]})`, token, payload);
+
+      if (newLocId && Number(newLocId) !== Number(originalLocId) && historicalLocationItem) {
+        await createData(
+          historicalLocationItem.root,
+          token,
+          {
+            Thing: { "@iot.id": Number(originalThing["@iot.id"]) },
+            Locations: [{ "@iot.id": Number(newLocId) }]
+          }
+        );
+      }
+
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
       setExpanded(String(originalThing["@iot.id"]));
       setEditThing(null);
       await fetchThingWithExpand(originalThing["@iot.id"]);
-    } catch (err) {
-      setEditError(err.message || "Error updating thing");
+    } catch (err: any) {
+      setEditError(err.message || "Error updating Thing");
     } finally {
       setEditLoading(false);
     }
   };
+
   const handleDelete = async (id) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
     } catch (err) {
-      console.error("Error deleting thing:", err);
+      console.error("Error deleting Thing:", err);
     }
   };
-  // Fetch things with expanded nested entities
+
   const fetchThingWithExpand = async (thingId) => {
     const nested = siteConfig.items.find(i => i.label === "Things").nested;
-    const nestedData = {};
+    const nestedData: Record<string, any> = {};
     await Promise.all(
       nested.map(async (nestedKey) => {
         const url = `${item.root}(${thingId})?$expand=${nestedKey}`;
@@ -171,7 +246,7 @@ export default function Things() {
       [thingId]: nestedData
     }));
   };
-  // Example call on mount
+
   React.useEffect(() => {
     if (things.length > 0) {
       things.forEach(t => {
@@ -181,11 +256,10 @@ export default function Things() {
     setLoading(entitiesLoading);
     setError(entitiesError);
   }, [entitiesLoading, entitiesError, token, things]);
-  // Render loading and error states
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>{error}</p>;
 
-  // Render components
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>{String(error)}</p>;
+
   const entityListComponent = (
     <EntityList
       items={filtered}
@@ -208,11 +282,10 @@ export default function Things() {
       token={token}
       nestedEntities={nestedEntitiesMap}
       sortOrder=""
-      setSortOrder={() => {}}
+      setSortOrder={() => { }}
     />
   );
 
-  // Main render
   return (
     <div className="min-h-screen p-4">
       <EntityActions
@@ -226,12 +299,23 @@ export default function Things() {
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
       />
+
+      
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={null}
-        showRightPanel={null} //null to hide map
+        showRightPanel={null}
         initialSplit={split}
       />
+      {locationModalOpen && (
+        <LocationCreator
+          onCreate={loc => {
+            setPendingLocation(loc);
+            setLocationModalOpen(false);
+          }}
+          onCancel={() => setLocationModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

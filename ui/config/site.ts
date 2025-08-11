@@ -48,7 +48,7 @@ export const siteConfig = {
       label: "Things",
       href: "/things",
       root: API_ROOT + "Things",
-      nested: ["Location", "Datastream"],
+      nested: ["Locations", "Datastream"],
       weight: 2,
     },
 

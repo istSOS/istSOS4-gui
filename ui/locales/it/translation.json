@@ -12,11 +12,25 @@
         "create": "Crea",
         "cancel": "Annulla",
         "close": "Chiudi",
-        "search": "Cerca...",
+        "search": "Cerca",
+        "search_placeholder": "Cerca...",
+        "searching": "Ricerca...",
+        "search_location": "Cerca una posizione...",
         "add_property": "Aggiungi proprietà",
         "property_key": "Nome",
         "property_value": "Valore",
         "show_all": "Mostra tutto",
+        "nested_entities": "Entità nidificate",
+        "cursor_coordinates": "Coordinate del cursore",
+
+        "last": "Ultimo",
+        "last_value": "Ultimo valore",
+        "start_date": "Data di inizio",
+        "end_date": "Data di fine",
+        "date": "Data",
+
+
+
         "datastreams_info": "Una raccolta di Osservazioni; le Osservazioni in un Datastream misurano la stessa Proprietà Osservata e sono prodotte dallo stesso Sensore.",
         "things_info": "Un oggetto del mondo fisico (cose fisiche) o del mondo informativo (cose virtuali) che può essere identificato e integrato nelle reti di comunicazione.",
         "locations_info": "L'entità Location localizza la Thing o le Things a cui è associata. L'entità Location di una Thing è definita come l'ultima posizione nota della Thing.",

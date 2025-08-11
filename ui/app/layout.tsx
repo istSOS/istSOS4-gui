@@ -8,6 +8,7 @@ import UserBar from "../components/bars/userbar";
 import { siteConfig } from "../config/site";
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import LoginModal from "../components/modals/LoginModal";
+import { TimezoneProvider } from "../context/TimezoneContext";
 
 import "./globals.css";
 import { EntitiesProvider } from "../context/EntitiesContext";
@@ -61,9 +62,10 @@ export default function RootLayout({
 
         <AuthProvider>
           <EntitiesProvider>
-            <LayoutContent>{children}</LayoutContent>
+            <TimezoneProvider>
+              <LayoutContent>{children}</LayoutContent>
+            </TimezoneProvider>
           </EntitiesProvider>
-
         </AuthProvider>
 
       </body>

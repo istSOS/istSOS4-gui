@@ -4,6 +4,7 @@ import * as React from "react";
 import { Button, Input, Select, SelectItem, Textarea } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import FeatureOfInterestCreator from "../app/observations/FeatureOfInterestCreator";
+import LocationCreator from "../app/things/LocationCreator";
 
 interface Field {
   name: string;
@@ -54,6 +55,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   // State for FOI modal and new FOI
   const [foiModalOpen, setFoiModalOpen] = React.useState(false);
   const [newFoi, setNewFoi] = React.useState<any>(null);
+  const [newLocation, setNewLocation] = React.useState<any>(null);
 
   // State for FeatureOfInterest options
   const [foiOptions, setFoiOptions] = React.useState(
@@ -65,28 +67,6 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
     setFoiOptions(fields.find(f => f.name === "FeatureOfInterest")?.options || []);
   }, [fields]);
 
-  const handleCoordinateChange = (index: number, lngOrLat: "lng" | "lat", value: string) => {
-    setValues((prev) => {
-      const coords = [...(prev.coordinates || [])];
-      coords[index] = [...coords[index]];
-      coords[index][lngOrLat === "lng" ? 0 : 1] = value;
-      return { ...prev, coordinates: coords };
-    });
-  };
-
-  const addCoordinate = () => {
-    setValues((prev) => ({
-      ...prev,
-      coordinates: [...(prev.coordinates || []), [0, 0]]
-    }));
-  };
-
-  const removeCoordinate = (index: number) => {
-    setValues((prev) => ({
-      ...prev,
-      coordinates: prev.coordinates.filter((_, i) => i !== index)
-    }));
-  };
 
   // When a new FOI is created, add it to the options and select it
   const handleFoiCreate = (foi: any) => {
@@ -128,6 +108,8 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
 
   // Field rendering
   const renderField = (field: Field) => {
+
+    //to remove
     if (field.name === "FeatureOfInterest") {
       return (
         <div className="flex flex-col gap-2 w-full">
