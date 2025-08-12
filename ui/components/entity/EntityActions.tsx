@@ -50,18 +50,16 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
             onChange={onSearchChange}
             placeholder={t("general.search_placeholder")}
           />
+          <div className="flex-1" />
           <Button
             radius="sm"
-            color="primary"
             onPress={onCreatePress}
-            style={{ fontSize: 24, padding: "0 20px", minWidth: 0 }}
+            style={{ fontSize: 24, padding: "0 20px", minWidth: 0, marginLeft: "8px" }}
             aria-label="Add Entity"
           >
             +
           </Button>
         </div>
-
-
 
         <div className="flex items-center justify-between w-full mt-2 mb-2">
 
@@ -80,7 +78,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
                     onFilterChange(key, selectedValue);
                   }
                 }}
-                
+
                 aria-label={filter.label}
                 style={{
                   marginRight: "8px",
@@ -102,8 +100,8 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
         </div>
       </div>
 
-      
-      { /* Divider to separate actions from content */ }
+
+      { /* Divider to separate actions from content */}
 
       { /*
       <Divider style={{ backgroundColor: "white", height: 3, margin: "8px 0", borderRadius: "8px" }} />

@@ -8,11 +8,11 @@ import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import deleteData from "../../server/deleteData";
-// Reusable components
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import LocationCreator from "./LocationCreator";
+import { Button, Accordion, AccordionItem } from "@heroui/react";
 
 export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Things");
@@ -39,9 +39,12 @@ export default function Things() {
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
-  // Location modal
   const [locationModalOpen, setLocationModalOpen] = React.useState(false);
   const [pendingLocation, setPendingLocation] = React.useState<any>(null);
+
+  const [standaloneLocationModalOpen, setStandaloneLocationModalOpen] = React.useState(false);
+  const [standaloneLocationLoading, setStandaloneLocationLoading] = React.useState(false);
+  const [standaloneLocationError, setStandaloneLocationError] = React.useState<string | null>(null);
 
   const defaultValues = {
     name: "New Thing",
@@ -102,11 +105,11 @@ export default function Things() {
             className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
             onClick={() => setLocationModalOpen(true)}
           >
-            + Create new Location
+            + Create new Location (pending)
           </button>
           {pendingLocation && (
             <span className="text-green-700 text-xs">
-              New Location ready to be created!
+              New Location ready to be created with the Thing.
             </span>
           )}
         </div>
@@ -120,7 +123,6 @@ export default function Things() {
   };
   const handleCancelEdit = () => setEditThing(null);
 
-  // Create Thing: attach Location directly (no manual HistoricalLocation here)
   const handleCreate = async (newThing) => {
     setCreateLoading(true);
     setCreateError(null);
@@ -145,17 +147,11 @@ export default function Things() {
           : {}
       };
 
-      // Include Location reference if provided
       if (locationId) {
         thingPayload.Locations = [{ "@iot.id": Number(locationId) }];
       }
 
-      const createdThing = await createData(item.root, token, thingPayload);
-      const thingId = createdThing["@iot.id"];
-
-      setShowCreate(false);
-      setExpanded(null);
-
+      await createData(item.root, token, thingPayload);
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
       if (data?.value && data.value.length > 0) {
@@ -163,6 +159,8 @@ export default function Things() {
         setExpanded(String(newId));
         fetchThingWithExpand(newId);
       }
+      setShowCreate(false);
+      setExpanded(null);
     } catch (err: any) {
       setCreateError(err.message || "Error creating Thing");
     } finally {
@@ -174,7 +172,6 @@ export default function Things() {
     setEditThing(entity);
   };
 
-  // Edit: if Location changed, add a HistoricalLocation
   const handleSaveEdit = async (updatedThing, originalThing) => {
     setEditLoading(true);
     setEditError(null);
@@ -257,6 +254,21 @@ export default function Things() {
     setError(entitiesError);
   }, [entitiesLoading, entitiesError, token, things]);
 
+  const handleStandaloneLocationCreate = async (payload: any) => {
+    setStandaloneLocationLoading(true);
+    setStandaloneLocationError(null);
+    try {
+      await createData(locationItem.root, token, payload);
+      setStandaloneLocationModalOpen(false);
+      await refetchAll();
+      router.refresh();
+    } catch (err: any) {
+      setStandaloneLocationError(err.message || "Error creating Location");
+    } finally {
+      setStandaloneLocationLoading(false);
+    }
+  };
+
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{String(error)}</p>;
 
@@ -282,7 +294,7 @@ export default function Things() {
       token={token}
       nestedEntities={nestedEntitiesMap}
       sortOrder=""
-      setSortOrder={() => { }}
+      setSortOrder={() => {}}
     />
   );
 
@@ -300,21 +312,86 @@ export default function Things() {
         onToggleMap={() => setShowMap(prev => !prev)}
       />
 
-      
+      <div className="w-full flex justify-end mb-4">
+        <Button
+          size="sm"
+          color="primary"
+          onPress={() => setStandaloneLocationModalOpen(true)}
+        >
+          + Create Location
+        </Button>
+      </div>
+
+      {standaloneLocationModalOpen && (
+        <div className="mb-6 bg-gray-100 p-1 rounded-md">
+          <div className="flex items-center w-full">
+            <div className="flex-1">
+              <Accordion
+                isCompact
+                selectedKeys={["new-location"]}
+              >
+                <AccordionItem
+                  key="new-location"
+                  id="entity-accordion-item-new-location"
+                  title={
+                    <div className="grid grid-cols-5 gap-2 pl-2 items-center w-full">
+                      <span className="font-bold text-lg text-gray-800">New Location</span>
+                    </div>
+                  }
+                  value="new-location"
+                >
+                  <LocationCreator
+                    onCreate={handleStandaloneLocationCreate}
+                    onCancel={() => setStandaloneLocationModalOpen(false)}
+                    isLoading={standaloneLocationLoading}
+                    error={standaloneLocationError}
+                  />
+                </AccordionItem>
+              </Accordion>
+            </div>
+            <div className="w-32" />
+          </div>
+        </div>
+      )}
+
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={null}
         showRightPanel={null}
         initialSplit={split}
       />
+
       {locationModalOpen && (
-        <LocationCreator
-          onCreate={loc => {
-            setPendingLocation(loc);
-            setLocationModalOpen(false);
-          }}
-          onCancel={() => setLocationModalOpen(false)}
-        />
+        <div className="mt-6 bg-gray-100 p-1 rounded-md">
+          <div className="flex items-center w-full">
+            <div className="flex-1">
+              <Accordion
+                isCompact
+                selectedKeys={["pending-location"]}
+              >
+                <AccordionItem
+                  key="pending-location"
+                  id="entity-accordion-item-pending-location"
+                  title={
+                    <div className="grid grid-cols-5 gap-2 pl-2 items-center w-full">
+                      <span className="font-bold text-lg text-gray-800">New Location (Pending for Thing)</span>
+                    </div>
+                  }
+                  value="pending-location"
+                >
+                  <LocationCreator
+                    onCreate={loc => {
+                      setPendingLocation(loc);
+                      setLocationModalOpen(false);
+                    }}
+                    onCancel={() => setLocationModalOpen(false)}
+                  />
+                </AccordionItem>
+              </Accordion>
+            </div>
+            <div className="w-32" />
+          </div>
+        </div>
       )}
     </div>
   );
