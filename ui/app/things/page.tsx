@@ -315,7 +315,7 @@ export default function Things() {
       <div className="w-full flex justify-end mb-4">
         <Button
           size="sm"
-          color="primary"
+          color="default"
           onPress={() => setStandaloneLocationModalOpen(true)}
         >
           + Create Location

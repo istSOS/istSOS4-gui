@@ -35,7 +35,8 @@ const EntityAccordion = ({
   token,
   nestedEntities = {},
   sortOrder,
-  setSortOrder
+  setSortOrder,
+  chipColorStrategy
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -180,7 +181,13 @@ const EntityAccordion = ({
                               <Chip
                                 className="capitalize"
                                 variant="dot"
-                                color={getColorScale(items, entity)}
+                                color={
+                                  entityType === "datastreams"
+                                    ? (chipColorStrategy
+                                      ? chipColorStrategy(entity)
+                                      : getColorScale(items, entity))
+                                    : "default"
+                                }
                               >
                                 {entity.timeAgo ?? "-"}
                               </Chip>

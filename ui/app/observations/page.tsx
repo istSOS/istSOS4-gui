@@ -17,37 +17,48 @@ import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
 
 export const mainColor = siteConfig.main_color;
 
-//Find the item in siteConfig with labels matching "Observations" and "FeaturesOfInterest"
+// Find config items
 const item = siteConfig.items.find(i => i.label === "Observations");
 const foiItem = siteConfig.items.find(i => i.label === "FeaturesOfInterest");
 
 export default function Observations() {
-  //Initialize hooks for translation, routing, authentication, and entity management
   const { t } = useTranslation();
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  //State management for observations, UI states, and form inputs
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
-  const [observations, setObservations] = React.useState([]);
+  // Data & UI state
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
+  const [observations, setObservations] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState(null);
-  const [editObservation, setEditObservation] = React.useState(null);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [editObservation, setEditObservation] = React.useState<any>(null);
   const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState(null);
-  const [expanded, setExpanded] = React.useState(null);
+  const [editError, setEditError] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
-  //State for managing modal visibility and pending FeatureOfInterest
+
+  // FeatureOfInterest modal
   const [foiModalOpen, setFoiModalOpen] = React.useState(false);
   const [pendingFoi, setPendingFoi] = React.useState<any>(null);
 
-  //Default values for form fields
+  // Grafana embed
+  const [showGrafana, setShowGrafana] = React.useState(false);
+  const grafanaBase = process.env.NEXT_PUBLIC_GRAFANA_BASE_URL;
+  const grafanaDashboardUid = process.env.NEXT_PUBLIC_GRAFANA_DASHBOARD_UID;
+  const grafanaPanelId = process.env.NEXT_PUBLIC_GRAFANA_PANEL_ID;
+  const grafanaUrl = React.useMemo(() => {
+    if (!grafanaBase || !grafanaDashboardUid || !grafanaPanelId) return null;
+    
+    return `${grafanaBase}/d-solo/${grafanaDashboardUid}/?panelId=${grafanaPanelId}&theme=light&var-entity=observations`;
+  }, [grafanaBase, grafanaDashboardUid, grafanaPanelId]);
+
+  // Default form values
   const defaultValues = {
     phenomenonTime: "2023-01-01T00:00:00Z",
     resultTime: "2023-01-01T00:00:00Z",
@@ -57,30 +68,26 @@ export default function Observations() {
     FeatureOfInterest: null
   };
 
-  //Fetch all entities on component mount
   React.useEffect(() => {
     refetchAll();
   }, []);
 
-  //Effect to update observations and loading/error states when entities change
   React.useEffect(() => {
     setObservations(entities.observations || []);
     setLoading(entitiesLoading);
-    setError(entitiesError);
+    setError(entitiesError as any);
   }, [entities, entitiesLoading, entitiesError]);
 
-  //FILTERS state for nested entity filtering
+  // Filters
   const [filters, setFilters] = React.useState({
     datastream: "",
     featureOfInterest: ""
   });
-
-  //Handler function to update filters
-  const handleFilterChange = (key, value) => {
+  const handleFilterChange = (key: string, value: any) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  //Filter observations based on search input and filters
+  // Filtered observations
   const filtered = observations.filter(o => {
     const id = o["@iot.id"];
     const nested = nestedEntitiesMap[id] || {};
@@ -97,26 +104,25 @@ export default function Observations() {
     return matchesSearch && matchesDatastream && matchesFeatureOfInterest;
   });
 
-  //Generate dropdown options for datastreams and features of interest
-  const datastreamOptions = (entities?.datastreams || []).map(ds => ({
+  // Options
+  const datastreamOptions = (entities?.datastreams || []).map((ds: any) => ({
     label: ds.name || `Datastream ${ds["@iot.id"]}`,
     value: ds["@iot.id"]
   }));
-
-  const featureOfInterestOptions = (entities?.featuresOfInterest || []).map(foi => ({
+  const featureOfInterestOptions = (entities?.featuresOfInterest || []).map((foi: any) => ({
     label: foi.name || `Feature of Interest ${foi["@iot.id"]}`,
     value: foi["@iot.id"]
   }));
 
-  //Configuration for observation fields in the form
+  // Form fields
   const observationFields = [
-    { name: "phenomenonTime", label: t("observations.phenomenon_time"), required: true, defaultValue: defaultValues.phenomenonTime, type: "datetime-local" },
-    { name: "resultTime", label: t("observations.result_time"), required: false, defaultValue: defaultValues.resultTime, type: "datetime-local" },
-    { name: "result", label: t("observations.result"), required: true, defaultValue: defaultValues.result, type: "number" },
-    { name: "resultQuality", label: t("observations.result_quality"), required: false, defaultValue: defaultValues.resultQuality, type: "text" },
+    { name: "phenomenonTime", label: "Phenomenon Time", required: true, defaultValue: defaultValues.phenomenonTime, type: "datetime-local" },
+    { name: "resultTime", label: "Result Time", required: false, defaultValue: defaultValues.resultTime, type: "datetime-local" },
+    { name: "result", label: "Result", required: true, defaultValue: defaultValues.result, type: "number" },
+    { name: "resultQuality", label: "Result Quality", required: false, defaultValue: defaultValues.resultQuality, type: "text" },
     {
       name: "Datastream",
-      label: t("observations.datastream"),
+      label: "Datastream",
       required: true,
       defaultValue: defaultValues.Datastream,
       type: "select",
@@ -124,7 +130,7 @@ export default function Observations() {
     },
     {
       name: "FeatureOfInterest",
-      label: t("observations.feature_of_interest"),
+      label: "Feature Of Interest",
       required: false,
       defaultValue: defaultValues.FeatureOfInterest,
       type: "select",
@@ -135,7 +141,7 @@ export default function Observations() {
             value={value || ""}
             onChange={e => onChange(e.target.value)}
           >
-            <option value="">Select FeatureOfInterest</option>
+            <option value="">Select Feature Of Interest</option>
             {featureOfInterestOptions.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
@@ -145,11 +151,11 @@ export default function Observations() {
             className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
             onClick={() => setFoiModalOpen(true)}
           >
-            + Create new FeatureOfInterest
+            + Create new Feature Of Interest
           </button>
           {pendingFoi && (
             <span className="text-green-700 text-xs">
-              New FeatureOfInterest ready to be created!
+              New Feature Of Interest will be created on save
             </span>
           )}
         </div>
@@ -157,30 +163,25 @@ export default function Observations() {
     }
   ];
 
-  //Handlers for CRUD operations
+  // Cancel create
   const handleCancelCreate = () => {
     setShowCreate(false);
     setPendingFoi(null);
   };
-
   const handleCancelEdit = () => setEditObservation(null);
 
-  //Function to handle the creation of a new Observation
-  const handleCreate = async (newObservation) => {
+  // Create
+  const handleCreate = async (newObservation: any) => {
     setCreateLoading(true);
     setCreateError(null);
-
     try {
       let foiId = newObservation.FeatureOfInterest;
-
-      //If a new FeatureOfInterest is pending, create it first
       if (pendingFoi) {
-        const foiRes = await createData(foiItem.root, token, pendingFoi);
+        const foiRes = await createData(foiItem!.root, token, pendingFoi);
         foiId = foiRes["@iot.id"];
         setPendingFoi(null);
       }
-
-      const payload = {
+      const payload: any = {
         phenomenonTime: newObservation.phenomenonTime,
         resultTime: newObservation.resultTime,
         result: newObservation.result,
@@ -188,92 +189,85 @@ export default function Observations() {
         Datastream: { "@iot.id": Number(newObservation.Datastream) },
         FeatureOfInterest: foiId ? { "@iot.id": Number(foiId) } : null
       };
-
-      await createData(item.root, token, payload);
+      await createData(item!.root, token, payload);
       setShowCreate(false);
       setExpanded(null);
-
-      //Fetch updated list of observations and set the newly created one as expanded
-      const data = await fetchData(item.root, token);
+      const data = await fetchData(item!.root, token);
       setObservations(data?.value || []);
-      if (data?.value && data.value.length > 0) {
+      if (data?.value?.length) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
         setExpanded(String(newId));
         fetchObservationWithExpand(newId);
       }
-    } catch (err) {
-      setCreateError(err.message || "Error creating observation");
+    } catch (err: any) {
+      setCreateError(err?.message || "Error creating observation");
     } finally {
       setCreateLoading(false);
     }
   };
 
-  //Function to edit an observation
-  const handleEdit = (entity) => {
-    setEditObservation(entity);
-  };
+  // Edit
+  const handleEdit = (entity: any) => setEditObservation(entity);
 
-  //Function to handle saving of an edited observation
-  const handleSaveEdit = async (updatedObservation, originalObservation) => {
+  const handleSaveEdit = async (updatedObservation: any, originalObservation: any) => {
     setEditLoading(true);
     setEditError(null);
-
     try {
-      const payload = {
+      const payload: any = {
         phenomenonTime: updatedObservation.phenomenonTime,
         resultTime: updatedObservation.resultTime,
         result: updatedObservation.result,
-        resultQuality: updatedObservation.resultQuality != null ? String(updatedObservation.resultQuality) : "",
-        ...(updatedObservation.Datastream && { Datastream: { "@iot.id": Number(updatedObservation.Datastream) } }),
-        ...(updatedObservation.FeatureOfInterest && { FeatureOfInterest: { "@iot.id": Number(updatedObservation.FeatureOfInterest) } }),
+        resultQuality: updatedObservation.resultQuality != null ? String(updatedObservation.resultQuality) : ""
       };
-
-      await updateData(`${item.root}(${originalObservation["@iot.id"]})`, token, payload);
-      const data = await fetchData(item.root, token);
+      if (updatedObservation.Datastream) {
+        payload.Datastream = { "@iot.id": Number(updatedObservation.Datastream) };
+      }
+      if (updatedObservation.FeatureOfInterest) {
+        payload.FeatureOfInterest = { "@iot.id": Number(updatedObservation.FeatureOfInterest) };
+      }
+      await updateData(`${item!.root}(${originalObservation["@iot.id"]})`, token, payload);
+      const data = await fetchData(item!.root, token);
       setObservations(data?.value || []);
       setExpanded(String(originalObservation["@iot.id"]));
       setEditObservation(null);
       await fetchObservationWithExpand(originalObservation["@iot.id"]);
-    } catch (err) {
-      setEditError(err.message || "Error updating observation");
+    } catch (err: any) {
+      setEditError(err?.message || "Error updating observation");
     } finally {
       setEditLoading(false);
     }
   };
 
-  //Function to handle deletion of an observation
-  const handleDelete = async (id) => {
-    try {
-      await deleteData(`${item.root}(${id})`, token);
-      const data = await fetchData(item.root, token);
-      setObservations(data?.value || []);
-    } catch (err) {
-      console.error("Error deleting observation:", err);
-    }
+  // Delete
+  const handleDelete = (id: string) => {
+    // Convert id to number and call async delete logic
+    (async () => {
+      try {
+        await deleteData(`${item!.root}(${Number(id)})`, token);
+        const data = await fetchData(item!.root, token);
+        setObservations(data?.value || []);
+      } catch (err) {
+        console.error("Error deleting observation:", err);
+      }
+    })();
   };
 
-  //Function to fetch additional data for a specific observation
-  const fetchObservationWithExpand = async (observationId) => {
-    const nested = siteConfig.items.find(i => i.label === "Observations").nested;
-    const nestedData = {};
-
+  // Expand nested
+  const fetchObservationWithExpand = async (observationId: number) => {
+    const nested = siteConfig.items.find(i => i.label === "Observations")!.nested;
+    const nestedData: Record<string, any> = {};
     await Promise.all(
-      nested.map(async (nestedKey) => {
-        const url = `${item.root}(${observationId})?$expand=${nestedKey}`;
+      nested.map(async (nestedKey: string) => {
+        const url = `${item!.root}(${observationId})?$expand=${nestedKey}`;
         const data = await fetchData(url, token);
         if (data && data[nestedKey]) {
           nestedData[nestedKey] = data[nestedKey];
         }
       })
     );
-
-    setNestedEntitiesMap(prev => ({
-      ...prev,
-      [observationId]: nestedData
-    }));
+    setNestedEntitiesMap(prev => ({ ...prev, [observationId]: nestedData }));
   };
 
-  //Fetch nested entities data on observations update
   React.useEffect(() => {
     if (observations.length > 0) {
       observations.forEach(o => {
@@ -281,14 +275,12 @@ export default function Observations() {
       });
     }
     setLoading(entitiesLoading);
-    setError(entitiesError);
+    setError(entitiesError as any);
   }, [entitiesLoading, entitiesError, token, observations]);
 
-  //Render loading and error states
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
 
-  //Component for rendering the list of entities
   const entityListComponent = (
     <EntityList
       items={filtered}
@@ -310,13 +302,13 @@ export default function Observations() {
       editError={editError}
       token={token}
       nestedEntities={nestedEntitiesMap}
-      sortOrder= ""
+      sortOrder=""
       setSortOrder={() => {}}
     />
   );
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-4 flex flex-col gap-4">
       <EntityActions
         title="Observations"
         search={search}
@@ -328,18 +320,51 @@ export default function Observations() {
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
         filters={{
-          datastream: { label: t("observations.datastream"), options: datastreamOptions, value: filters.datastream },
-          featureOfInterest: { label: t("observations.feature_of_interest"), options: featureOfInterestOptions, value: filters.featureOfInterest }
+          datastream: { label: "Datastream", options: datastreamOptions, value: filters.datastream },
+            featureOfInterest: { label: "Feature Of Interest", options: featureOfInterestOptions, value: filters.featureOfInterest }
         }}
         onFilterChange={handleFilterChange}
       />
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setShowGrafana(s => !s)}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+        >
+          {showGrafana ? "Hide Grafana panel" : "Show Grafana panel"}
+        </button>
+        {showGrafana && !grafanaUrl && (
+          <span className="text-xs text-red-600">
+            Missing Grafana env vars (NEXT_PUBLIC_GRAFANA_BASE_URL, UID, PANEL_ID).
+          </span>
+        )}
+      </div>
+
       <SplitPanel
-        leftPanel={entityListComponent}
+        leftPanel={
+          <div className="flex flex-col gap-4">
+            {entityListComponent}
+            {showGrafana && grafanaUrl && (
+              <div className="border rounded h-[480px] overflow-hidden">
+                <iframe
+                  src={grafanaUrl}
+                  width="100%"
+                  height="100%"
+                  frameBorder="0"
+                  loading="lazy"
+                  allow="fullscreen"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  title="Grafana Panel"
+                />
+              </div>
+            )}
+          </div>
+        }
         rightPanel={null}
         showRightPanel={null}
         initialSplit={split}
       />
-      {/* Modal for creating new FeatureOfInterest */}
+
       {foiModalOpen && (
         <FeatureOfInterestCreator
           onCreate={foi => {

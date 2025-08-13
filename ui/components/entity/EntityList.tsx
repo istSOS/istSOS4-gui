@@ -23,6 +23,7 @@ interface EntityListProps {
   nestedEntities: Record<string, any>;
   sortOrder: string;
   setSortOrder: (order: string) => void;
+  chipColorStrategy?: (entity: any) => string;
 }
 
 export const EntityList: React.FC<EntityListProps> = ({
@@ -46,7 +47,9 @@ export const EntityList: React.FC<EntityListProps> = ({
   token,
   nestedEntities,
   sortOrder,
-  setSortOrder
+  setSortOrder,
+  chipColorStrategy
+  
 }) => {
   if (items.length === 0 && !showCreateForm) {
     return <p>No entities available.</p>;
@@ -75,6 +78,7 @@ export const EntityList: React.FC<EntityListProps> = ({
       nestedEntities={nestedEntities}
       sortOrder={sortOrder}
       setSortOrder={setSortOrder}
+      chipColorStrategy={chipColorStrategy}
     />
   );
 };

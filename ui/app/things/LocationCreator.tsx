@@ -122,7 +122,8 @@ const LocationCreator: React.FC<Props> = ({
     const clearGeometry = () => {
         setGeometry(null);
         setGeometryValid(false);
-        // Keep lat/lon as is (user may type again)
+        setLatitude("");
+        setLongitude("");
     };
 
     const isLatLonFilled = latitude !== "" || longitude !== "";
@@ -170,7 +171,7 @@ const LocationCreator: React.FC<Props> = ({
                     <Button
                         radius="sm"
                         size="sm"
-                        color={geometry && !isLatLonFilled ? "success" : "primary"}
+                        color={geometry && !isLatLonFilled ? "success" : "default"}
                         onPress={() => setModalOpen(true)}
                         type="button"
                         disabled={isLatLonFilled || isLoading}

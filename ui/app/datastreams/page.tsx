@@ -7,6 +7,7 @@ import { useEntities } from "../../context/EntitiesContext";
 import { unitOfMeasurementOptions, observationTypeURIs } from "./utils";
 import { useTranslation } from "react-i18next";
 import { useEnrichedDatastreams } from "../../components/hooks/useEnrichedDatastreams";
+import { createLastDelayColorStrategy } from "../../components/hooks/useLastDelayColor";
 import { useSearchParams } from "next/navigation";
 import createData from "../../server/createData";
 import updateData from "../../server/updateData";
@@ -16,7 +17,7 @@ import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
-import { Button, DateInput, DatePicker, Input } from "@heroui/react";
+import { Button, DateInput, DatePicker, Input, Select, SelectItem } from "@heroui/react";
 import { DateValue, now } from "@internationalized/date";
 import { useTimezone } from "../../context/TimezoneContext";
 import { parseDateTime } from "@internationalized/date";
@@ -140,19 +141,88 @@ export default function Datastreams() {
       ? new Date(dateB).getTime() - new Date(dateA).getTime()
       : new Date(dateA).getTime() - new Date(dateB).getTime();
   });
-  // Options for dropdowns
-  const thingOptions = (entities?.things || []).map(thing => ({
-    label: thing.name || `Thing ${thing["@iot.id"]}`,
-    value: thing["@iot.id"]
-  }));
-  const sensorOptions = (entities?.sensors || []).map(sensor => ({
-    label: sensor.name || `Sensor ${sensor["@iot.id"]}`,
-    value: sensor["@iot.id"]
-  }));
-  const observedPropertyOptions = (entities?.observedProperties || []).map(op => ({
-    label: op.name || `Observed Property ${op["@iot.id"]}`,
-    value: op["@iot.id"]
-  }));
+
+  const delayThresholdOptions = [
+    { label: "any", value: null },
+    { label: "5 min", value: 5 },
+    { label: "10 min", value: 10 },
+    { label: "20 min", value: 20 },
+    { label: "30 min", value: 30 },
+    { label: "1 h", value: 60 },
+    { label: "2 h", value: 120 },
+    { label: "6 h", value: 360 },
+    { label: "12 h", value: 720 },
+    { label: "1 day", value: 1440 },
+    { label: "2 days", value: 2880 },
+    { label: "1 week", value: 10080 },
+    { label: "2 weeks", value: 20160 },
+    { label: "1 month", value: 43200 },
+    { label: "3 months", value: 129600 },
+    { label: "6 months", value: 259200 },
+    { label: "1 year", value: 525600 }
+  ];
+  const [delayThreshold, setDelayThreshold] = React.useState<number>(5);
+
+  const chipColorStrategy = React.useMemo(
+    () => createLastDelayColorStrategy(delayThreshold, timezone),
+    [delayThreshold, timezone]
+  );
+
+  //counting datastreams per nested entity
+  const datastreamCounts = React.useMemo(() => {
+    const counts = {
+      thing: {} as Record<string, number>,
+      sensor: {} as Record<string, number>,
+      observedProperty: {} as Record<string, number>,
+    };
+    filtered.forEach(ds => {
+      const id = ds["@iot.id"];
+      const nested = nestedEntitiesMap[id] || {};
+      const thing = nested.Thing || ds.Thing;
+      const sensor = nested.Sensor || ds.Sensor;
+      const observedProperty = nested.ObservedProperty || ds.ObservedProperty;
+      const thingId = thing?.["@iot.id"];
+      const sensorId = sensor?.["@iot.id"];
+      const observedPropertyId = observedProperty?.["@iot.id"];
+      if (thingId) counts.thing[thingId] = (counts.thing[thingId] || 0) + 1;
+      if (sensorId) counts.sensor[sensorId] = (counts.sensor[sensorId] || 0) + 1;
+      if (observedPropertyId) counts.observedProperty[observedPropertyId] = (counts.observedProperty[observedPropertyId] || 0) + 1;
+    });
+    return counts;
+  }, [filtered, nestedEntitiesMap]);
+
+  // Options for dropdowns, name + count. If no datastreams associated, the option is disabled
+  const thingOptions = (entities?.things || []).map(thing => {
+    const id = thing["@iot.id"];
+    const count = datastreamCounts.thing[id] || 0;
+    return {
+      label: `${thing.name || `Thing ${id}`}${count ? ` (${count})` : " (0)"}`,
+      value: id,
+      disabled: count === 0
+    };
+  });
+  const sensorOptions = (entities?.sensors || []).map(sensor => {
+    const id = sensor["@iot.id"];
+    const count = datastreamCounts.sensor[id] || 0;
+    return {
+      label: `${sensor.name || `Sensor ${id}`}${count ? ` (${count})` : " (0)"}`,
+      value: id,
+      disabled: count === 0
+    };
+  });
+  const observedPropertyOptions = (entities?.observedProperties || []).map(op => {
+    const id = op["@iot.id"];
+    const count = datastreamCounts.observedProperty[id] || 0;
+    return {
+      label: `${op.name || `Observed Property ${id}`}${count ? ` (${count})` : " (0)"}`,
+      value: id,
+      disabled: count === 0
+    };
+  });
+
+
+
+
   // Datastream fields configuration
   const defaultValues = {
     name: "New Datastream",
@@ -207,6 +277,7 @@ export default function Datastreams() {
     ...datastreamFields,
     { name: "phenomenonTime", label: t("datastreams.phenomenon_time"), type: "datetime-local", required: false },
   ];
+
   // Handlers for CRUD operations
   const handleCancelCreate = () => setShowCreate(false);
   const handleCancelEdit = () => setEditDatastream(null);
@@ -382,7 +453,7 @@ export default function Datastreams() {
     }
   }, [datastreams, token]);
   const loading = authLoading || entitiesLoading;
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <p style={{ color: "#fff" }}>Loading...</p>;
   if (entitiesError) return <p>{entitiesError}</p>;
   const entityListComponent = (
     <EntityList
@@ -409,6 +480,7 @@ export default function Datastreams() {
       nestedEntities={nestedEntitiesMap}
       sortOrder={sortOrder}
       setSortOrder={order => setSortOrder(order === "asc" ? "asc" : "desc")}
+      chipColorStrategy={chipColorStrategy}
     />
   );
   const entityMapComponent = showMap ? (
@@ -457,6 +529,24 @@ export default function Datastreams() {
         onFilterChange={handleFilterChange}
       />
       <div className="flex flex-row items-end gap-2 mb-2">
+
+
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <Select
+            size="sm"
+            radius="sm"
+            label="Last Threashold"
+            selectedKeys={[String(delayThreshold)]}
+            onChange={e => setDelayThreshold(Number(e.target.value))}
+            className="min-w-[140px]"
+          >
+            {delayThresholdOptions.map(o => (
+              <SelectItem key={o.value}>{o.label}</SelectItem>
+            ))}
+          </Select>
+        </div>
+
+
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <DatePicker
             granularity="minute"
@@ -492,18 +582,20 @@ export default function Datastreams() {
             placeholder="minLat, minLon, maxLat, maxLon"
             value={bboxInput}
             onChange={handleBboxInputChange}
-            color= {isBboxValid ? "default" : "danger"}
+            color={isBboxValid ? "default" : "danger"}
           />
           <Button
             radius="sm"
             variant="flat"
-            
+
             onPress={handleSetBbox}
             disabled={!isBboxValid}
           >
             Set BBox
           </Button>
         </div>
+
+
 
 
         <div className="flex items-center ml-auto">
