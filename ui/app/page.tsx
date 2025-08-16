@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../config/site";
 import { useTranslation } from "react-i18next";
 
-export const mainColor = siteConfig.main_color;
+const mainColor = siteConfig.main_color;
 
 export default function Page() {
   const router = useRouter();

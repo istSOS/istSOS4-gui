@@ -411,6 +411,7 @@ export default function MapWrapper({
                 <form onSubmit={handleSearchSubmit} style={{ display: "flex", alignItems: "center", marginRight: "16px" }}>
                     <Input
                         type="text"
+                        radius= "sm"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder={t("general.search_location")}

@@ -13,8 +13,8 @@ import { useTranslation } from "react-i18next";
 import MapWrapper from "../../components/MapWrapper";
 
 // Define main and secondary colors from site configuration
-export const mainColor = siteConfig.main_color;
-export const secondaryColor = siteConfig.secondary_color;
+//export const mainColor = siteConfig.main_color;
+const secondaryColor = siteConfig.secondary_color;
 
 /**
  * Converts a label string to a camelCase entity key.

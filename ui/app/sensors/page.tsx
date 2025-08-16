@@ -16,7 +16,7 @@ import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
 // Constants
-export const mainColor = siteConfig.main_color;
+//export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Sensors");
 // Main component
 export default function Sensors() {

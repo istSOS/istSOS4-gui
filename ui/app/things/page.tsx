@@ -14,7 +14,7 @@ import { EntityList } from "../../components/entity/EntityList";
 import LocationCreator from "./LocationCreator";
 import { Button, Accordion, AccordionItem } from "@heroui/react";
 
-export const mainColor = siteConfig.main_color;
+//export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Things");
 const locationItem = siteConfig.items.find(i => i.label === "Locations");
 const historicalLocationItem = siteConfig.items.find(i => i.label === "HistoricalLocations");
@@ -191,18 +191,16 @@ export default function Things() {
           : {}
       };
 
-      await updateData(`${item.root}(${originalThing["@iot.id"]})`, token, payload);
-
-      if (newLocId && Number(newLocId) !== Number(originalLocId) && historicalLocationItem) {
-        await createData(
-          historicalLocationItem.root,
-          token,
-          {
-            Thing: { "@iot.id": Number(originalThing["@iot.id"]) },
-            Locations: [{ "@iot.id": Number(newLocId) }]
-          }
-        );
+      if (Number(newLocId) !== Number(originalLocId)) {
+        if (newLocId) {
+          payload.Locations = [{ "@iot.id": Number(newLocId) }];
+        } else {
+          
+          payload.Locations = [];
+        }
       }
+
+      await updateData(`${item.root}(${originalThing["@iot.id"]})`, token, payload);
 
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
@@ -294,7 +292,7 @@ export default function Things() {
       token={token}
       nestedEntities={nestedEntitiesMap}
       sortOrder=""
-      setSortOrder={() => {}}
+      setSortOrder={() => { }}
     />
   );
 

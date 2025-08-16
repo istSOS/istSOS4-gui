@@ -15,7 +15,7 @@ import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
 import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
 
-export const mainColor = siteConfig.main_color;
+//export const mainColor = siteConfig.main_color;
 
 // Find config items
 const item = siteConfig.items.find(i => i.label === "Observations");

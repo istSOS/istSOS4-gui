@@ -7,7 +7,7 @@ import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
 
-export const mainColor = siteConfig.main_color;
+//export const mainColor = siteConfig.main_color;
 
 export default function Users() {
   const { token, loading: authLoading } = useAuth();
@@ -60,7 +60,7 @@ export default function Users() {
           className="border rounded px-3 py-2 w-full"
         />
       </div>
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
+      <h1 className="text-2xl font-bold mb-4" style={{ color: siteConfig.main_color }}>
         Sensors
       </h1>
       {users.length === 0 ? (

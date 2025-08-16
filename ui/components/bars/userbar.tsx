@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
 import { useTimezone } from "../../context/TimezoneContext";
 
-export const mainColor = siteConfig.main_color;
+const mainColor = siteConfig.main_color;
 
 // Only these timezones shown by default
 const commonTimezones = [

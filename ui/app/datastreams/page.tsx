@@ -22,7 +22,6 @@ import { DateValue, now } from "@internationalized/date";
 import { useTimezone } from "../../context/TimezoneContext";
 import { parseDateTime } from "@internationalized/date";
 import { DateTime } from "luxon";
-export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Datastreams");
 export default function Datastreams() {
   const { t } = useTranslation();

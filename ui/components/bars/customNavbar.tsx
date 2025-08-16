@@ -11,7 +11,7 @@ import { Link } from "@heroui/link";
 import { siteConfig } from "../../config/site";
 import { GithubIcon } from "../../components/icons";
 
-export const secondaryColor = siteConfig.secondary_color;
+const secondaryColor = siteConfig.secondary_color;
 
 export function CustomNavbar() {
   return (

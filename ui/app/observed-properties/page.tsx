@@ -14,7 +14,7 @@ import { SearchBar } from "../../components/bars/searchBar";
 import DeleteButton from "../../components/customButtons/deleteButton";
 import { t } from "i18next";
 
-export const mainColor = siteConfig.main_color;
+//export const mainColor = siteConfig.main_color;
 
 export default function ObservedProperties() {
 

@@ -16,8 +16,8 @@ import MapWrapper from "../../components/MapWrapper";
 import EntityAccordion from "../../components/EntityAccordion";
 
 // Define main and secondary colors from site config
-export const mainColor = siteConfig.main_color;
-export const secondaryColor = siteConfig.secondary_color;
+//export const mainColor = siteConfig.main_color;
+//export const secondaryColor = siteConfig.secondary_color;
 
 // Retrieve specific items from site configuration
 const item = siteConfig.items.find(i => i.label === "Locations");
@@ -245,7 +245,7 @@ export default function Locations() {
           variant="flat"
           className="ml-auto"
           onPress={() => setShowMap((prev) => !prev)}
-          style={{ backgroundColor: secondaryColor, color: "white" }}
+          //style={{ backgroundColor: secondaryColor, color: "white" }}
         >
           {showMap ? t("locations.hide_map") : t("locations.show_map")}
         </Button>
@@ -286,8 +286,7 @@ export default function Locations() {
             handleCancelCreate={handleCancelCreate}
             handleCancelEdit={handleCancelEdit} onSaveEdit={undefined}
             sortOrder={""}
-            setSortOrder={undefined}
-            />
+            setSortOrder={undefined} chipColorStrategy={undefined}            />
         </div>
         {/* SPLITTER */}
         {showMap && (

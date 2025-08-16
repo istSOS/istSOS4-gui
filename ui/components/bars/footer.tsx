@@ -1,11 +1,11 @@
 import React from "react";
-import { secondaryColor } from "../../app/network/page";
+import { siteConfig } from "../../config/site";
 
 export default function Footer() {
     return (
         <footer
             style={{
-                backgroundColor: secondaryColor,
+                backgroundColor: siteConfig.secondary_color,
                 color: "white",
                 textAlign: "center",
                 padding: "12px 0",
