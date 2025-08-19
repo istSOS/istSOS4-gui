@@ -17,11 +17,12 @@ import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
-import { Button, DateInput, DatePicker, Input, Select, SelectItem } from "@heroui/react";
+import { Button, DateInput, DatePicker, Input, Select, SelectItem, Spinner } from "@heroui/react";
 import { DateValue, now } from "@internationalized/date";
 import { useTimezone } from "../../context/TimezoneContext";
 import { parseDateTime } from "@internationalized/date";
 import { DateTime } from "luxon";
+import { LoadingScreen } from "../../components/LoadingScreen";
 const item = siteConfig.items.find(i => i.label === "Datastreams");
 export default function Datastreams() {
   const { t } = useTranslation();
@@ -280,9 +281,6 @@ export default function Datastreams() {
   // Handlers for CRUD operations
   const handleCancelCreate = () => setShowCreate(false);
   const handleCancelEdit = () => setEditDatastream(null);
-  const refreshDatastreams = async () => {
-    await refetchAll();
-  };
   const handleCreate = async (newDatastream) => {
     setCreateLoading(true);
     setCreateError(null);
@@ -344,7 +342,7 @@ export default function Datastreams() {
       await createData(item.root, token, payload);
       setShowCreate(false);
       setExpanded(null);
-      await refreshDatastreams();
+      await refetchAll();
       const data = await fetchData(item.root, token);
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
@@ -402,7 +400,7 @@ export default function Datastreams() {
         }
       }
       await updateData(`${item.root}(${originalDatastream["@iot.id"]})`, token, payload);
-      await refreshDatastreams();
+      await refetchAll();
       setExpanded(String(originalDatastream["@iot.id"]));
       setEditDatastream(null);
       await fetchDatastreamWithExpand(originalDatastream["@iot.id"]);
@@ -415,11 +413,12 @@ export default function Datastreams() {
   const handleDelete = async (id) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
-      await refreshDatastreams();
+      await refetchAll();
     } catch (err) {
       console.error("Error deleting datastream:", err);
     }
   };
+  
   // Fetch datastreams with expanded nested entities
   const fetchDatastreamWithExpand = async (datastreamId) => {
     const nested = siteConfig.items.find(i => i.label === "Datastreams").nested;
@@ -439,7 +438,7 @@ export default function Datastreams() {
     }));
   };
   React.useEffect(() => {
-    refreshDatastreams();
+    refetchAll();
   }, []);
   React.useEffect(() => {
     if (expandedFromQuery) setExpanded(expandedFromQuery);
@@ -452,7 +451,9 @@ export default function Datastreams() {
     }
   }, [datastreams, token]);
   const loading = authLoading || entitiesLoading;
-  if (loading) return <p style={{ color: "#fff" }}>Loading...</p>;
+  //if (loading) return <p style={{ color: "#fff" }}>Loading...</p>;
+  if (loading) return <LoadingScreen />;
+    
   if (entitiesError) return <p>{entitiesError}</p>;
   const entityListComponent = (
     <EntityList

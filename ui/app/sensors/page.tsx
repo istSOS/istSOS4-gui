@@ -15,6 +15,7 @@ import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
+import { LoadingScreen } from "../../components/LoadingScreen";
 // Constants
 //export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Sensors");
@@ -178,7 +179,7 @@ export default function Sensors() {
     setError(entitiesError);
   }, [entitiesLoading, entitiesError, token, sensors]);
   // Render loading and error states
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
   // Render components

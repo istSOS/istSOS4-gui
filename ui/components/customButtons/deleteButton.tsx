@@ -1,19 +1,21 @@
 import * as React from "react";
-import { Button, Tooltip } from "@heroui/react";
+import { Button, Tooltip, Input } from "@heroui/react";
 import deleteData from "../../server/deleteData";
 import { useTranslation } from "react-i18next";
-import { DeleteIcon } from "../icons"
+import { DeleteIcon } from "../icons";
 
 type DeleteButtonProps = {
-  endpoint: string; //complete endpoint URL for deletion
+  endpoint: string; // Complete endpoint URL for deletion
   token: string;
+  entityName: string; // Name of the entity being deleted, for comparison with the confirmation message
   onDeleted?: () => void;
 };
 
-const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted }) => {
+const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, entityName, onDeleted }) => {
   const [showConfirm, setShowConfirm] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [confirmationText, setConfirmationText] = React.useState("");
   const { t } = useTranslation();
 
   const handleDelete = async () => {
@@ -22,6 +24,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
     try {
       await deleteData(endpoint, token);
       setShowConfirm(false);
+      setConfirmationText("");
       if (onDeleted) onDeleted();
     } catch (err) {
       setError("Error during deletion.");
@@ -31,19 +34,31 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
     }
   };
 
+  const isDeleteEnabled = confirmationText === entityName;
+
   return (
     <div className="relative">
       {showConfirm && (
-        <div className="absolute right-0 -top-10 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center">
-          <p className="mb-2 text-sm">{t("general.confirm_delete")}</p>
+        <div className="absolute right-0 -top-10 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center w-60">
+          <p className="mb-2 text-sm">
+            {t("general.confirm_delete")}
+          </p>
+          <Input
+            placeholder={`${entityName}`}
+            radius="sm"
+            value={confirmationText}
+            onChange={(e) => setConfirmationText(e.target.value)}
+            className="mb-2"
+          />
           <div className="flex gap-2">
             <Button
               radius="sm"
               color="danger"
+              variant={isDeleteEnabled ? "solid" : "bordered"}
               size="sm"
-              
               onPress={handleDelete}
               isLoading={isLoading}
+              disabled={!isDeleteEnabled}
             >
               {t("general.yes")}
             </Button>
@@ -51,7 +66,10 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
               radius="sm"
               size="sm"
               variant="bordered"
-              onPress={() => setShowConfirm(false)}
+              onPress={() => {
+                setShowConfirm(false);
+                setConfirmationText("");
+              }}
               disabled={isLoading}
             >
               {t("general.no")}
@@ -66,22 +84,12 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, onDeleted 
           isIconOnly
           color="danger"
           variant="light"
-
           onPress={() => setShowConfirm(true)}
           disabled={isLoading}
         >
-          {
-            isLoading ? (
-              <span className="loader"></span>
-            ) : (
-              <DeleteIcon />
-            )
-          }
-
+          {isLoading ? <span className="loader"></span> : <DeleteIcon />}
         </Button>
-
       </Tooltip>
-
     </div>
   );
 };

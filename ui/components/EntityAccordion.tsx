@@ -329,6 +329,7 @@ const EntityAccordion = ({
                   <DeleteButton
                     endpoint={`${entityType}(${entity["@iot.id"]})`}
                     token={token}
+                    entityName={entity.name || entity["@iot.id"] || ""}
                     onDeleted={() => onDelete(entity["@iot.id"])}
                   />
                 </div>

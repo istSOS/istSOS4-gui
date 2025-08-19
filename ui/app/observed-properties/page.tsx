@@ -13,6 +13,7 @@ import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react"
 import { SearchBar } from "../../components/bars/searchBar";
 import DeleteButton from "../../components/customButtons/deleteButton";
 import { t } from "i18next";
+import { LoadingScreen } from "../../components/LoadingScreen";
 
 //export const mainColor = siteConfig.main_color;
 
@@ -42,7 +43,7 @@ export default function ObservedProperties() {
     JSON.stringify(ds).toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
   return (
@@ -137,10 +138,8 @@ export default function ObservedProperties() {
                     <DeleteButton
                       endpoint={`${item.root}(${ds["@iot.id"]})`}
                       token={token}
-                      onDeleted={() =>
-                        setObeservedProperties(prev => prev.filter(o => o["@iot.id"]
-                          !== ds["@iot.id"]))}
-                    />
+                      onDeleted={() => setObeservedProperties(prev => prev.filter(o => o["@iot.id"]
+                        !== ds["@iot.id"]))} entityName={""}                    />
                   </div>
 
 

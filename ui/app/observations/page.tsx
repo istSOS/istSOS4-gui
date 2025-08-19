@@ -14,6 +14,7 @@ import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import MapWrapper from "../../components/MapWrapper";
 import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
+import { LoadingScreen } from "../../components/LoadingScreen";
 
 //export const mainColor = siteConfig.main_color;
 
@@ -278,7 +279,7 @@ export default function Observations() {
     setError(entitiesError as any);
   }, [entitiesLoading, entitiesError, token, observations]);
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
   const entityListComponent = (

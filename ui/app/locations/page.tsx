@@ -14,6 +14,7 @@ import EntityCreator from "../../components/EntityCreator";
 import { useTranslation } from "react-i18next";
 import MapWrapper from "../../components/MapWrapper";
 import EntityAccordion from "../../components/EntityAccordion";
+import { LoadingScreen } from "../../components/LoadingScreen";
 
 // Define main and secondary colors from site config
 //export const mainColor = siteConfig.main_color;
@@ -205,7 +206,7 @@ export default function Locations() {
 
   const getLabelMap = (loc) => loc.name ?? "-";
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
   return (

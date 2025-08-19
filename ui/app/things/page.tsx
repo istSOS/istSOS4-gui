@@ -13,6 +13,7 @@ import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import LocationCreator from "./LocationCreator";
 import { Button, Accordion, AccordionItem } from "@heroui/react";
+import { LoadingScreen } from "../../components/LoadingScreen";
 
 //export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Things");
@@ -217,12 +218,13 @@ export default function Things() {
   const handleDelete = async (id) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
-      const data = await fetchData(item.root, token);
-      setThings(data?.value || []);
+      await refetchAll();
     } catch (err) {
       console.error("Error deleting Thing:", err);
     }
   };
+
+
 
   const fetchThingWithExpand = async (thingId) => {
     const nested = siteConfig.items.find(i => i.label === "Things").nested;
@@ -267,7 +269,7 @@ export default function Things() {
     }
   };
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{String(error)}</p>;
 
   const entityListComponent = (
