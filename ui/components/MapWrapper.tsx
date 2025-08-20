@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import "leaflet/dist/leaflet.css";
-import { Input, Button, Chip } from "@heroui/react";
+import { Input, Button, Chip, Switch } from "@heroui/react";
 import { MAP_TILE_LAYER } from "../config/site";
 import { getColorScale } from "./hooks/useColorScale";
 import L from "leaflet";
@@ -23,7 +23,14 @@ type MapWrapperProps = {
     setSplit: (split: number) => void;
     showMarkers?: boolean;
     mapRef?: React.MutableRefObject<any>;
+    chipColorStrategy?: (item: any) => string;
 };
+const colorMap = new Map<string, string>([
+    ["success", "#4ade80"],
+    ["warning", "#facc15"],
+    ["danger", "#ef4444"],
+    ["default", "#e5e7eb"]
+]);
 const colorPalette = [
     "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
     "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
@@ -50,11 +57,13 @@ export default function MapWrapper({
     setSplit,
     showMarkers,
     mapRef,
+    chipColorStrategy,
 }: MapWrapperProps) {
     const mapContainerRef = React.useRef<HTMLDivElement>(null);
     const mapInstanceRef = React.useRef<any>(null);
     const markersRef = React.useRef<any[]>([]);
     const geoJSONLayersRef = React.useRef<any[]>([]);
+    const [colorMode, setColorMode] = React.useState<boolean>(false);
     const [isSplitting, setIsSplitting] = React.useState(false);
     const [searchQuery, setSearchQuery] = React.useState("");
     const [isSearching, setIsSearching] = React.useState(false);
@@ -168,14 +177,10 @@ export default function MapWrapper({
         };
     }, [isSplitting, setSplit]);
     function getPopupContent(item: any) {
-        const chipColor = getColorScale(items, item);
+        const chipColor = chipColorStrategy ? chipColorStrategy(item) : "default";
         let color;
-        switch (chipColor) {
-            case "success": color = "#4ade80"; break;
-            case "warning": color = "#facc15"; break;
-            case "danger": color = "#ef4444"; break;
-            default: color = "#e5e7eb";
-        }
+        color = colorMap.get(chipColor) || "#e5e7eb";
+
         return `
         <div style="min-width:180px">
             <div>
@@ -267,7 +272,7 @@ export default function MapWrapper({
                     attribution: MAP_TILE_LAYER.attribution,
                 }).addTo(leafletMap);
 
-                
+
                 function updateBBox() {
                     if (!mapInstanceRef.current) return;
                     const bounds = mapInstanceRef.current.getBounds();
@@ -317,7 +322,9 @@ export default function MapWrapper({
                 if (geoJSON) {
                     const geoJSONLayer = L.geoJSON(geoJSON, {
                         style: (feature) => {
-                            const color = getColorFromId(id);
+                            const color = colorMode
+                                ? colorMap.get(chipColorStrategy(item))
+                                : getColorFromId(id);
                             return {
                                 color,
                                 weight: 2,
@@ -359,7 +366,7 @@ export default function MapWrapper({
                 mapInstanceRef.current?.invalidateSize();
             }, 200);
         });
-    }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick]);
+    }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick, colorMode, chipColorStrategy]);
     React.useEffect(() => {
         if (!showMap && mapInstanceRef.current) {
             mapInstanceRef.current.remove();
@@ -408,10 +415,16 @@ export default function MapWrapper({
             }}
         >
             <div style={{ padding: "4px", zIndex: 100, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+                <Switch
+                    checked={colorMode}
+                    onChange={() => setColorMode(v => !v)}
+                    size="sm"
+                    className="mr-2"
+                />
                 <form onSubmit={handleSearchSubmit} style={{ display: "flex", alignItems: "center", marginRight: "16px" }}>
                     <Input
                         type="text"
-                        radius= "sm"
+                        radius="sm"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder={t("general.search_location")}

@@ -15,6 +15,7 @@ import { useTranslation } from "react-i18next";
 import MapWrapper from "../../components/MapWrapper";
 import EntityAccordion from "../../components/EntityAccordion";
 import { LoadingScreen } from "../../components/LoadingScreen";
+import { buildLocationFields } from "./utils";
 
 // Define main and secondary colors from site config
 //export const mainColor = siteConfig.main_color;
@@ -27,14 +28,8 @@ export default function Locations() {
   const { t } = useTranslation();
 
   // Define fields for the EntityCreator specific to Locations
-  const locationFields = [
-    { name: "name", label: t("locations.name"), required: true },
-    { name: "description", label: t("locations.description") },
-    { name: "latitude", label: t("locations.latitude"), type: "number", required: true },
-    { name: "longitude", label: t("locations.longitude"), type: "number", required: true },
-    { name: "encodingType", label: t("locations.encoding_type"), required: true, default: "application/vnd.geo+json" },
-  ];
-
+  const locationFields = React.useMemo(() => buildLocationFields(t), [t]);
+  
   // Optional: label mapping for displaying fields
   const getLabel = (key) => {
     const map = {

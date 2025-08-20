@@ -29,4 +29,5 @@ Without this, managing istSOS SensorThings API components requires manual API in
 [![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB&style=for-the-badge)](https://reactjs.org/)  
 [![Node.js](https://img.shields.io/badge/Node.js-339933?logo=nodedotjs&logoColor=white&style=for-the-badge)](https://nodejs.org/)
 # Outline of the file structure and dependencies
+
 # User manual

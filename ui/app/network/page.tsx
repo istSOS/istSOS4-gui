@@ -191,6 +191,13 @@ export default function Page() {
           split={0.5}
           setSplit={() => { }}
           showMarkers={true}
+          chipColorStrategy={(item) => {
+            if (!item.lastMeasurement) return "default";
+            const ageMin = (Date.now() - new Date(item.lastMeasurement).getTime()) / 60000;
+            if (ageMin < 5) return "success"; //DEFAULT: less than 5 minutes: green
+            if (ageMin < 30) return "warning"; //DEFAULT: less than 30 mins: yellow
+            return "danger"; //DEFAULT: more than 30 mins: red
+          }}
         />
       </div>
     </div>

@@ -14,6 +14,8 @@ import { EntityList } from "../../components/entity/EntityList";
 import LocationCreator from "./LocationCreator";
 import { Button, Accordion, AccordionItem } from "@heroui/react";
 import { LoadingScreen } from "../../components/LoadingScreen";
+import { buildThingFields } from "./utils";
+import { useTranslation } from "react-i18next";
 
 //export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Things");
@@ -24,6 +26,7 @@ export default function Things() {
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   const { token } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
 
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
   const [things, setThings] = React.useState<any[]>([]);
@@ -47,12 +50,7 @@ export default function Things() {
   const [standaloneLocationLoading, setStandaloneLocationLoading] = React.useState(false);
   const [standaloneLocationError, setStandaloneLocationError] = React.useState<string | null>(null);
 
-  const defaultValues = {
-    name: "New Thing",
-    description: "Default Description",
-    properties: {},
-    Locations: null
-  };
+
 
   const filtered = things.filter(thing =>
     JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
@@ -73,50 +71,10 @@ export default function Things() {
     value: loc["@iot.id"]
   }));
 
-  const thingFields = [
-    { name: "name", label: "Name", required: true, defaultValue: defaultValues.name },
-    { name: "description", label: "Description", required: false, defaultValue: defaultValues.description },
-    {
-      name: "properties",
-      label: "Properties",
-      type: "properties",
-      required: false
-    },
-    {
-      name: "Location",
-      label: "Location",
-      required: false,
-      defaultValue: defaultValues.Locations,
-      type: "select",
-      options: locationOptions,
-      render: ({ value, onChange }) => (
-        <div className="flex flex-col gap-2">
-          <select
-            value={value || ""}
-            onChange={e => onChange(e.target.value)}
-            className="border rounded px-2 py-1 text-sm"
-          >
-            <option value="">Select Location</option>
-            {locationOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="bg-blue-500 text-white px-2 py-1 rounded text-sm"
-            onClick={() => setLocationModalOpen(true)}
-          >
-            + Create new Location (pending)
-          </button>
-          {pendingLocation && (
-            <span className="text-green-700 text-xs">
-              New Location ready to be created with the Thing.
-            </span>
-          )}
-        </div>
-      )
-    }
-  ];
+  const thingFields = React.useMemo(
+    () => buildThingFields({ t, locationOptions }),
+    [t, locationOptions]
+  );
 
   const handleCancelCreate = () => {
     setShowCreate(false);

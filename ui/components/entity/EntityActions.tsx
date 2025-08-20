@@ -59,6 +59,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
             {Object.entries(filters).map(([key, filter]) => (
               <Select
                 key={key}
+                
                 radius="sm"
                 selectedKeys={filter.value !== undefined && filter.value !== null ? [filter.value] : []}
                 onSelectionChange={(selection) => {

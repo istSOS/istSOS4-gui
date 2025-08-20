@@ -12,7 +12,7 @@ import { getTimeAgoDays, getColorScale } from "./hooks/useColorScale";
 import { useTimezone } from "../context/TimezoneContext";
 import { DateTime } from "luxon";
 import { formatDateWithTimezone } from "./hooks/formatDateWithTimezone";
-import LocationCreator from "../app/things/LocationCreator"; // <-- Importa il componente
+import LocationCreator from "../app/things/LocationCreator";
 
 const EntityAccordion = ({
   items,

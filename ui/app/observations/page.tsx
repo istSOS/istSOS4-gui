@@ -55,14 +55,16 @@ export default function Observations() {
   const grafanaPanelId = process.env.NEXT_PUBLIC_GRAFANA_PANEL_ID;
   const grafanaUrl = React.useMemo(() => {
     if (!grafanaBase || !grafanaDashboardUid || !grafanaPanelId) return null;
-    
+
     return `${grafanaBase}/d-solo/${grafanaDashboardUid}/?panelId=${grafanaPanelId}&theme=light&var-entity=observations`;
   }, [grafanaBase, grafanaDashboardUid, grafanaPanelId]);
 
   // Default form values
+  const now = new Date();
+  const roundToMinute = new Date(Math.floor(now.getTime() / 60000) * 60000);
   const defaultValues = {
-    phenomenonTime: "2023-01-01T00:00:00Z",
-    resultTime: "2023-01-01T00:00:00Z",
+    phenomenonTime: roundToMinute.toISOString(),
+    resultTime: roundToMinute.toISOString(),
     result: 0,
     resultQuality: "",
     Datastream: null,
@@ -304,7 +306,7 @@ export default function Observations() {
       token={token}
       nestedEntities={nestedEntitiesMap}
       sortOrder=""
-      setSortOrder={() => {}}
+      setSortOrder={() => { }}
     />
   );
 
@@ -322,7 +324,7 @@ export default function Observations() {
         onToggleMap={() => setShowMap(prev => !prev)}
         filters={{
           datastream: { label: "Datastream", options: datastreamOptions, value: filters.datastream },
-            featureOfInterest: { label: "Feature Of Interest", options: featureOfInterestOptions, value: filters.featureOfInterest }
+          featureOfInterest: { label: "Feature Of Interest", options: featureOfInterestOptions, value: filters.featureOfInterest }
         }}
         onFilterChange={handleFilterChange}
       />
