@@ -1,4 +1,5 @@
 "use client";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
@@ -11,16 +12,12 @@ import deleteData from "../../server/deleteData";
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
-import LocationCreator from "./LocationCreator";
-import { Button, Accordion, AccordionItem } from "@heroui/react";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { buildThingFields } from "./utils";
 import { useTranslation } from "react-i18next";
+import ThingCreator from "./ThingCreator";
 
-//export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Things");
-const locationItem = siteConfig.items.find(i => i.label === "Locations");
-const historicalLocationItem = siteConfig.items.find(i => i.label === "HistoricalLocations");
 
 export default function Things() {
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
@@ -31,30 +28,17 @@ export default function Things() {
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
   const [things, setThings] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<any>(null);
+  const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
-  const [editThing, setEditThing] = React.useState<any>(null);
+  const [editThing, setEditThing] = React.useState<any | null>(null);
   const [editLoading, setEditLoading] = React.useState(false);
   const [editError, setEditError] = React.useState<string | null>(null);
   const [expanded, setExpanded] = React.useState<string | null>(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
-
-  const [locationModalOpen, setLocationModalOpen] = React.useState(false);
-  const [pendingLocation, setPendingLocation] = React.useState<any>(null);
-
-  const [standaloneLocationModalOpen, setStandaloneLocationModalOpen] = React.useState(false);
-  const [standaloneLocationLoading, setStandaloneLocationLoading] = React.useState(false);
-  const [standaloneLocationError, setStandaloneLocationError] = React.useState<string | null>(null);
-
-
-
-  const filtered = things.filter(thing =>
-    JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
-  );
 
   React.useEffect(() => {
     refetchAll();
@@ -63,7 +47,7 @@ export default function Things() {
   React.useEffect(() => {
     setThings(entities.things || []);
     setLoading(entitiesLoading);
-    setError(entitiesError);
+    setError(entitiesError ? String(entitiesError) : null);
   }, [entities, entitiesLoading, entitiesError]);
 
   const locationOptions = (entities?.locations || []).map(loc => ({
@@ -76,41 +60,42 @@ export default function Things() {
     [t, locationOptions]
   );
 
-  const handleCancelCreate = () => {
-    setShowCreate(false);
-    setPendingLocation(null);
-  };
+  const filtered = things.filter(thing =>
+    JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleCancelCreate = () => setShowCreate(false);
   const handleCancelEdit = () => setEditThing(null);
 
-  const handleCreate = async (newThing) => {
+  // FIX: build nested Locations array inline if newLocation present
+  const handleCreate = async (newThing: any) => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      let locationId = newThing.Location;
-
-      if (pendingLocation) {
-        const locRes = await createData(locationItem.root, token, pendingLocation);
-        locationId = locRes["@iot.id"];
-        setPendingLocation(null);
-      }
-
       const thingPayload: any = {
         name: newThing.name,
         description: newThing.description,
-        properties: Array.isArray(newThing.properties) && newThing.properties.length > 0
-          ? Object.fromEntries(
-            newThing.properties
-              .filter(p => p.key)
-              .map(p => [p.key, p.value])
-          )
-          : {}
+        properties:
+          newThing.properties && Object.keys(newThing.properties).length > 0
+            ? newThing.properties
+            : {}
       };
 
-      if (locationId) {
-        thingPayload.Locations = [{ "@iot.id": Number(locationId) }];
+      if (newThing.newLocation) {
+        thingPayload.Locations = [
+          {
+            name: newThing.newLocation.name,
+            description: newThing.newLocation.description,
+            encodingType: newThing.newLocation.encodingType || "application/vnd.geo+json",
+            location: newThing.newLocation.location
+          }
+        ];
+      } else if (newThing.Location) {
+        thingPayload.Locations = [{ "@iot.id": Number(newThing.Location) }];
       }
 
       await createData(item.root, token, thingPayload);
+
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
       if (data?.value && data.value.length > 0) {
@@ -119,19 +104,16 @@ export default function Things() {
         fetchThingWithExpand(newId);
       }
       setShowCreate(false);
-      setExpanded(null);
     } catch (err: any) {
-      setCreateError(err.message || "Error creating Thing");
+      setCreateError(err?.message || "Error creating Thing");
     } finally {
       setCreateLoading(false);
     }
   };
 
-  const handleEdit = (entity) => {
-    setEditThing(entity);
-  };
+  const handleEdit = (entity: any) => setEditThing(entity);
 
-  const handleSaveEdit = async (updatedThing, originalThing) => {
+  const handleSaveEdit = async (updatedThing: any, originalThing: any) => {
     setEditLoading(true);
     setEditError(null);
     try {
@@ -141,39 +123,35 @@ export default function Things() {
       const payload: any = {
         name: updatedThing.name,
         description: updatedThing.description,
-        properties: Array.isArray(updatedThing.properties) && updatedThing.properties.length > 0
-          ? Object.fromEntries(
-            updatedThing.properties
-              .filter(p => p.key)
-              .map(p => [p.key, p.value])
-          )
-          : {}
+        properties:
+          Array.isArray(updatedThing.properties) && updatedThing.properties.length > 0
+            ? Object.fromEntries(
+                updatedThing.properties
+                  .filter((p: any) => p.key)
+                  .map((p: any) => [p.key, p.value])
+              )
+            : {}
       };
 
       if (Number(newLocId) !== Number(originalLocId)) {
-        if (newLocId) {
-          payload.Locations = [{ "@iot.id": Number(newLocId) }];
-        } else {
-          
-          payload.Locations = [];
-        }
+        if (newLocId) payload.Locations = [{ "@iot.id": Number(newLocId) }];
+        else payload.Locations = [];
       }
 
       await updateData(`${item.root}(${originalThing["@iot.id"]})`, token, payload);
-
       const data = await fetchData(item.root, token);
       setThings(data?.value || []);
       setExpanded(String(originalThing["@iot.id"]));
       setEditThing(null);
       await fetchThingWithExpand(originalThing["@iot.id"]);
     } catch (err: any) {
-      setEditError(err.message || "Error updating Thing");
+      setEditError(err?.message || "Error updating Thing");
     } finally {
       setEditLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string | number) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
       await refetchAll();
@@ -182,24 +160,17 @@ export default function Things() {
     }
   };
 
-
-
-  const fetchThingWithExpand = async (thingId) => {
-    const nested = siteConfig.items.find(i => i.label === "Things").nested;
+  const fetchThingWithExpand = async (thingId: string | number) => {
+    const nested = siteConfig.items.find(i => i.label === "Things")?.nested || [];
     const nestedData: Record<string, any> = {};
     await Promise.all(
-      nested.map(async (nestedKey) => {
+      nested.map(async (nestedKey: string) => {
         const url = `${item.root}(${thingId})?$expand=${nestedKey}`;
         const data = await fetchData(url, token);
-        if (data && data[nestedKey]) {
-          nestedData[nestedKey] = data[nestedKey];
-        }
+        if (data && data[nestedKey]) nestedData[nestedKey] = data[nestedKey];
       })
     );
-    setNestedEntitiesMap(prev => ({
-      ...prev,
-      [thingId]: nestedData
-    }));
+    setNestedEntitiesMap(prev => ({ ...prev, [thingId]: nestedData }));
   };
 
   React.useEffect(() => {
@@ -208,27 +179,10 @@ export default function Things() {
         fetchThingWithExpand(t["@iot.id"]);
       });
     }
-    setLoading(entitiesLoading);
-    setError(entitiesError);
-  }, [entitiesLoading, entitiesError, token, things]);
-
-  const handleStandaloneLocationCreate = async (payload: any) => {
-    setStandaloneLocationLoading(true);
-    setStandaloneLocationError(null);
-    try {
-      await createData(locationItem.root, token, payload);
-      setStandaloneLocationModalOpen(false);
-      await refetchAll();
-      router.refresh();
-    } catch (err: any) {
-      setStandaloneLocationError(err.message || "Error creating Location");
-    } finally {
-      setStandaloneLocationLoading(false);
-    }
-  };
+  }, [things, token]);
 
   if (loading) return <LoadingScreen />;
-  if (error) return <p>{String(error)}</p>;
+  if (error) return <p>{error}</p>;
 
   const entityListComponent = (
     <EntityList
@@ -243,7 +197,7 @@ export default function Things() {
       onCreate={handleCreate}
       handleCancelCreate={handleCancelCreate}
       handleCancelEdit={handleCancelEdit}
-      showCreateForm={showCreate}
+      showCreateForm={false}
       isCreating={createLoading}
       createError={createError}
       editEntity={editThing}
@@ -252,7 +206,7 @@ export default function Things() {
       token={token}
       nestedEntities={nestedEntitiesMap}
       sortOrder=""
-      setSortOrder={() => { }}
+      setSortOrder={() => {}}
     />
   );
 
@@ -264,51 +218,19 @@ export default function Things() {
         onSearchChange={setSearch}
         onCreatePress={() => {
           setShowCreate(true);
-          setExpanded("new-entity");
+          setExpanded(null);
         }}
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
       />
 
-      <div className="w-full flex justify-end mb-4">
-        <Button
-          size="sm"
-          color="default"
-          onPress={() => setStandaloneLocationModalOpen(true)}
-        >
-          + Create Location
-        </Button>
-      </div>
-
-      {standaloneLocationModalOpen && (
-        <div className="mb-6 bg-gray-100 p-1 rounded-md">
-          <div className="flex items-center w-full">
-            <div className="flex-1">
-              <Accordion
-                isCompact
-                selectedKeys={["new-location"]}
-              >
-                <AccordionItem
-                  key="new-location"
-                  id="entity-accordion-item-new-location"
-                  title={
-                    <div className="grid grid-cols-5 gap-2 pl-2 items-center w-full">
-                      <span className="font-bold text-lg text-gray-800">New Location</span>
-                    </div>
-                  }
-                  value="new-location"
-                >
-                  <LocationCreator
-                    onCreate={handleStandaloneLocationCreate}
-                    onCancel={() => setStandaloneLocationModalOpen(false)}
-                    isLoading={standaloneLocationLoading}
-                    error={standaloneLocationError}
-                  />
-                </AccordionItem>
-              </Accordion>
-            </div>
-            <div className="w-32" />
-          </div>
+      {showCreate && (
+        <div className="mb-6">
+          <ThingCreator
+            onCreate={handleCreate}
+            onCancel={handleCancelCreate}
+            isLoading={createLoading}
+            error={createError} locationOptions={locationOptions}          />
         </div>
       )}
 
@@ -318,39 +240,6 @@ export default function Things() {
         showRightPanel={null}
         initialSplit={split}
       />
-
-      {locationModalOpen && (
-        <div className="mt-6 bg-gray-100 p-1 rounded-md">
-          <div className="flex items-center w-full">
-            <div className="flex-1">
-              <Accordion
-                isCompact
-                selectedKeys={["pending-location"]}
-              >
-                <AccordionItem
-                  key="pending-location"
-                  id="entity-accordion-item-pending-location"
-                  title={
-                    <div className="grid grid-cols-5 gap-2 pl-2 items-center w-full">
-                      <span className="font-bold text-lg text-gray-800">New Location (Pending for Thing)</span>
-                    </div>
-                  }
-                  value="pending-location"
-                >
-                  <LocationCreator
-                    onCreate={loc => {
-                      setPendingLocation(loc);
-                      setLocationModalOpen(false);
-                    }}
-                    onCancel={() => setLocationModalOpen(false)}
-                  />
-                </AccordionItem>
-              </Accordion>
-            </div>
-            <div className="w-32" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

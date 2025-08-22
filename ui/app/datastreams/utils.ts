@@ -1,15 +1,14 @@
 export const unitOfMeasurementOptions = [
-    //name, symbol, definition
-    { label: "Centigrade", value: "Centigrade", symbol: "°C", definition: "A unit of temperature on the Celsius scale." },
-    { label: "Fahrenheit", value: "Fahrenheit", symbol: "°F", definition: "A unit of temperature on the Fahrenheit scale." },
-    { label: "Kelvin", value: "Kelvin", symbol: "K", definition: "The SI base unit of thermodynamic temperature." },
-    { label: "Meter", value: "Meter", symbol: "m", definition: "The base unit of length in the International System of Units (SI)." },
-    { label: "Kilogram", value: "Kilogram", symbol: "kg", definition: "The base unit of mass in the International System of Units (SI)." },
-    { label: "Second", value: "Second", symbol: "s", definition: "The base unit of time in the International System of Units (SI)." },
-    { label: "Hertz", value: "Hertz", symbol: "Hz", definition: "The unit of frequency, equal to one cycle per second." },
-    { label: "Pascal", value: "Pascal", symbol: "Pa", definition: "The SI unit of pressure, equal to one newton per square meter." },
-
+    { name: "Degree Celsius", symbol: "°C", definition: "http://qudt.org/vocab/unit/DEG_C" },
+    { name: "Degree Fahrenheit", symbol: "°F", definition: "http://qudt.org/vocab/unit/DEG_F" },
+    { name: "Kelvin", symbol: "K", definition: "http://qudt.org/vocab/unit/K" },
+    { name: "Meter", symbol: "m", definition: "http://qudt.org/vocab/unit/M" },
+    { name: "Kilogram", symbol: "kg", definition: "http://qudt.org/vocab/unit/KiloGM" },
+    { name: "Second", symbol: "s", definition: "http://qudt.org/vocab/unit/SEC" },
+    { name: "Hertz", symbol: "Hz", definition: "http://qudt.org/vocab/unit/HZ" },
+    { name: "Pascal", symbol: "Pa", definition: "http://qudt.org/vocab/unit/PA" }
 ];
+
 
 export const observationTypeURIs = [
     //label, value
@@ -25,9 +24,9 @@ export const observationTypeURIs = [
 
 export function buildDatastreamFields(params: {
     t: (k: string) => string;
-    thingOptions: Array<{ label: string; value: any; disabled?: boolean }>;
-    sensorOptions: Array<{ label: string; value: any; disabled?: boolean }>;
-    observedPropertyOptions: Array<{ label: string; value: any; disabled?: boolean }>;
+    thingOptions: Array<any>;
+    sensorOptions: Array<any>;
+    observedPropertyOptions: Array<any>;
     includePhenomenonTime?: boolean;
 }) {
     const {

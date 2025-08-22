@@ -4,144 +4,122 @@ import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
-//import { unitOfMeasurementOptions, observationTypeURIs } from "./utils";
 import { useTranslation } from "react-i18next";
 import createData from "../../server/createData";
 import updateData from "../../server/updateData";
 import fetchData from "../../server/fetchData";
 import deleteData from "../../server/deleteData";
-//Reusable components
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
-import MapWrapper from "../../components/MapWrapper";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { buildSensorFields } from "./utils";
+import SensorCreator from "./SensorCreator";
 
-
-// Constants
-//export const mainColor = siteConfig.main_color;
 const item = siteConfig.items.find(i => i.label === "Sensors");
-// Main component
+
 export default function Sensors() {
-  // Hooks
   const { t } = useTranslation();
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
-  // State management
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
-  const [sensors, setSensors] = React.useState([]);
+
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
+  const [sensors, setSensors] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
+  const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState(null);
-  const [editSensor, setEditSensor] = React.useState(null);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [editSensor, setEditSensor] = React.useState<any | null>(null);
   const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState(null);
-  const [expanded, setExpanded] = React.useState(null);
+  const [editError, setEditError] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
-
-  const defaultValues = {
-    name: "New Sensor",
-    description: "Default Description",
-    encodingType: "application/pdf",
-    metadata: "Default sensor"
-  }
-
-  // Filter sensors
-  const filtered = sensors.filter(sensor => {
-    const id = sensor["@iot.id"];
-    const nested = nestedEntitiesMap[id] || {};
-    const matchesSearch = JSON.stringify(sensor).toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
-
-  // Fetch all entities on mount
   React.useEffect(() => {
     refetchAll();
   }, []);
-  // Set sensors and loading/error states
+
   React.useEffect(() => {
     setSensors(entities.sensors || []);
-    setLoading(entitiesLoading);
-    setError(entitiesError);
-  }, [entities, entitiesLoading, entitiesError]);
+    setLoading(entitiesLoading || authLoading);
+    setError(entitiesError || null);
+  }, [entities, entitiesLoading, entitiesError, authLoading]);
 
-  // Sensor fields configuration
   const sensorFields = React.useMemo(() => buildSensorFields(t), [t]);
 
-  
-  // Handlers for CRUD operations
-  const handleCancelCreate = () => setShowCreate(false);
-  const handleCancelEdit = () => setEditSensor(null);
-  const handleCreate = async (newSensor) => {
+  const filtered = sensors.filter(sensor =>
+    JSON.stringify(sensor).toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleCancelCreate = () => {
+    setShowCreate(false);
+    setCreateError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditSensor(null);
+    setEditError(null);
+  };
+
+  const handleCreate = async (newSensor: Record<string, any>) => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-
-      const payload: {
-        name: any;
-        description: any;
-        encodingType: any;
-        metadata?: any;
-      } = {
+      const payload = {
         name: newSensor.name,
         description: newSensor.description,
         encodingType: newSensor.encodingType,
-        metadata: newSensor.metadata,
+        metadata: newSensor.metadata
       };
-
       await createData(item.root, token, payload);
       setShowCreate(false);
       setExpanded(null);
       const data = await fetchData(item.root, token);
       setSensors(data?.value || []);
-      // Auto-expand the newly created sensor
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
         setExpanded(String(newId));
         fetchSensorWithExpand(newId);
       }
-    } catch (err) {
-      setCreateError(err.message || "Error creating sensor");
+    } catch (err: any) {
+      setCreateError(err?.message || "Error creating sensor");
     } finally {
       setCreateLoading(false);
     }
   };
-  const handleEdit = (entity) => {
+
+  const handleEdit = (entity: any) => {
     setEditSensor(entity);
   };
-  const handleSaveEdit = async (updatedSensor, originalSensor) => {
+
+  const handleSaveEdit = async (updatedSensor: any, originalSensor: any) => {
     setEditLoading(true);
     setEditError(null);
     try {
-
       const payload = {
         name: updatedSensor.name,
         description: updatedSensor.description,
         encodingType: updatedSensor.encodingType,
-        metadata: updatedSensor.metadata,
-
+        metadata: updatedSensor.metadata
       };
-
       await updateData(`${item.root}(${originalSensor["@iot.id"]})`, token, payload);
       const data = await fetchData(item.root, token);
       setSensors(data?.value || []);
       setExpanded(String(originalSensor["@iot.id"]));
       setEditSensor(null);
       await fetchSensorWithExpand(originalSensor["@iot.id"]);
-    } catch (err) {
-      setEditError(err.message || "Error updating sensor");
+    } catch (err: any) {
+      setEditError(err?.message || "Error updating sensor");
     } finally {
       setEditLoading(false);
     }
   };
-  const handleDelete = async (id) => {
+
+  const handleDelete = async (id: string | number) => {
     try {
       await deleteData(`${item.root}(${id})`, token);
       const data = await fetchData(item.root, token);
@@ -150,12 +128,12 @@ export default function Sensors() {
       console.error("Error deleting sensor:", err);
     }
   };
-  // Fetch sensors with expanded nested entities
-  const fetchSensorWithExpand = async (sensorId) => {
+
+  const fetchSensorWithExpand = async (sensorId: string | number) => {
     const nested = siteConfig.items.find(i => i.label === "Sensors").nested;
-    const nestedData = {};
+    const nestedData: Record<string, any> = {};
     await Promise.all(
-      nested.map(async (nestedKey) => {
+      nested.map(async (nestedKey: string) => {
         const url = `${item.root}(${sensorId})?$expand=${nestedKey}`;
         const data = await fetchData(url, token);
         if (data && data[nestedKey]) {
@@ -168,48 +146,54 @@ export default function Sensors() {
       [sensorId]: nestedData
     }));
   };
-  // Example call on mount
+
   React.useEffect(() => {
     if (sensors.length > 0) {
       sensors.forEach(s => {
         fetchSensorWithExpand(s["@iot.id"]);
       });
     }
-    setLoading(entitiesLoading);
-    setError(entitiesError);
-  }, [entitiesLoading, entitiesError, token, sensors]);
-  // Render loading and error states
+  }, [sensors, token]);
+
   if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
-  // Render components
-  const entityListComponent = (
-    <EntityList
-      items={filtered}
-      fields={sensorFields}
-      expandedId={expanded}
-      onItemSelect={setExpanded}
-      entityType="sensors"
-      onEdit={handleEdit}
-      onSaveEdit={handleSaveEdit}
-      onDelete={handleDelete}
-      onCreate={handleCreate}
-      handleCancelCreate={handleCancelCreate}
-      handleCancelEdit={handleCancelEdit}
-      showCreateForm={showCreate}
-      isCreating={createLoading}
-      createError={createError}
-      editEntity={editSensor}
-      isEditing={editLoading}
-      editError={editError}
-      token={token}
-      nestedEntities={nestedEntitiesMap}
-      sortOrder=""
-      setSortOrder={() => {}}
-    />
+  const listSection = (
+    <div className="flex flex-col gap-4">
+      {showCreate && (
+        <SensorCreator
+          onCreate={handleCreate}
+          onCancel={handleCancelCreate}
+            isLoading={createLoading}
+          error={createError}
+        />
+      )}
+      <EntityList
+        items={filtered}
+        fields={sensorFields}
+        expandedId={expanded}
+        onItemSelect={setExpanded}
+        entityType="sensors"
+        onEdit={handleEdit}
+        onSaveEdit={handleSaveEdit}
+        onDelete={handleDelete}
+        onCreate={() => {}}
+        handleCancelCreate={handleCancelCreate}
+        handleCancelEdit={handleCancelEdit}
+        showCreateForm={false}
+        isCreating={false}
+        createError={null}
+        editEntity={editSensor}
+        isEditing={editLoading}
+        editError={editError}
+        token={token}
+        nestedEntities={nestedEntitiesMap}
+        sortOrder=""
+        setSortOrder={() => {}}
+      />
+    </div>
   );
 
-  // Main render
   return (
     <div className="min-h-screen p-4">
       <EntityActions
@@ -218,16 +202,15 @@ export default function Sensors() {
         onSearchChange={setSearch}
         onCreatePress={() => {
           setShowCreate(true);
-          setExpanded("new-entity");
+          setExpanded(null);
         }}
-
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
       />
       <SplitPanel
-        leftPanel={entityListComponent}
+        leftPanel={listSection}
         rightPanel={null}
-        showRightPanel={null} //null to hide map
+        showRightPanel={null}
         initialSplit={split}
       />
     </div>

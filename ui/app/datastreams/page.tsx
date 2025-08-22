@@ -21,6 +21,7 @@ import { DateValue, now } from "@internationalized/date";
 import { useTimezone } from "../../context/TimezoneContext";
 import { DateTime } from "luxon";
 import { LoadingScreen } from "../../components/LoadingScreen";
+import DatastreamCreator from "./DatastreamCreator";
 
 const item = siteConfig.items.find(i => i.label === "Datastreams");
 
@@ -198,6 +199,9 @@ export default function Datastreams() {
   }, [filtered, nestedEntitiesMap]);
 
   // Select options (existing entities)
+  const locationOptions = (entities?.locations || []).map((x: any) => ({ label: x.name || `Location ${x["@iot.id"]}`, value: String(x["@iot.id"]) }));
+  const observationTypeOptions = observationTypeURIs.map(o => ({ label: o.label, value: o.value }));
+
   const thingOptions = (entities?.things || []).map(thing => {
     const id = thing["@iot.id"];
     const count = datastreamCounts.thing[id] || 0;
@@ -256,80 +260,54 @@ export default function Datastreams() {
   const handleCancelEdit = () => setEditDatastream(null);
 
   // CREATE (supports deep insert of a new Sensor if newSensor is provided via EntityCreator)
-  const handleCreate = async (newDatastream: any) => {
+  const handleCreate = async (formPayload: any) => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const uom = unitOfMeasurementOptions.find(o => o.value === newDatastream.unitOfMeasurement);
-      if (!uom) {
+      
+      if (!formPayload?.name || !formPayload?.observationType) {
+        setCreateError("Missing required datastream fields");
+        setCreateLoading(false);
+        return;
+      }
+
+      const uom = formPayload.unitOfMeasurement;
+      if (!uom || !uom.name || !uom.definition) {
         setCreateError("Invalid Unit Of Measurement");
         setCreateLoading(false);
         return;
       }
-      const obsType = newDatastream.observationType;
-      if (!obsType) {
-        setCreateError("Invalid Observation Type");
+
+      
+      const hasThing =
+        formPayload.Thing &&
+        (formPayload.Thing["@iot.id"] ||
+          (formPayload.Thing.name && formPayload.Thing.name !== ""));
+      const hasSensor =
+        formPayload.Sensor &&
+        (formPayload.Sensor["@iot.id"] ||
+          (formPayload.Sensor.name && formPayload.Sensor.name !== ""));
+      const hasObservedProperty =
+        formPayload.ObservedProperty &&
+        (formPayload.ObservedProperty["@iot.id"] ||
+          (formPayload.ObservedProperty.name && formPayload.ObservedProperty.name !== ""));
+
+      if (!hasThing || !hasSensor || !hasObservedProperty) {
+        setCreateError("Thing, Sensor and ObservedProperty are required (reference or deep insert)");
         setCreateLoading(false);
         return;
       }
-      if (!newDatastream.thingId || !newDatastream.observedPropertyId) {
-        setCreateError("Thing ID and Observed Property ID are required");
-        setCreateLoading(false);
-        return;
-      }
 
-      // Base payload
-      const payload: any = {
-        name: newDatastream.name,
-        description: newDatastream.description,
-        unitOfMeasurement: {
-          name: uom.label,
-            symbol: uom.symbol,
-          definition: uom.definition,
-        },
-        observationType: obsType,
-        Thing: { "@iot.id": Number(newDatastream.thingId) },
-        ObservedProperty: { "@iot.id": Number(newDatastream.observedPropertyId) },
-        network: "acsot",
-      };
+      
+      if (!formPayload.properties) formPayload.properties = {};
+      if (!formPayload.network) formPayload.network = "acsot";
 
-      // Deep insert sensor OR reference existing one
-      if (newDatastream.newSensor) {
-        // Inline newly created sensor (deep insert)
-        payload.Sensor = {
-          name: newDatastream.newSensor.name,
-          description: newDatastream.newSensor.description,
-          encodingType: newDatastream.newSensor.encodingType,
-          metadata: newDatastream.newSensor.metadata
-        };
-      } else {
-        if (!newDatastream.sensorId) {
-          setCreateError("Sensor ID or a new Sensor is required");
-          setCreateLoading(false);
-          return;
-        }
-        payload.Sensor = { "@iot.id": Number(newDatastream.sensorId) };
-      }
-
-      if (newDatastream.phenomenonTime) {
-        payload.phenomenonTime = newDatastream.phenomenonTime;
-      }
-
-      // Properties array -> object
-      if (Array.isArray(newDatastream.properties) && newDatastream.properties.length > 0) {
-        payload.properties = Object.fromEntries(
-          newDatastream.properties
-            .filter((p: any) => p.key)
-            .map((p: any) => [p.key, p.value])
-        );
-      } else {
-        payload.properties = {};
-      }
-
-      await createData(item.root, token, payload);
+      await createData(item.root, token, formPayload);
       setShowCreate(false);
       setExpanded(null);
       await refetchAll();
+
+      
       const data = await fetchData(item.root, token);
       if (data?.value && data.value.length > 0) {
         const newId = data.value[data.value.length - 1]["@iot.id"];
@@ -352,7 +330,7 @@ export default function Datastreams() {
     setEditLoading(true);
     setEditError(null);
     try {
-      const uom = unitOfMeasurementOptions.find(o => o.value === updatedDatastream.unitOfMeasurement);
+      const uom = unitOfMeasurementOptions.find(o => o.name === updatedDatastream.unitOfMeasurement);
       if (!uom) {
         setEditError("Invalid Unit Of Measurement");
         setEditLoading(false);
@@ -368,7 +346,7 @@ export default function Datastreams() {
         name: updatedDatastream.name,
         description: updatedDatastream.description,
         unitOfMeasurement: {
-          name: uom.label,
+          name: uom.name,
           symbol: uom.symbol,
           definition: uom.definition,
         },
@@ -467,7 +445,7 @@ export default function Datastreams() {
       onCreate={handleCreate}
       handleCancelCreate={handleCancelCreate}
       handleCancelEdit={handleCancelEdit}
-      showCreateForm={showCreate}
+      showCreateForm={false}
       isCreating={createLoading}
       createError={createError}
       editEntity={editDatastream}
@@ -605,6 +583,23 @@ export default function Datastreams() {
           </Button>
         </div>
       </div>
+
+      {showCreate && (
+        <div className="mb-6">
+          <DatastreamCreator
+            observationTypeOptions={observationTypeOptions}
+            unitOfMeasurementOptions={unitOfMeasurementOptions}
+            thingOptions={thingOptions}
+            sensorOptions={sensorOptions}
+            observedPropertyOptions={observedPropertyOptions}
+            locationOptions={locationOptions}
+            onCreate={handleCreate}
+            onCancel={handleCancelCreate}
+            isLoading={createLoading}
+            error={createError}
+          />
+        </div>
+      )}
 
       <SplitPanel
         leftPanel={entityListComponent}

@@ -4,7 +4,7 @@ import * as React from "react";
 import { Button, Input, Select, SelectItem, Textarea, DatePicker } from "@heroui/react";
 import { useTranslation } from "react-i18next";
 import FeatureOfInterestCreator from "../app/observations/FeatureOfInterestCreator";
-import LocationCreator from "../app/things/LocationCreator";
+import LocationCreator from "../app/locations/LocationCreator";
 import { parseDateTime, getLocalTimeZone } from "@internationalized/date";
 
 interface Field {

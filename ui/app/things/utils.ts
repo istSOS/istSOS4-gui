@@ -9,13 +9,13 @@ export function buildThingFields(params: {
         { name: "description", label: t("things.description"), required: false, defaultValue: "Thing Description" },
         {
             name: "properties",
-            label: t("things.properties"),
+            label: "Properties",
             type: "properties",
             required: false
         },
         {
-            name: "locationId",
-            label: t("things.location"),
+            name: "Location",
+            label: "Location",
             required: false,
             type: "select",
             options: locationOptions
