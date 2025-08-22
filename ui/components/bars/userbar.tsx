@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
     Button,
-    ButtonGroup,
     Dropdown,
     DropdownItem,
     DropdownMenu,
@@ -10,44 +9,27 @@ import {
     Link,
 } from "@heroui/react";
 import { DateTime } from "luxon";
-import moment from "moment-timezone";
-import { LogoIstSOS, ChevronDownIcon } from "../icons";
+import { LogoIstSOS } from "../icons";
 import { useAuth } from "../../context/AuthContext";
 import fetchLogout from "../../server/fetchLogout";
 import { siteConfig } from "../../config/site";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
-import { useTimezone } from "../../context/TimezoneContext";
 
 const mainColor = siteConfig.main_color;
-
-// Only these timezones shown by default
-const commonTimezones = [
-    "UTC",
-    "America/Los_Angeles",
-    "America/New_York",
-    "Asia/Shanghai",
-    "Asia/Tokyo",
-    "Europe/London",
-    "Europe/Rome",
-];
 
 export default function UserBar({ onLoginClick }) {
     const { token, setToken } = useAuth();
     const [selectedLang, setSelectedLang] = useState(i18n.language || "en");
-    const { timezone, setTimezone } = useTimezone();
+    
+    const [timeshift, setTimeshift] = useState(0);
     const [clock, setClock] = useState(
-        DateTime.now().setZone(timezone).toFormat("HH:mm:ss")
+        DateTime.now().plus({ hours: timeshift }).toFormat("HH:mm:ss")
     );
-
-    const [searchTerm, setSearchTerm] = useState("");
-    const [allTimezones] = useState(moment.tz.names());
-
     const { t } = useTranslation();
 
     let username = "User";
     let isAdmin = false;
-
     if (token) {
         try {
             const payload = JSON.parse(atob(token.split(".")[1]));
@@ -65,23 +47,30 @@ export default function UserBar({ onLoginClick }) {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            setClock(DateTime.now().setZone(timezone).toFormat("HH:mm:ss"));
+            setClock(DateTime.now().plus({ hours: timeshift }).toFormat("HH:mm:ss"));
         }, 1000);
         return () => clearInterval(interval);
-    }, [timezone]);
+    }, [timeshift]);
 
     const handleLanguageChange = (langCode) => {
         i18n.changeLanguage(langCode);
         setSelectedLang(langCode);
     };
 
-    // Logic: show common by default, all if searching
-    const filteredTimezones =
-        searchTerm.trim() === ""
-            ? commonTimezones
-            : allTimezones.filter((tz) =>
-                tz.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+    // Handle timeshift magnitude change
+    const handleMagnitudeChange = (event) => {
+        const raw = event.target.value;
+        const val = Math.max(0, Number(raw) || 0);
+        setTimeshift(prev => (prev >= 0 ? val : -val));
+    };
+
+    // Toggle sign
+    const toggleSign = () => {
+        setTimeshift(ts => -ts);
+    };
+
+    const sign = timeshift >= 0 ? "+" : "-";
+    const absVal = Math.abs(timeshift);
 
     return (
         <div
@@ -114,45 +103,36 @@ export default function UserBar({ onLoginClick }) {
                 </Link>
             </div>
 
-            {/* Clock + Timezone */}
+            {/* Clock + Timeshift (format: HH:mm:ss UTC ± n) */}
             <div
-                style={{ display: "flex", alignItems: "center", fontSize: 30, gap: 12 }}
+                style={{ display: "flex", alignItems: "center", fontSize: 30 }}
+                
             >
-                <span>{clock}</span>
-                <ButtonGroup variant="flat">
-                    <Button>{timezone}</Button>
-                    <Dropdown placement="bottom-end">
-                        <DropdownTrigger>
-                            <Button isIconOnly>
-                                <ChevronDownIcon />
-                            </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu
-                            aria-label="Timezone selection"
-                            selectionMode="single"
-                            selectedKeys={new Set([timezone])}
-                            onSelectionChange={(keys) =>
-                                setTimezone(String(Array.from(keys)[0]))
-                            }
-                        >
-                            <DropdownItem key="search-input" isReadOnly>
-                                <Input
-                                    size="sm"
-                                    placeholder="Search timezones..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    autoFocus
-                                />
-                            </DropdownItem>
-
-                            <>
-                                {filteredTimezones.map((tz) => (
-                                    <DropdownItem key={tz}>{tz}</DropdownItem>
-                                ))}
-                            </>
-                        </DropdownMenu>
-                    </Dropdown>
-                </ButtonGroup>
+                <span>{clock} UTC</span>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                    
+                    <Button
+                        size="sm"
+                        radius="sm"
+                        variant="light"
+                        onPress={toggleSign}
+                        aria-label="Toggle sign"
+                        style={{ fontSize: 20, minWidth: 1, color: "white" }}
+                    >
+                        {sign}
+                    </Button>
+                    <Input
+                        size="md"
+                        variant="bordered"
+                        type="number"
+                        min={0}
+                        value={String(absVal)}
+                        onChange={handleMagnitudeChange}
+                        style={{ width: 40, fontSize: 20}}
+                        placeholder="0"
+                    />
+                    
+                </div>
             </div>
 
             {/* User + Language */}
@@ -176,7 +156,6 @@ export default function UserBar({ onLoginClick }) {
                         </Button>
                     </>
                 )}
-
                 {/* Language Selector */}
                 <Dropdown>
                     <DropdownTrigger>
