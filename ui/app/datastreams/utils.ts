@@ -20,6 +20,25 @@ export const observationTypeURIs = [
 ];
 
 
+export const delayThresholdOptions = [
+    { label: "any", value: null },
+    { label: "5 min", value: 5 },
+    { label: "10 min", value: 10 },
+    { label: "20 min", value: 20 },
+    { label: "30 min", value: 30 },
+    { label: "1 h", value: 60 },
+    { label: "2 h", value: 120 },
+    { label: "6 h", value: 360 },
+    { label: "12 h", value: 720 },
+    { label: "1 day", value: 1440 },
+    { label: "2 days", value: 2880 },
+    { label: "1 week", value: 10080 },
+    { label: "2 weeks", value: 20160 },
+    { label: "1 month", value: 43200 },
+    { label: "3 months", value: 129600 },
+    { label: "6 months", value: 259200 },
+    { label: "1 year", value: 525600 }
+  ];
 
 
 export function buildDatastreamFields(params: {

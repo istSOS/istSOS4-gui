@@ -31,6 +31,9 @@ export const siteConfig = {
     },
     {
       label: "psos",
+    },
+    {
+      label: "test",
     }
   ],
 

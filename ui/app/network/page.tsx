@@ -43,6 +43,7 @@ export default function Page() {
   const { entities, loading: entitiesLoading, refetchAll } = useEntities();
   const searchParams = useSearchParams();
   const selectedNetwork = searchParams.get("label") || "Network";
+
   const { t } = useTranslation();
 
   // Refetch all entities on mount
@@ -103,6 +104,7 @@ export default function Page() {
   //Return null for GeoJSON for location items as they are not rendered as areas. 
   const getLocationGeoJSON = (_: any) => null;
 
+
   return (
     <div className="min-h-screen p-4">
       <div className="flex items-center justify-between mb-2">
@@ -126,7 +128,13 @@ export default function Page() {
             key={item.href}
             isPressable
             isHoverable
-            onPress={() => router.push(item.href)}
+            onPress={() => {
+              if (item.label === "Datastreams") {
+                router.push(`${item.href}?network=${encodeURIComponent(selectedNetwork)}`);
+              } else {
+                router.push(item.href);
+              }
+            }}
             onMouseEnter={() => setHovered(item.label)}
             onMouseLeave={() => setHovered(null)}
             className={`!p-0 !items-stretch !items-start cursor-pointer transition-all duration-300 transform hover:scale-[1.02] text-white rounded-2xl shadow-lg flex flex-col ${layoutMap[item.weight]}`}
@@ -200,7 +208,7 @@ export default function Page() {
           }}
         />
       </div>
-    </div>
+    </div >
   );
 }
 

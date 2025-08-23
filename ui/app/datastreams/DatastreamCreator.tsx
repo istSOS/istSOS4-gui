@@ -13,6 +13,7 @@ import { buildDatastreamFields } from "./utils";
 import { useTranslation } from "react-i18next";
 import ThingCreator from "../things/ThingCreator";
 import SensorCreator from "../sensors/SensorCreator";
+import { useSearchParams } from "next/navigation";
 
 interface Option {
     name?: string
@@ -48,6 +49,8 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
     error
 }) => {
     const { t } = useTranslation();
+    const searchParams = useSearchParams();
+    const selectedNetwork = searchParams.get("network");
 
     // Build field configs
     const datastreamFields = React.useMemo(
@@ -200,7 +203,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                             ? [{ "@iot.id": Number(newThing.Location) }]
                             : []
                 },
-            network: "acsot"
+            network: selectedNetwork || "acsot",
         };
 
         await onCreate(payload);
@@ -261,8 +264,9 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         </div>
     );
 
+
     const renderJsonEditor = () => {
-        // Costruzione del JSON secondo il nuovo formato
+        
         const entityJson = {
             unitOfMeasurement: unitOfMeasurementOptions.find(
                 o => o.name === ds.unitOfMeasurement
@@ -320,11 +324,12 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         newEntity: any,
         setNewEntity: (value: any) => void,
         creatorComponent: React.ReactNode,
-        renderNewEntity: (entity: any) => React.ReactNode
+        //renderNewEntity: (entity: any) => React.ReactNode
     ) => (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">{title}</span>
+                
                 <Switch
                     size="sm"
                     isSelected={!useExisting}
@@ -356,28 +361,9 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 <div className="flex flex-col gap-3">
                     {!newEntity && creatorComponent}
                     {newEntity && (
-                        <div className="border border-success-300 rounded-md p-3 bg-success-50 flex flex-col gap-2">
-                            {renderNewEntity(newEntity)}
-                            <div className="flex gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="bordered"
-                                    onPress={() => setNewEntity(null)}
-                                >
-                                    Edit
-                                </Button>
-                                <Button
-                                    size="sm"
-                                    variant="light"
-                                    color="danger"
-                                    onPress={() => {
-                                        setNewEntity(null);
-                                        setUseExisting(true);
-                                    }}
-                                >
-                                    Remove
-                                </Button>
-                            </div>
+                        <div className="border border-success-300 rounded-md p-3 bg-success-50 text-sm">
+                            New {title} saved
+                            
                         </div>
                     )}
                 </div>
@@ -385,44 +371,6 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         </div>
     );
 
-    const renderNewThing = (thing: any) => (
-        <div className="text-xs">
-            Name: {thing.name || "-"}
-            <br />
-            Properties:{" "}
-            {Object.keys(thing.properties || {}).length
-                ? Object.keys(thing.properties).length
-                : 0}
-            {thing.newLocation && (
-                <>
-                    <br />
-                    Location: (new)
-                </>
-            )}
-            {thing.Location && !thing.newLocation && (
-                <>
-                    <br />
-                    Location ID: {thing.Location}
-                </>
-            )}
-        </div>
-    );
-
-    const renderNewSensor = (sensor: any) => (
-        <div className="text-xs">
-            Name: {sensor.name || "-"}
-            <br />
-            Encoding: {sensor.encodingType || "-"}
-        </div>
-    );
-
-    const renderNewObservedProperty = (observedProperty: any) => (
-        <div className="text-xs">
-            Name: {observedProperty.name || "-"}
-            <br />
-            Definition: {observedProperty.definition || "-"}
-        </div>
-    );
 
     return (
         <div className="flex flex-col gap-6 border border-default-200 rounded-md p-5 bg-content1 bg-gray-100">
@@ -512,7 +460,6 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     error={null}
                     locationOptions={locationOptions}
                 />,
-                renderNewThing
             )}
             <Divider />
             {renderEntityBlock(
@@ -535,7 +482,6 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     isLoading={false}
                     error={null}
                 />,
-                renderNewSensor
             )}
             <Divider />
             {renderEntityBlock(
@@ -585,7 +531,6 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                         }
                     />
                 </div>,
-                renderNewObservedProperty
             )}
             <Divider />
 

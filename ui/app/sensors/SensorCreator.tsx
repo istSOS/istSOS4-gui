@@ -37,7 +37,7 @@ const SensorCreator: React.FC<SensorCreatorProps> = ({
     return v;
   });
 
-  // Se cambiano i campi (es. cambio lingua) riallineo i valori mancanti
+  
   React.useEffect(() => {
     setValues(prev => {
       const next: Record<string, any> = { ...prev };
@@ -80,21 +80,6 @@ const SensorCreator: React.FC<SensorCreatorProps> = ({
     const invalid =
       field.required && touched[field.name] && !values[field.name];
 
-    if (field.name === "metadata") {
-      return (
-        <Textarea
-          size="sm"
-          variant="bordered"
-          label={field.label}
-          value={values[field.name]}
-          onChange={e => handleChange(field.name, e.target.value)}
-          isRequired={field.required}
-          validationState={invalid ? "invalid" : "valid"}
-          errorMessage={invalid ? "Required field" : undefined}
-        />
-      );
-    }
-
     return (
       <Input
         size="sm"
@@ -114,7 +99,7 @@ const SensorCreator: React.FC<SensorCreatorProps> = ({
       <div className="text-sm font-medium">Create Sensor</div>
       <div className="grid grid-cols-2 gap-3">
         {fields.map(f => (
-          <div key={f.name} className={f.name === "metadata" ? "col-span-2" : ""}>
+          <div key={f.name}>
             {renderField(f)}
           </div>
         ))}
@@ -127,7 +112,7 @@ const SensorCreator: React.FC<SensorCreatorProps> = ({
           isLoading={isLoading}
           onPress={handleSubmit}
         >
-          Create
+          Save
         </Button>
         <Button
           size="sm"

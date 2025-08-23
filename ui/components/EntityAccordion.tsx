@@ -80,11 +80,11 @@ const EntityAccordion = ({
     if (onItemSelect) onItemSelect(String(entity["@iot.id"]));
   };
 
-  // Handler per la creazione di una nuova Location
+  
   const handleLocationCreate = (loc, thingId) => {
-    // Puoi gestire qui l'associazione della Location al Thing, oppure solo chiudere il form
+    
     setLocationCreateForId(null);
-    // Puoi anche chiamare una callback per aggiornare la lista delle Things se necessario
+    
   };
 
   return (
