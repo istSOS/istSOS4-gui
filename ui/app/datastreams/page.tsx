@@ -117,13 +117,12 @@ export default function Datastreams() {
       return false;
     };
 
-    //USE THIS WHEN NETWORK LOGIC IS IMPLEMENTED IN BACKEND
-    /*
+    
+    
     const matchesNetwork = !selectedNetwork || ds.network === selectedNetwork;
-    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox() && matchesNetwork;
-    console.log("NETWORK: " + ds.network); */
-
-
+    console.log("NETWORK: " + ds.network);
+    //return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox() && matchesNetwork;
+    
     return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
     
   });
@@ -218,9 +217,10 @@ export default function Datastreams() {
       thingOptions,
       sensorOptions,
       observedPropertyOptions,
-      includePhenomenonTime: false
+      includePhenomenonTime: false,
+      network: selectedNetwork || "acsot"
     }),
-    [t, thingOptions, sensorOptions, observedPropertyOptions]
+    [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
   );
   const datastreamDetailFields = React.useMemo(
     () => buildDatastreamFields({
@@ -228,9 +228,10 @@ export default function Datastreams() {
       thingOptions,
       sensorOptions,
       observedPropertyOptions,
-      includePhenomenonTime: true
+      includePhenomenonTime: true,
+      network: selectedNetwork || "acsot"
     }),
-    [t, thingOptions, sensorOptions, observedPropertyOptions]
+    [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
   );
 
   // Initialize CRUD handlers

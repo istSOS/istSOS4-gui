@@ -13,6 +13,7 @@ import { buildDatastreamFields } from "./utils";
 import { useTranslation } from "react-i18next";
 import ThingCreator from "../things/ThingCreator";
 import SensorCreator from "../sensors/SensorCreator";
+import ObservedPropertyCreator from "../observed-properties/ObservedPropertyCreator";
 import { useSearchParams } from "next/navigation";
 
 interface Option {
@@ -59,11 +60,11 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 t,
                 thingOptions,
                 sensorOptions,
-                observedPropertyOptions
+                observedPropertyOptions,
+                network: selectedNetwork || "acsot",
             }),
-        [t, thingOptions, sensorOptions, observedPropertyOptions]
+        [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
     );
-
 
     const labelFor = (name: string) =>
         datastreamFields.find(f => f.name === name)?.label || name;
@@ -80,11 +81,12 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
             description: "",
             observationType: "",
             unitOfMeasurement: "",
+            network: selectedNetwork || "acsot",
             properties: [] as Array<{ key: string; value: string }>
         };
         datastreamFields.forEach(f => {
             if (
-                ["name", "description", "observationType", "unitOfMeasurement"].includes(
+                ["name", "description", "observationType", "unitOfMeasurement", "network"].includes(
                     f.name
                 )
             ) {
@@ -108,11 +110,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
     const [useExistingObservedProperty, setUseExistingObservedProperty] =
         React.useState(true);
     const [observedPropertyId, setObservedPropertyId] = React.useState("");
-    const [newObservedProperty, setNewObservedProperty] = React.useState({
-        name: "",
-        definition: "",
-        description: ""
-    });
+    const [newObservedProperty, setNewObservedProperty] = React.useState<any | null>(null);
 
     // Local errors
     const [localError, setLocalError] = React.useState<string | null>(null);
@@ -142,12 +140,31 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         if (useExistingSensor && !sensorId) return false;
         if (!useExistingSensor && !newSensor) return false;
         if (useExistingObservedProperty && !observedPropertyId) return false;
-        if (
-            !useExistingObservedProperty &&
-            (!newObservedProperty.name || !newObservedProperty.definition)
-        )
-            return false;
         return true;
+    };
+
+    const buildThingLocationsForDeepInsert = (thing: any) => {
+        if (!thing) return [];
+        // existing IDs: thing.Locations (array) OR fallback legacy thing.Location
+        const existingIds: any[] = Array.isArray(thing?.Locations)
+            ? thing.Locations
+            : (thing?.Location ? [thing.Location] : []);
+        const existing = existingIds
+            .filter(id => id !== null && id !== undefined && id !== "")
+            .map(id => ({ "@iot.id": Number(id) }));
+
+        const createdArr: any[] = thing?.newLocations
+            ? thing.newLocations
+            : (thing?.newLocation ? [thing.newLocation] : []);
+
+        const created = createdArr.map((loc: any) => ({
+            name: loc.name,
+            description: loc.description,
+            encodingType: loc.encodingType || "application/vnd.geo+json",
+            location: loc.location
+        }));
+
+        return [...created, ...existing];
     };
 
     const handleSubmit = async () => {
@@ -168,6 +185,8 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
             },
             description: ds.description,
             name: ds.name,
+            network: ds.network,
+            properties: buildPropertiesObject(ds.properties),
             observationType: ds.observationType,
             ObservedProperty: useExistingObservedProperty
                 ? { "@iot.id": Number(observedPropertyId) }
@@ -190,20 +209,8 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     name: newThing.name,
                     description: newThing.description,
                     properties: newThing.properties || {},
-                    Locations: newThing.newLocation
-                        ? [
-                            {
-                                name: newThing.newLocation.name,
-                                description: newThing.newLocation.description,
-                                encodingType: newThing.newLocation.encodingType || "application/vnd.geo+json",
-                                location: newThing.newLocation.location
-                            }
-                        ]
-                        : newThing.Location
-                            ? [{ "@iot.id": Number(newThing.Location) }]
-                            : []
+                    Locations: buildThingLocationsForDeepInsert(newThing)
                 },
-            network: selectedNetwork || "acsot",
         };
 
         await onCreate(payload);
@@ -233,7 +240,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
             )}
             <div className="flex flex-col gap-2">
                 {list.map((p, idx) => (
-                    <div key={idx} className="grid grid-cols-5 gap-2">
+                    <div key={idx} className="grid grid-cols-5 gap-2 items-center">
                         <Input
                             size="sm"
                             variant="bordered"
@@ -251,10 +258,11 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                             className="col-span-2"
                         />
                         <Button
-                            size="sm"
+                            size="md"
                             color="danger"
-                            variant="light"
+                            variant="bordered"
                             onPress={() => onRemove(idx)}
+                            className="w-4"
                         >
                             -
                         </Button>
@@ -264,22 +272,21 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         </div>
     );
 
-
     const renderJsonEditor = () => {
-        
         const entityJson = {
             unitOfMeasurement: unitOfMeasurementOptions.find(
                 o => o.name === ds.unitOfMeasurement
             ) || { name: "", symbol: "", definition: "" },
             description: ds.description,
             name: ds.name,
+            network: ds.network,
             observationType: ds.observationType,
             ObservedProperty: useExistingObservedProperty
                 ? { "@iot.id": Number(observedPropertyId) }
                 : {
-                    name: newObservedProperty.name,
-                    definition: newObservedProperty.definition,
-                    description: newObservedProperty.description
+                    name: newObservedProperty?.name || "",
+                    definition: newObservedProperty?.definition || "",
+                    description: newObservedProperty?.description || ""
                 },
             Sensor: useExistingSensor
                 ? { "@iot.id": Number(sensorId) }
@@ -295,18 +302,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     name: newThing?.name || "",
                     description: newThing?.description || "",
                     properties: newThing?.properties || {},
-                    Locations: newThing?.newLocation
-                        ? [
-                            {
-                                name: newThing.newLocation.name,
-                                description: newThing.newLocation.description,
-                                encodingType: newThing.newLocation.encodingType || "application/vnd.geo+json",
-                                location: newThing.newLocation.location
-                            }
-                        ]
-                        : newThing?.Location
-                            ? [{ "@iot.id": Number(newThing.Location) }]
-                            : []
+                    Locations: buildThingLocationsForDeepInsert(newThing)
                 }
         };
 
@@ -324,12 +320,11 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         newEntity: any,
         setNewEntity: (value: any) => void,
         creatorComponent: React.ReactNode,
-        //renderNewEntity: (entity: any) => React.ReactNode
     ) => (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">{title}</span>
-                
+
                 <Switch
                     size="sm"
                     isSelected={!useExisting}
@@ -363,14 +358,21 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     {newEntity && (
                         <div className="border border-success-300 rounded-md p-3 bg-success-50 text-sm">
                             New {title} saved
-                            
+                            <div className="flex gap-2 mt-2">
+                                <Button
+                                    size="sm"
+                                    variant="bordered"
+                                    onPress={renderJsonEditor}
+                                >
+                                    JSON Preview
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </div>
             )}
         </div>
     );
-
 
     return (
         <div className="flex flex-col gap-6 border border-default-200 rounded-md p-5 bg-content1 bg-gray-100">
@@ -424,7 +426,8 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                         <SelectItem key={o.name}>{o.symbol}</SelectItem>
                     ))}
                 </Select>
-                <div className="col-span-2">
+
+                <div>
                     {renderPropertiesEditor(
                         ds.properties,
                         (idx, f, val) => {
@@ -437,6 +440,14 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                         labelFor("properties")
                     )}
                 </div>
+
+                <Input
+                    size="sm"
+                    variant="bordered"
+                    label={labelFor("network")}
+                    value={ds.network}
+                    isDisabled
+                />
             </div>
             <Divider />
             {renderEntityBlock(
@@ -493,44 +504,17 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 setObservedPropertyId,
                 newObservedProperty,
                 setNewObservedProperty,
-                <div className="grid grid-cols-2 gap-3">
-                    <Input
-                        size="sm"
-                        variant="bordered"
-                        label="Name"
-                        value={newObservedProperty.name}
-                        onChange={e =>
-                            setNewObservedProperty(p => ({ ...p, name: e.target.value }))
-                        }
-                        isRequired
-                    />
-                    <Input
-                        size="sm"
-                        variant="bordered"
-                        label="Definition (URI)"
-                        value={newObservedProperty.definition}
-                        onChange={e =>
-                            setNewObservedProperty(p => ({
-                                ...p,
-                                definition: e.target.value
-                            }))
-                        }
-                        isRequired
-                    />
-                    <Textarea
-                        size="sm"
-                        variant="bordered"
-                        label="Description"
-                        className="col-span-2"
-                        value={newObservedProperty.description}
-                        onChange={e =>
-                            setNewObservedProperty(p => ({
-                                ...p,
-                                description: e.target.value
-                            }))
-                        }
-                    />
-                </div>,
+                <ObservedPropertyCreator
+                    onCreate={async payload => {
+                        setNewObservedProperty(payload);
+                    }}
+                    onCancel={() => {
+                        setUseExistingObservedProperty(true);
+                        setNewObservedProperty(null);
+                    }}
+                    isLoading={false}
+                    error={null}
+                />
             )}
             <Divider />
 
@@ -538,7 +522,6 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 <div className="flex flex-col gap-2">
                     <Textarea
                         classNames={{
-                            
                             input: "resize-y min-h-[40px]",
                         }}
                         variant="bordered"
@@ -554,9 +537,12 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                             onPress={() => {
                                 try {
                                     const parsedJson = JSON.parse(jsonContent);
-                                    // Update states with parsed JSON data
-                                    setDs(p => ({ ...p, description: parsedJson.description, name: parsedJson.name }));
-                                    // Update other states accordingly
+                                    setDs(p => ({
+                                        ...p,
+                                        description: parsedJson.description ?? p.description,
+                                        name: parsedJson.name ?? p.name,
+                                        network: parsedJson.network ?? p.network
+                                    }));
                                     setShowJsonEditor(false);
                                 } catch (e) {
                                     setLocalError("Invalid JSON");
@@ -597,7 +583,6 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 >
                     JSON Preview
                 </Button>
-
 
                 <Button
                     size="sm"

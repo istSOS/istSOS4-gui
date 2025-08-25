@@ -112,7 +112,7 @@ const SensorCreator: React.FC<SensorCreatorProps> = ({
           isLoading={isLoading}
           onPress={handleSubmit}
         >
-          Save
+          Save Sensor
         </Button>
         <Button
           size="sm"

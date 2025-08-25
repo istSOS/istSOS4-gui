@@ -46,6 +46,7 @@ export function buildDatastreamFields(params: {
     thingOptions: Array<any>;
     sensorOptions: Array<any>;
     observedPropertyOptions: Array<any>;
+    network: string;
     includePhenomenonTime?: boolean;
 }) {
     const {
@@ -54,6 +55,7 @@ export function buildDatastreamFields(params: {
         sensorOptions,
         observedPropertyOptions,
         includePhenomenonTime = false
+
     } = params;
 
     const base = [
@@ -78,6 +80,15 @@ export function buildDatastreamFields(params: {
             label: t("things.properties"),
             type: "properties",
             required: false
+        },
+        {
+            name: "network",
+            label: "network",
+            required: true,
+            type: "select",
+            options: [{ label: params.network, value: params.network }],
+            defaultValue: params.network,
+            disabled: true
         },
         {
             name: "thingId",

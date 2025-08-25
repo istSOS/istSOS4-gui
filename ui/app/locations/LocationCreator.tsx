@@ -134,29 +134,28 @@ const LocationCreator: React.FC<Props> = ({
             className="flex flex-col gap-4"
             aria-label="Create Location"
         >
-            <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                    <Input
-                        size="sm"
-                        variant="bordered"
-                        label="Name"
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        required
-                    />
-                </div>
+            <div className="grid grid-cols-3 gap-3">
 
-                <div className="col-span-2">
-                    <Input
-                        size="sm"
-                        variant="bordered"
-                        label="Description"
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                    />
-                </div>
+                <Input
+                    size="sm"
+                    variant="bordered"
+                    label="Name"
+                    value={name}
+                    isRequired
+                    onChange={e => setName(e.target.value)}
+                    required
+                />
 
-                <div className="col-span-2">
+                <Input
+                    size="sm"
+                    variant="bordered"
+                    label="Description"
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                />
+
+
+                
                     <Input
                         size="sm"
                         variant="bordered"
@@ -164,10 +163,10 @@ const LocationCreator: React.FC<Props> = ({
                         value={encodingType}
                         onChange={e => setEncodingType(e.target.value)}
                     />
-                </div>
+                
 
                 {/* Geometry selection controls (mirroring FeatureOfInterestCreator style) */}
-                <div className="col-span-2 flex flex-wrap items-end gap-3">
+                <div className="col-span-3 flex flex-wrap items-end gap-3">
                     <Button
                         radius="sm"
                         size="sm"
@@ -191,8 +190,7 @@ const LocationCreator: React.FC<Props> = ({
                         step="any"
                         min={-90}
                         max={90}
-                        className="w-40"
-                        placeholder="Lat"
+                        className="w-40 h-10"
                         isDisabled={!!geometry && geometry.type !== "Point"}
                     />
                     <Input
@@ -205,8 +203,7 @@ const LocationCreator: React.FC<Props> = ({
                         step="any"
                         min={-180}
                         max={180}
-                        className="w-44"
-                        placeholder="Lon"
+                        className="w-40 h-10"
                         isDisabled={!!geometry && geometry.type !== "Point"}
                     />
 
@@ -255,7 +252,7 @@ const LocationCreator: React.FC<Props> = ({
                         isDisabled={disabled}
                         isLoading={isLoading}
                     >
-                        Create Location
+                        Save Location
                     </Button>
                     <Button
                         radius="sm"
