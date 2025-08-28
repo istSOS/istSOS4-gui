@@ -272,10 +272,7 @@ export default function Datastreams() {
     setNestedEntitiesMap,
   });
 
-  // Initial fetch
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
+
 
   // Expand from query param
   React.useEffect(() => {

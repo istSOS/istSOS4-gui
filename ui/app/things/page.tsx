@@ -36,10 +36,6 @@ export default function Things() {
   const [split, setSplit] = React.useState(0.5);
 
   React.useEffect(() => {
-    refetchAll();
-  }, []);
-
-  React.useEffect(() => {
     setThings(entities.things || []);
     setLoading(entitiesLoading);
     setError(entitiesError ? String(entitiesError) : null);

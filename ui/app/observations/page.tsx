@@ -72,10 +72,6 @@ export default function Observations() {
   };
 
   React.useEffect(() => {
-    refetchAll();
-  }, []);
-
-  React.useEffect(() => {
     setObservations(entities.observations || []);
     setLoading(entitiesLoading);
     setError(entitiesError as any);

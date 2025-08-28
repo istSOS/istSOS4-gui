@@ -39,9 +39,6 @@ export default function Sensors() {
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
 
   React.useEffect(() => {
     setSensors(entities.sensors || []);

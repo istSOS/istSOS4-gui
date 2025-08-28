@@ -49,10 +49,7 @@ export default function Page() {
 
   const { t } = useTranslation();
 
-  // Refetch all entities on mount
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
+
 
   // Memoize the calculation of counts for each item label in siteConfig
   const countsMap = React.useMemo(() => {
