@@ -233,7 +233,7 @@ export default function Datastreams() {
       sensorOptions,
       observedPropertyOptions,
       includePhenomenonTime: false,
-      network: selectedNetwork || "acsot"
+      //network: selectedNetwork || "acsot"
     }),
     [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
   );
@@ -244,7 +244,7 @@ export default function Datastreams() {
       sensorOptions,
       observedPropertyOptions,
       includePhenomenonTime: true,
-      network: selectedNetwork || "acsot"
+      //network: selectedNetwork || "acsot"
     }),
     [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
   );

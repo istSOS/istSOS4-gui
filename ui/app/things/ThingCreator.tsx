@@ -386,6 +386,7 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
               sensorOptions={sensorOptions}
               observedPropertyOptions={observedPropertyOptions}
               locationOptions={[]} // not used here
+              
             />
           )}
 

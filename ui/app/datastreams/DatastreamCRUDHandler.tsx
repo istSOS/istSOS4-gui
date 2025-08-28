@@ -71,7 +71,7 @@ export const useDatastreamCRUDHandler = ({
       }
 
       if (!formPayload.properties) formPayload.properties = {};
-      if (!formPayload.network) formPayload.network = "acsot";
+      
       await createData(item.root, token, formPayload);
       setShowCreate(false);
       setExpanded(null);
@@ -99,9 +99,9 @@ export const useDatastreamCRUDHandler = ({
     setEditError(null);
     try {
       // Validate unit of measurement
-      const uomOption = unitOfMeasurementOptions.find(o => o.name === updatedDatastream.unitOfMeasurement);
+      const uomOption = unitOfMeasurementOptions.find(o => o.name === updatedDatastream.unitOfMeasurement.name);
       if (!uomOption) {
-        setEditError("Invalid Unit Of Measurement");
+        setEditError("Invalid Unit Of Measurement - editing");
         setEditLoading(false);
         return;
       }
@@ -124,7 +124,7 @@ export const useDatastreamCRUDHandler = ({
           definition: uomOption.definition,
         },
         observationType: obsType,
-        network: "acsot",
+        
         properties: {},
       };
 

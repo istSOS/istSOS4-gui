@@ -99,9 +99,9 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 thingOptions,
                 sensorOptions,
                 observedPropertyOptions,
-                network: selectedNetwork || "acsot"
+                
             }),
-        [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
+        [t, thingOptions, sensorOptions, observedPropertyOptions]
     );
 
     const labelFor = (name: string) =>
@@ -124,7 +124,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         };
         datastreamFields.forEach(f => {
             if (
-                ["name", "description", "observationType", "unitOfMeasurement", "network"].includes(
+                ["name", "description", "observationType", "unitOfMeasurement"].includes(
                     f.name
                 )
             ) {
@@ -597,7 +597,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                                         ...p,
                                         description: parsedJson.description ?? p.description,
                                         name: parsedJson.name ?? p.name,
-                                        network: parsedJson.network ?? p.network
+                                        
                                     }));
                                     setShowJsonEditor(false);
                                 } catch (e) {

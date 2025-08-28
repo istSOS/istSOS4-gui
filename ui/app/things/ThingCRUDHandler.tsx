@@ -106,9 +106,9 @@ export const useThingCRUDHandler = ({
           unitOfMeasurement: ds.unitOfMeasurement,
           observationType: ds.observationType,
           properties: ds.properties || {},
-          network: ds.network || "acsot",
           Sensor: ds.Sensor,             // can be { "@iot.id": N } or new object
-          ObservedProperty: ds.ObservedProperty
+          ObservedProperty: ds.ObservedProperty,
+          Network: ds.Network
         };
       });
     }
