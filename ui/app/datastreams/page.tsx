@@ -4,14 +4,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
-import { unitOfMeasurementOptions, observationTypeURIs, buildDatastreamFields } from "./utils";
+import { unitOfMeasurementOptions, observationTypeOptions, buildDatastreamFields, delayThresholdOptions } from "./utils";
 import { useTranslation } from "react-i18next";
 import { useEnrichedDatastreams } from "../../components/hooks/useEnrichedDatastreams";
 import { createLastDelayColorStrategy } from "../../components/hooks/useLastDelayColor";
-import createData from "../../server/createData";
-import updateData from "../../server/updateData";
-import fetchData from "../../server/fetchData";
-import deleteData from "../../server/deleteData";
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
@@ -22,6 +18,7 @@ import { useTimezone } from "../../context/TimezoneContext";
 import { DateTime } from "luxon";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import DatastreamCreator from "./DatastreamCreator";
+import { useDatastreamCRUDHandler } from "./DatastreamCRUDHandler";
 
 const item = siteConfig.items.find(i => i.label === "Datastreams");
 
@@ -31,8 +28,8 @@ export default function Datastreams() {
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selectedNetwork = searchParams.get("network");
   const expandedFromQuery = searchParams.get("expanded");
-
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
@@ -44,7 +41,6 @@ export default function Datastreams() {
   const [expanded, setExpanded] = React.useState(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
-
   const { timezone } = useTimezone();
 
   // Date range state
@@ -63,6 +59,7 @@ export default function Datastreams() {
   const [bboxInput, setBboxInput] = React.useState("");
   const [bbox, setBbox] = React.useState("");
   const [isBboxValid, setIsBboxValid] = React.useState(true);
+  const [currentBBox, setCurrentBBox] = React.useState("");
 
   const validateBboxInput = (input: string) => {
     if (input === "") return true;
@@ -77,6 +74,15 @@ export default function Datastreams() {
   };
 
   const handleSetBbox = () => {
+    if (!bboxInput) {
+      if (currentBBox) {
+        setBboxInput(currentBBox);
+        setIsBboxValid(true);
+        setBbox(currentBBox);
+      }
+      return;
+    }
+
     if (isBboxValid) {
       setBbox(bboxInput);
     }
@@ -96,15 +102,16 @@ export default function Datastreams() {
     const nested = nestedEntitiesMap[id] || {};
     const sensor = nested.Sensor || ds.Sensor;
     const thing = nested.Thing || ds.Thing;
+    const network = nested.Network || ds.network;
     const observedProperty = nested.ObservedProperty || ds.ObservedProperty;
-
     const sensorId = sensor && sensor["@iot.id"] ? String(sensor["@iot.id"]) : "";
     const thingId = thing && thing["@iot.id"] ? String(thing["@iot.id"]) : "";
     const observedPropertyId = observedProperty && observedProperty["@iot.id"] ? String(observedProperty["@iot.id"]) : "";
-
+    const networkName = network && (network.name || network.label) ? (network.name || network.label) : "";
     const matchesSearch = JSON.stringify(ds).toLowerCase().includes(search.toLowerCase());
     const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
     const matchesThing = !filters.thing || thingId === String(filters.thing);
+    const matchesNetwork = !selectedNetwork || networkName === selectedNetwork;
     const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
 
     const matchesBbox = () => {
@@ -123,7 +130,14 @@ export default function Datastreams() {
       return false;
     };
 
-    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
+
+
+    //const matchesNetwork = !selectedNetwork || ds.network === selectedNetwork;
+    //console.log("Network " + networkName)
+    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox() && matchesNetwork;
+
+    //return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
+
   });
 
   // Date range filtering
@@ -149,27 +163,7 @@ export default function Datastreams() {
   });
 
   // Delay threshold options for last measurement age color coding
-  const delayThresholdOptions = [
-    { label: "any", value: null },
-    { label: "5 min", value: 5 },
-    { label: "10 min", value: 10 },
-    { label: "20 min", value: 20 },
-    { label: "30 min", value: 30 },
-    { label: "1 h", value: 60 },
-    { label: "2 h", value: 120 },
-    { label: "6 h", value: 360 },
-    { label: "12 h", value: 720 },
-    { label: "1 day", value: 1440 },
-    { label: "2 days", value: 2880 },
-    { label: "1 week", value: 10080 },
-    { label: "2 weeks", value: 20160 },
-    { label: "1 month", value: 43200 },
-    { label: "3 months", value: 129600 },
-    { label: "6 months", value: 259200 },
-    { label: "1 year", value: 525600 }
-  ];
   const [delayThreshold, setDelayThreshold] = React.useState<number>(5);
-
   const chipColorStrategy = React.useMemo(
     () => createLastDelayColorStrategy(delayThreshold, timezone),
     [delayThreshold, timezone]
@@ -200,214 +194,83 @@ export default function Datastreams() {
 
   // Select options (existing entities)
   const locationOptions = (entities?.locations || []).map((x: any) => ({ label: x.name || `Location ${x["@iot.id"]}`, value: String(x["@iot.id"]) }));
-  const observationTypeOptions = observationTypeURIs.map(o => ({ label: o.label, value: o.value }));
-
   const thingOptions = (entities?.things || []).map(thing => {
     const id = thing["@iot.id"];
     const count = datastreamCounts.thing[id] || 0;
     return {
-      label: `${thing.name || `Thing ${id}`}${count ? ` (${count})` : " "}`,
+      label: thing.name || `Thing ${id}`,
       value: id,
-      disabled: count === 0
+      disabled: count === 0,
+      count
     };
   });
-
   const sensorOptions = (entities?.sensors || []).map(sensor => {
     const id = sensor["@iot.id"];
     const count = datastreamCounts.sensor[id] || 0;
     return {
-      label: `${sensor.name || `Sensor ${id}`}${count ? ` (${count})` : " "}`,
+      label: sensor.name || `Sensor ${id}`,
       value: id,
-      disabled: count === 0
+      disabled: count === 0,
+      count
     };
   });
-
   const observedPropertyOptions = (entities?.observedProperties || []).map(op => {
     const id = op["@iot.id"];
     const count = datastreamCounts.observedProperty[id] || 0;
     return {
-      label: `${op.name || `Observed Property ${id}`}${count ? ` (${count})` : " "}`,
+      label: op.name || `Observed Property ${id}`,
       value: id,
-      disabled: count === 0
+      disabled: count === 0,
+      count
     };
   });
 
-  // Field definitions (unchanged util; inline sensor creation handled in EntityCreator by field name "sensorId")
+  // Field definitions
   const datastreamFields = React.useMemo(
     () => buildDatastreamFields({
       t,
       thingOptions,
       sensorOptions,
       observedPropertyOptions,
-      includePhenomenonTime: false
+      includePhenomenonTime: false,
+      //network: selectedNetwork || "acsot"
     }),
-    [t, thingOptions, sensorOptions, observedPropertyOptions]
+    [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
   );
-
   const datastreamDetailFields = React.useMemo(
     () => buildDatastreamFields({
       t,
       thingOptions,
       sensorOptions,
       observedPropertyOptions,
-      includePhenomenonTime: false
+      includePhenomenonTime: true,
+      //network: selectedNetwork || "acsot"
     }),
-    [t, thingOptions, sensorOptions, observedPropertyOptions]
+    [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
   );
 
-  // CRUD handlers
-  const handleCancelCreate = () => setShowCreate(false);
-  const handleCancelEdit = () => setEditDatastream(null);
-
-  // CREATE (supports deep insert of a new Sensor if newSensor is provided via EntityCreator)
-  const handleCreate = async (formPayload: any) => {
-    setCreateLoading(true);
-    setCreateError(null);
-    try {
-      
-      if (!formPayload?.name || !formPayload?.observationType) {
-        setCreateError("Missing required datastream fields");
-        setCreateLoading(false);
-        return;
-      }
-
-      const uom = formPayload.unitOfMeasurement;
-      if (!uom || !uom.name || !uom.definition) {
-        setCreateError("Invalid Unit Of Measurement");
-        setCreateLoading(false);
-        return;
-      }
-
-      
-      const hasThing =
-        formPayload.Thing &&
-        (formPayload.Thing["@iot.id"] ||
-          (formPayload.Thing.name && formPayload.Thing.name !== ""));
-      const hasSensor =
-        formPayload.Sensor &&
-        (formPayload.Sensor["@iot.id"] ||
-          (formPayload.Sensor.name && formPayload.Sensor.name !== ""));
-      const hasObservedProperty =
-        formPayload.ObservedProperty &&
-        (formPayload.ObservedProperty["@iot.id"] ||
-          (formPayload.ObservedProperty.name && formPayload.ObservedProperty.name !== ""));
-
-      if (!hasThing || !hasSensor || !hasObservedProperty) {
-        setCreateError("Thing, Sensor and ObservedProperty are required (reference or deep insert)");
-        setCreateLoading(false);
-        return;
-      }
-
-      
-      if (!formPayload.properties) formPayload.properties = {};
-      if (!formPayload.network) formPayload.network = "acsot";
-
-      await createData(item.root, token, formPayload);
-      setShowCreate(false);
-      setExpanded(null);
-      await refetchAll();
-
-      
-      const data = await fetchData(item.root, token);
-      if (data?.value && data.value.length > 0) {
-        const newId = data.value[data.value.length - 1]["@iot.id"];
-        setExpanded(String(newId));
-        fetchDatastreamWithExpand(newId);
-      }
-    } catch (err: any) {
-      setCreateError(err.message || "Error creating datastream");
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  const handleEdit = (entity: any) => {
-    setEditDatastream(entity);
-  };
-
-  // EDIT (does NOT allow deep insertion of new Sensor inline)
-  const handleSaveEdit = async (updatedDatastream: any, originalDatastream: any) => {
-    setEditLoading(true);
-    setEditError(null);
-    try {
-      const uom = unitOfMeasurementOptions.find(o => o.name === updatedDatastream.unitOfMeasurement);
-      if (!uom) {
-        setEditError("Invalid Unit Of Measurement");
-        setEditLoading(false);
-        return;
-      }
-      const obsType = updatedDatastream.observationType;
-      if (!obsType) {
-        setEditError("Invalid Observation Type");
-        setEditLoading(false);
-        return;
-      }
-      const payload: any = {
-        name: updatedDatastream.name,
-        description: updatedDatastream.description,
-        unitOfMeasurement: {
-          name: uom.name,
-          symbol: uom.symbol,
-          definition: uom.definition,
-        },
-        observationType: obsType,
-        network: "acsot",
-        properties: {},
-        ...(updatedDatastream.thingId && { Thing: { "@iot.id": Number(updatedDatastream.thingId) } }),
-        ...(updatedDatastream.sensorId && { Sensor: { "@iot.id": Number(updatedDatastream.sensorId) } }),
-        ...(updatedDatastream.observedPropertyId && { ObservedProperty: { "@iot.id": Number(updatedDatastream.observedPropertyId) } }),
-      };
-
-      if (Array.isArray(updatedDatastream.properties) && updatedDatastream.properties.length > 0) {
-        const props = Object.fromEntries(
-          updatedDatastream.properties
-            .filter((p: any) => p.key)
-            .map((p: any) => [p.key, p.value])
-        );
-        if (Object.keys(props).length > 0) {
-          payload.properties = props;
-        }
-      }
-
-      await updateData(`${item.root}(${originalDatastream["@iot.id"]})`, token, payload);
-      await refetchAll();
-      setExpanded(String(originalDatastream["@iot.id"]));
-      setEditDatastream(null);
-      await fetchDatastreamWithExpand(originalDatastream["@iot.id"]);
-    } catch (err: any) {
-      setEditError(err.message || "Error updating datastream");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteData(`${item.root}(${Number(id)})`, token);
-      await refetchAll();
-    } catch (err) {
-      console.error("Error deleting datastream:", err);
-    }
-  };
-
-  // Fetch datastream with expanded nested relationships
-  const fetchDatastreamWithExpand = async (datastreamId: number) => {
-    const nested = siteConfig.items.find(i => i.label === "Datastreams").nested;
-    const nestedData: any = {};
-    await Promise.all(
-      nested.map(async (nestedKey: string) => {
-        const url = `${item.root}(${datastreamId})?$expand=${nestedKey}`;
-        const data = await fetchData(url, token);
-        if (data && data[nestedKey]) {
-          nestedData[nestedKey] = data[nestedKey];
-        }
-      })
-    );
-    setNestedEntitiesMap(prev => ({
-      ...prev,
-      [datastreamId]: nestedData
-    }));
-  };
+  // Initialize CRUD handlers
+  const {
+    handleCancelCreate,
+    handleCancelEdit,
+    handleCreate,
+    handleEdit,
+    handleSaveEdit,
+    handleDelete,
+    fetchDatastreamWithExpand,
+  } = useDatastreamCRUDHandler({
+    item,
+    token,
+    setShowCreate,
+    setExpanded,
+    setEditDatastream,
+    setCreateLoading,
+    setCreateError,
+    setEditLoading,
+    setEditError,
+    refetchAll,
+    setNestedEntitiesMap,
+  });
 
   // Initial fetch
   React.useEffect(() => {
@@ -483,6 +346,7 @@ export default function Datastreams() {
       setSplit={setSplit}
       showMarkers={false}
       chipColorStrategy={chipColorStrategy}
+      onBBoxChange={setCurrentBBox}
     />
   ) : null;
 
@@ -506,7 +370,6 @@ export default function Datastreams() {
         }}
         onFilterChange={handleFilterChange}
       />
-
       <div className="flex flex-row items-end gap-2 mb-2">
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <Select
@@ -522,7 +385,6 @@ export default function Datastreams() {
             ))}
           </Select>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <DatePicker
             granularity="minute"
@@ -535,7 +397,6 @@ export default function Datastreams() {
             placeholderValue={now(timezone)}
           />
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <DatePicker
             granularity="minute"
@@ -548,15 +409,16 @@ export default function Datastreams() {
             placeholderValue={now(timezone)}
           />
         </div>
-
         {/* Bounding box */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <Input
+            isClearable
             radius="sm"
             size="sm"
             label="Bounding Box"
             placeholder="minLat, minLon, maxLat, maxLon"
             value={bboxInput}
+            onClear={() => { setBboxInput(""); setBbox(""); setIsBboxValid(true); }}
             onChange={handleBboxInputChange}
             color={isBboxValid ? "default" : "danger"}
           />
@@ -570,7 +432,6 @@ export default function Datastreams() {
             Set BBox
           </Button>
         </div>
-
         <div className="flex items-center ml-auto">
           <Button
             radius="sm"
@@ -583,12 +444,9 @@ export default function Datastreams() {
           </Button>
         </div>
       </div>
-
       {showCreate && (
         <div className="mb-6">
           <DatastreamCreator
-            observationTypeOptions={observationTypeOptions}
-            unitOfMeasurementOptions={unitOfMeasurementOptions}
             thingOptions={thingOptions}
             sensorOptions={sensorOptions}
             observedPropertyOptions={observedPropertyOptions}
@@ -600,7 +458,6 @@ export default function Datastreams() {
           />
         </div>
       )}
-
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={entityMapComponent}

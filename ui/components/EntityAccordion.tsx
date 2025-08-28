@@ -80,11 +80,11 @@ const EntityAccordion = ({
     if (onItemSelect) onItemSelect(String(entity["@iot.id"]));
   };
 
-  // Handler per la creazione di una nuova Location
+
   const handleLocationCreate = (loc, thingId) => {
-    // Puoi gestire qui l'associazione della Location al Thing, oppure solo chiudere il form
+
     setLocationCreateForId(null);
-    // Puoi anche chiamare una callback per aggiornare la lista delle Things se necessario
+
   };
 
   return (
@@ -191,7 +191,7 @@ const EntityAccordion = ({
                               >
                                 {entity.timeAgo ?? "-"}
                               </Chip>
-                              <span className="text-gray-600">{entity.lastValue ?? "-"}{entity.unitOfMeasurement?.symbol ?? "-"}</span>
+                              <span className="text-gray-600">{entity.lastValue ?? "-"} {entity.unitOfMeasurement?.symbol ?? "-"}</span>
                               <span className="text-gray-600">
                                 {formatDateWithTimezone(entity.startDate, timezone)}
                               </span>
@@ -223,13 +223,7 @@ const EntityAccordion = ({
                                   if (field.type === "select" && value && typeof value === "object" && "@iot.id" in value) {
                                     acc[field.name] = String(value["@iot.id"]);
                                   } else if (field.name === "unitOfMeasurement" && value && typeof value === "object") {
-                                    const match = (field.options || []).find(
-                                      opt =>
-                                        opt.label === value.name &&
-                                        opt.symbol === value.symbol &&
-                                        opt.definition === value.definition
-                                    );
-                                    acc[field.name] = match ? match.value : "";
+                                    acc[field.name] = value.name || "";
                                   } else if (field.name === "properties" && value && typeof value === "object" && !Array.isArray(value)) {
                                     acc[field.name] = Object.entries(value).map(([k, v]) => ({ key: k, value: v }));
                                   } else {
@@ -238,6 +232,7 @@ const EntityAccordion = ({
                                   return acc;
                                 }, {})
                               }
+
                             />
                           </div>
                         </div>
@@ -247,6 +242,16 @@ const EntityAccordion = ({
                             {fields.map(field => {
                               const value = entity[field.name];
                               if (value == null) return null;
+
+                              let displayValue: string;
+                              if (field.name === "unitOfMeasurement" && value && typeof value === "object") {
+                                displayValue = `${value.symbol || ""} ${value.name ? `(${value.name})` : ""}`.trim() || "-";
+                              } else if (typeof value === "object") {
+                                displayValue = JSON.stringify(value);
+                              } else {
+                                displayValue = value?.toString() ?? "-";
+                              }
+
                               return (
                                 <div key={field.name} className="flex items-center gap-2">
                                   <Textarea
@@ -255,11 +260,7 @@ const EntityAccordion = ({
                                     variant="bordered"
                                     size="sm"
                                     label={field.label || getLabel(field.name)}
-                                    value={
-                                      typeof value === "object"
-                                        ? JSON.stringify(value)
-                                        : value?.toString() ?? "-"
-                                    }
+                                    value={displayValue}
                                     className="flex-1"
                                   />
                                 </div>

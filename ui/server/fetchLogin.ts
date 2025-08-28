@@ -10,7 +10,7 @@ const fetchLogin = async (
         grant_type: 'password',
     });
 
-    console.log("Invio login:", data.toString()); //debug only, to remove
+    //console.log("Invio login:", data.toString());
     
     const requestOptions: RequestInit = {
         method: 'POST',
@@ -24,7 +24,7 @@ const fetchLogin = async (
             throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
         }
         const data = await response.json();
-        console.log("Contenuto risposta login:", data); //debug only, to remove
+        //console.log("Contenuto risposta login:", data); //debug only, to remove
         return data; //access_token
     } catch (error) {
         console.error('Error fetching data:', error);

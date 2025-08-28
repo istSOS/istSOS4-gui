@@ -78,8 +78,8 @@ export const SplitPanel: React.FC<SplitPanelProps> = ({
             }}
             onMouseDown={() => setIsSplitting(true)}
           />
-          <div style={{ width: 16 }} />
-          <div className="flex-1">
+          
+          <div className="flex-1 pl-2">
             {rightPanel}
           </div>
         </>

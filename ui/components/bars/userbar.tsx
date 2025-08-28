@@ -1,202 +1,259 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
-    Button,
-    ButtonGroup,
-    Dropdown,
-    DropdownItem,
-    DropdownMenu,
-    DropdownTrigger,
-    Input,
-    Link,
+  Button,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
+  Link,
+  Slider,
+  Chip,
+  Card
 } from "@heroui/react";
 import { DateTime } from "luxon";
-import moment from "moment-timezone";
-import { LogoIstSOS, ChevronDownIcon } from "../icons";
+import { LogoIstSOS } from "../icons";
 import { useAuth } from "../../context/AuthContext";
 import fetchLogout from "../../server/fetchLogout";
 import { siteConfig } from "../../config/site";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
-import { useTimezone } from "../../context/TimezoneContext";
 
 const mainColor = siteConfig.main_color;
 
-// Only these timezones shown by default
-const commonTimezones = [
-    "UTC",
-    "America/Los_Angeles",
-    "America/New_York",
-    "Asia/Shanghai",
-    "Asia/Tokyo",
-    "Europe/London",
-    "Europe/Rome",
-];
+export default function UserBar({ onLoginClick }: { onLoginClick?: () => void }) {
+  const { token, setToken } = useAuth();
+  const { t } = useTranslation();
 
-export default function UserBar({ onLoginClick }) {
-    const { token, setToken } = useAuth();
-    const [selectedLang, setSelectedLang] = useState(i18n.language || "en");
-    const { timezone, setTimezone } = useTimezone();
-    const [clock, setClock] = useState(
-        DateTime.now().setZone(timezone).toFormat("HH:mm:ss")
-    );
+  // Timeshift (in hours, can be negative, step 0.5)
+  const [timeShiftHours, setTimeShiftHours] = useState<number>(0);
+  const [clock, setClock] = useState(
+    DateTime.now().plus({ minutes: timeShiftHours * 60 }).toFormat("HH:mm:ss")
+  );
 
-    const [searchTerm, setSearchTerm] = useState("");
-    const [allTimezones] = useState(moment.tz.names());
+  const [showSlider, setShowSlider] = useState(false);
+  const sliderWrapperRef = useRef<HTMLDivElement | null>(null);
 
-    const { t } = useTranslation();
-
-    let username = "User";
-    let isAdmin = false;
-
-    if (token) {
-        try {
-            const payload = JSON.parse(atob(token.split(".")[1]));
-            username = payload.sub || "User";
-            isAdmin = payload.role === "administrator" || false;
-        } catch (e) {
-            console.error("Error parsing token:", e);
-        }
+  // Username / role from token
+  let username = "User";
+  if (token) {
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      username = payload.sub || "User";
+    } catch (e) {
+      console.error("Error parsing token:", e);
     }
+  }
 
-    const languages = [
-        { code: "en", label: "EN" },
-        { code: "it", label: "IT" },
-    ];
+  const languages = [
+    { code: "en", label: "EN" },
+    { code: "it", label: "IT" }
+  ];
+  const [selectedLang, setSelectedLang] = useState(i18n.language || "en");
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setClock(DateTime.now().setZone(timezone).toFormat("HH:mm:ss"));
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [timezone]);
+  // Update clock every second including shift
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setClock(
+        DateTime.now()
+          .plus({ minutes: timeShiftHours * 60 })
+            .toFormat("HH:mm:ss")
+      );
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timeShiftHours]);
 
-    const handleLanguageChange = (langCode) => {
-        i18n.changeLanguage(langCode);
-        setSelectedLang(langCode);
+  // Close slider on outside click
+  useEffect(() => {
+    if (!showSlider) return;
+    const handleClick = (e: MouseEvent) => {
+      if (
+        sliderWrapperRef.current &&
+        !sliderWrapperRef.current.contains(e.target as Node)
+      ) {
+        setShowSlider(false);
+      }
     };
+    window.addEventListener("mousedown", handleClick);
+    return () => window.removeEventListener("mousedown", handleClick);
+  }, [showSlider]);
 
-    // Logic: show common by default, all if searching
-    const filteredTimezones =
-        searchTerm.trim() === ""
-            ? commonTimezones
-            : allTimezones.filter((tz) =>
-                tz.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    setSelectedLang(langCode);
+  };
 
-    return (
-        <div
+  const formatShiftLabel = (h: number) => {
+    if (h === 0) return "UTC ±0h";
+    const sign = h > 0 ? "+" : "-";
+    const abs = Math.abs(h);
+    const whole = Math.trunc(abs);
+    const half = abs - whole === 0.5;
+    return `UTC ${sign}${whole}${half ? ".5" : ""}h`;
+  };
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        background: mainColor,
+        color: "#fff",
+        padding: "15px 75px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        fontSize: 14,
+        minHeight: 36,
+        position: "relative"
+      }}
+    >
+      {/* Logo */}
+      <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
+        <Link isExternal aria-label="istSOS4" href={siteConfig.links.istSOS}>
+          <div
             style={{
-                width: "100%",
-                background: mainColor,
-                color: "#fff",
-                padding: "15px 75px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                fontSize: 14,
-                minHeight: 36,
+              width: 150,
+              height: "auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
             }}
-        >
-            {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
-                <Link isExternal aria-label="istSOS4" href={siteConfig.links.istSOS}>
-                    <div
-                        style={{
-                            width: 150,
-                            height: "auto",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                    >
-                        <LogoIstSOS style={{ width: "100%", height: "auto" }} />
-                    </div>
-                </Link>
-            </div>
+          >
+            <LogoIstSOS style={{ width: "100%", height: "auto" }} />
+          </div>
+        </Link>
+      </div>
 
-            {/* Clock + Timezone */}
-            <div
-                style={{ display: "flex", alignItems: "center", fontSize: 30, gap: 12 }}
+      {/* Clock (clickable) */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          fontSize: 30,
+          cursor: "pointer",
+          position: "relative"
+        }}
+        onClick={() => setShowSlider(s => !s)}
+        aria-label="Time with UTC shift"
+      >
+        <span>
+          {clock}
+        </span>
+        {showSlider && (
+          <div
+            ref={sliderWrapperRef}
+            style={{
+              position: "absolute",
+              top: "110%",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 2000,
+              minWidth: 340
+            }}
+          >
+            <Card
+              shadow="lg"
+              className="p-4"
+              
             >
-                <span>{clock}</span>
-                <ButtonGroup variant="flat">
-                    <Button>{timezone}</Button>
-                    <Dropdown placement="bottom-end">
-                        <DropdownTrigger>
-                            <Button isIconOnly>
-                                <ChevronDownIcon />
-                            </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu
-                            aria-label="Timezone selection"
-                            selectionMode="single"
-                            selectedKeys={new Set([timezone])}
-                            onSelectionChange={(keys) =>
-                                setTimezone(String(Array.from(keys)[0]))
-                            }
-                        >
-                            <DropdownItem key="search-input" isReadOnly>
-                                <Input
-                                    size="sm"
-                                    placeholder="Search timezones..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    autoFocus
-                                />
-                            </DropdownItem>
+              <div style={{ fontSize: 14, marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontWeight: 600 }}>Time shift</span>
+                <Chip size="sm" variant="flat" color="default">
+                  {formatShiftLabel(timeShiftHours)}
+                </Chip>
+              </div>
+              <Slider
+                aria-label="Time shift (hours)"
+                minValue={-24}
+                maxValue={24}
+                step={0.5}
+                value={timeShiftHours}
+                onChange={(val: number | number[]) =>
+                  setTimeShiftHours(Array.isArray(val) ? val[0] : val)
+                }
+                marks={[
+                  { value: -24, label: "-24" },
+                  { value: -12, label: "-12" },
+                  { value: 0, label: "0" },
+                  { value: 12, label: "+12" },
+                  { value: 24, label: "+24" }
+                ]}
+                showTooltip
+                color="primary"
+                size="sm"
+                className="mb-2"
+              />
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  fontSize: 12,
+                  opacity: 0.8
+                }}
+              >
+                <Button
+                  size="sm"
+                  variant="light"
+                  onPress={() => {
+                    setTimeShiftHours(0);
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+      </div>
 
-                            <>
-                                {filteredTimezones.map((tz) => (
-                                    <DropdownItem key={tz}>{tz}</DropdownItem>
-                                ))}
-                            </>
-                        </DropdownMenu>
-                    </Dropdown>
-                </ButtonGroup>
-            </div>
-
-            {/* User + Language */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                {token && (
-                    <>
-                        <span>
-                            {t("general.cheer")} <b>{username}</b>
-                        </span>
-                        <Button
-                            radius="sm"
-                            color="danger"
-                            size="sm"
-                            onPress={async () => {
-                                if (token) await fetchLogout(token);
-                                setToken(null);
-                            }}
-                            style={{ marginLeft: 8 }}
-                        >
-                            {t("general.logout")}
-                        </Button>
-                    </>
-                )}
-
-                {/* Language Selector */}
-                <Dropdown>
-                    <DropdownTrigger>
-                        <Button radius="sm" variant="flat" size="sm">
-                            {languages.find((lang) => lang.code === selectedLang)?.label ||
-                                selectedLang}
-                        </Button>
-                    </DropdownTrigger>
-                    <DropdownMenu aria-label="Language selection">
-                        {languages.map((lang) => (
-                            <DropdownItem
-                                key={lang.code}
-                                onClick={() => handleLanguageChange(lang.code)}
-                            >
-                                {lang.label}
-                            </DropdownItem>
-                        ))}
-                    </DropdownMenu>
-                </Dropdown>
-            </div>
-        </div>
-    );
+      {/* User + Language */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {token && (
+          <>
+            <span>
+              {t("general.cheer")} <b>{username}</b>
+            </span>
+            <Button
+              radius="sm"
+              color="danger"
+              size="sm"
+              onPress={async () => {
+                if (token) await fetchLogout(token);
+                setToken(null);
+              }}
+              style={{ marginLeft: 8 }}
+            >
+              {t("general.logout")}
+            </Button>
+          </>
+        )}
+        {!token && (
+            <Button
+              radius="sm"
+              color="primary"
+              size="sm"
+              onPress={() => onLoginClick && onLoginClick()}
+            >
+              Login
+            </Button>
+        )}
+        <Dropdown>
+          <DropdownTrigger>
+            <Button radius="sm" variant="flat" size="sm">
+              {languages.find(l => l.code === selectedLang)?.label || selectedLang}
+            </Button>
+          </DropdownTrigger>
+          <DropdownMenu aria-label="Language selection">
+            {languages.map(lang => (
+              <DropdownItem
+                key={lang.code}
+                onClick={() => handleLanguageChange(lang.code)}
+              >
+                {lang.label}
+              </DropdownItem>
+            ))}
+          </DropdownMenu>
+        </Dropdown>
+      </div>
+    </div>
+  );
 }

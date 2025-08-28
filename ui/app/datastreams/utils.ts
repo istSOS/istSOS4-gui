@@ -10,7 +10,7 @@ export const unitOfMeasurementOptions = [
 ];
 
 
-export const observationTypeURIs = [
+export const observationTypeOptions = [
     //label, value
     { label: "OM_Measurement", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement" },
     { label: "OM_CategoryObservation", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_CategoryObservation" },
@@ -20,6 +20,25 @@ export const observationTypeURIs = [
 ];
 
 
+export const delayThresholdOptions = [
+    { label: "any", value: null },
+    { label: "5 min", value: 5 },
+    { label: "10 min", value: 10 },
+    { label: "20 min", value: 20 },
+    { label: "30 min", value: 30 },
+    { label: "1 h", value: 60 },
+    { label: "2 h", value: 120 },
+    { label: "6 h", value: 360 },
+    { label: "12 h", value: 720 },
+    { label: "1 day", value: 1440 },
+    { label: "2 days", value: 2880 },
+    { label: "1 week", value: 10080 },
+    { label: "2 weeks", value: 20160 },
+    { label: "1 month", value: 43200 },
+    { label: "3 months", value: 129600 },
+    { label: "6 months", value: 259200 },
+    { label: "1 year", value: 525600 }
+  ];
 
 
 export function buildDatastreamFields(params: {
@@ -27,6 +46,7 @@ export function buildDatastreamFields(params: {
     thingOptions: Array<any>;
     sensorOptions: Array<any>;
     observedPropertyOptions: Array<any>;
+    //network: string;
     includePhenomenonTime?: boolean;
 }) {
     const {
@@ -35,6 +55,7 @@ export function buildDatastreamFields(params: {
         sensorOptions,
         observedPropertyOptions,
         includePhenomenonTime = false
+
     } = params;
 
     const base = [
@@ -52,7 +73,7 @@ export function buildDatastreamFields(params: {
             label: t("datastreams.observation_type"),
             required: true,
             type: "select",
-            options: observationTypeURIs
+            options: observationTypeOptions
         },
         {
             name: "properties",
@@ -60,24 +81,25 @@ export function buildDatastreamFields(params: {
             type: "properties",
             required: false
         },
+
         {
             name: "thingId",
             label: "Thing",
-            required: false,
+            required: true,
             type: "select",
             options: thingOptions
         },
         {
             name: "sensorId",
             label: "Sensor",
-            required: false,
+            required: true,
             type: "select",
             options: sensorOptions
         },
         {
             name: "observedPropertyId",
             label: "ObservedProperty",
-            required: false,
+            required: true,
             type: "select",
             options: observedPropertyOptions
         },
