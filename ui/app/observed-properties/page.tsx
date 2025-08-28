@@ -28,10 +28,6 @@ export default function ObservedProperties() {
 
   const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
 
-  //refetch all entities on mount
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
 
   React.useEffect(() => {
     setObeservedProperties(entities.observedProperties);

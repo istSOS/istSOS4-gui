@@ -15,7 +15,6 @@ import MapWrapper from "../../components/MapWrapper";
 import { Button, DatePicker, Input, Select, SelectItem } from "@heroui/react";
 import { DateValue, now } from "@internationalized/date";
 import { useTimezone } from "../../context/TimezoneContext";
-import { DateTime } from "luxon";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import DatastreamCreator from "./DatastreamCreator";
 import { useDatastreamCRUDHandler } from "./DatastreamCRUDHandler";
@@ -30,31 +29,29 @@ export default function Datastreams() {
   const searchParams = useSearchParams();
   const selectedNetwork = searchParams.get("network");
   const expandedFromQuery = searchParams.get("expanded");
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState({});
+  // Map of nested entities for datastream (now populated by already expanded datastreams)
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
   const [search, setSearch] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState(null);
-  const [editDatastream, setEditDatastream] = React.useState(null);
+  const [createError, setCreateError] = React.useState<any>(null);
+  const [editDatastream, setEditDatastream] = React.useState<any>(null);
   const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState(null);
-  const [expanded, setExpanded] = React.useState(null);
+  const [editError, setEditError] = React.useState<any>(null);
+  const [expanded, setExpanded] = React.useState<any>(null);
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
   const { timezone } = useTimezone();
-
   // Date range state
   const [customStart, setCustomStart] = React.useState<DateValue | null>(null);
   const [customEnd, setCustomEnd] = React.useState<DateValue | null>(null);
   const [sortOrder, setSortOrder] = React.useState<"desc" | "asc">("desc");
-
   // Filters
   const [filters, setFilters] = React.useState({
     sensor: "",
     thing: "",
     observedProperty: ""
   });
-
   // BBox filter state
   const [bboxInput, setBboxInput] = React.useState("");
   const [bbox, setBbox] = React.useState("");
@@ -82,10 +79,7 @@ export default function Datastreams() {
       }
       return;
     }
-
-    if (isBboxValid) {
-      setBbox(bboxInput);
-    }
+    if (isBboxValid) setBbox(bboxInput);
   };
 
   const handleFilterChange = (key: string, value: string | number) => {
@@ -96,7 +90,61 @@ export default function Datastreams() {
   const rawDatastreams = entities?.datastreams || [];
   const datastreams = useEnrichedDatastreams(rawDatastreams, token);
 
-  // Filtering
+  // Populate nestedEntitiesMap from already expanded datastreams (once / updates)
+  React.useEffect(() => {
+    const dsItem = siteConfig.items.find(i => i.label === "Datastreams");
+    const nestedKeys: string[] = dsItem?.nested || [];
+    if (!nestedKeys.length || !datastreams.length) return;
+    setNestedEntitiesMap(prev => {
+      let changed = false;
+      const next = { ...prev };
+      datastreams.forEach(ds => {
+        const id = ds["@iot.id"];
+        if (!id) return;
+        if (!next[id]) {
+          const collected: any = {};
+          nestedKeys.forEach(k => {
+            if (ds[k]) collected[k] = ds[k];
+          });
+          if (Object.keys(collected).length) {
+            next[id] = collected;
+            changed = true;
+          }
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [datastreams]);
+
+  // Initialize CRUD handlers
+  const {
+    handleCancelCreate,
+    handleCancelEdit,
+    handleCreate,
+    handleEdit,
+    handleSaveEdit,
+    handleDelete,
+    fetchDatastreamWithExpand // used for single refresh post-create/edit (no longer for initial load)
+  } = useDatastreamCRUDHandler({
+    item,
+    token,
+    setShowCreate,
+    setExpanded,
+    setEditDatastream,
+    setCreateLoading,
+    setCreateError,
+    setEditLoading,
+    setEditError,
+    refetchAll,
+    setNestedEntitiesMap
+  });
+
+  // Management of expanded state from query param
+  React.useEffect(() => {
+    if (expandedFromQuery) setExpanded(expandedFromQuery);
+  }, [expandedFromQuery]);
+
+  // FILTERS
   let filtered = datastreams.filter(ds => {
     const id = ds["@iot.id"];
     const nested = nestedEntitiesMap[id] || {};
@@ -104,19 +152,18 @@ export default function Datastreams() {
     const thing = nested.Thing || ds.Thing;
     const network = nested.Network || ds.network;
     const observedProperty = nested.ObservedProperty || ds.ObservedProperty;
-    const sensorId = sensor && sensor["@iot.id"] ? String(sensor["@iot.id"]) : "";
-    const thingId = thing && thing["@iot.id"] ? String(thing["@iot.id"]) : "";
-    const observedPropertyId = observedProperty && observedProperty["@iot.id"] ? String(observedProperty["@iot.id"]) : "";
+    const sensorId = sensor?.["@iot.id"] ? String(sensor["@iot.id"]) : "";
+    const thingId = thing?.["@iot.id"] ? String(thing["@iot.id"]) : "";
+    const observedPropertyId = observedProperty?.["@iot.id"] ? String(observedProperty["@iot.id"]) : "";
     const networkName = network && (network.name || network.label) ? (network.name || network.label) : "";
     const matchesSearch = JSON.stringify(ds).toLowerCase().includes(search.toLowerCase());
     const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
     const matchesThing = !filters.thing || thingId === String(filters.thing);
-    const matchesNetwork = !selectedNetwork || networkName === selectedNetwork;
     const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
-
+    const matchesNetwork = !selectedNetwork || networkName === selectedNetwork;
     const matchesBbox = () => {
       if (!bbox) return true;
-      const [minLat, minLon, maxLat, maxLon] = bbox.split(',').map(Number);
+      const [minLat, minLon, maxLat, maxLon] = bbox.split(",").map(Number);
       const area = ds.observedArea;
       if (!area || !area.coordinates) return false;
       if (area.type === "Polygon" && area.coordinates?.[0]?.[0]) {
@@ -129,21 +176,13 @@ export default function Datastreams() {
       }
       return false;
     };
-
-
-
-    //const matchesNetwork = !selectedNetwork || ds.network === selectedNetwork;
-    //console.log("Network " + networkName)
     return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox() && matchesNetwork;
-
-    //return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
-
   });
 
-  // Date range filtering
+  // Date range filter
   if (customStart && customEnd) {
-    const startDate = customStart && "toDate" in customStart ? customStart.toDate("UTC") : new Date(customStart as any);
-    const endDate = customEnd && "toDate" in customEnd ? customEnd.toDate("UTC") : new Date(customEnd as any);
+    const startDate = "toDate" in customStart ? customStart.toDate("UTC") : new Date(customStart as any);
+    const endDate = "toDate" in customEnd ? customEnd.toDate("UTC") : new Date(customEnd as any);
     filtered = filtered.filter(ds => {
       const date = ds.lastMeasurement;
       if (!date) return false;
@@ -152,7 +191,7 @@ export default function Datastreams() {
     });
   }
 
-  // Sort by lastMeasurement
+  // Sorting
   filtered = [...filtered].sort((a, b) => {
     const dateA = a.lastMeasurement;
     const dateB = b.lastMeasurement;
@@ -162,19 +201,19 @@ export default function Datastreams() {
       : new Date(dateA).getTime() - new Date(dateB).getTime();
   });
 
-  // Delay threshold options for last measurement age color coding
+  // Color threshold
   const [delayThreshold, setDelayThreshold] = React.useState<number>(5);
   const chipColorStrategy = React.useMemo(
     () => createLastDelayColorStrategy(delayThreshold, timezone),
     [delayThreshold, timezone]
   );
 
-  // Count datastream associations per nested entity (used to disable options with zero associations)
+  // Counts to disable empty filters
   const datastreamCounts = React.useMemo(() => {
     const counts = {
       thing: {} as Record<string, number>,
       sensor: {} as Record<string, number>,
-      observedProperty: {} as Record<string, number>,
+      observedProperty: {} as Record<string, number>
     };
     filtered.forEach(ds => {
       const id = ds["@iot.id"];
@@ -192,37 +231,22 @@ export default function Datastreams() {
     return counts;
   }, [filtered, nestedEntitiesMap]);
 
-  // Select options (existing entities)
+  // Select options
   const locationOptions = (entities?.locations || []).map((x: any) => ({ label: x.name || `Location ${x["@iot.id"]}`, value: String(x["@iot.id"]) }));
   const thingOptions = (entities?.things || []).map(thing => {
     const id = thing["@iot.id"];
     const count = datastreamCounts.thing[id] || 0;
-    return {
-      label: thing.name || `Thing ${id}`,
-      value: id,
-      disabled: count === 0,
-      count
-    };
+    return { label: thing.name || `Thing ${id}`, value: id, disabled: count === 0, count };
   });
   const sensorOptions = (entities?.sensors || []).map(sensor => {
     const id = sensor["@iot.id"];
     const count = datastreamCounts.sensor[id] || 0;
-    return {
-      label: sensor.name || `Sensor ${id}`,
-      value: id,
-      disabled: count === 0,
-      count
-    };
+    return { label: sensor.name || `Sensor ${id}`, value: id, disabled: count === 0, count };
   });
   const observedPropertyOptions = (entities?.observedProperties || []).map(op => {
     const id = op["@iot.id"];
     const count = datastreamCounts.observedProperty[id] || 0;
-    return {
-      label: op.name || `Observed Property ${id}`,
-      value: id,
-      disabled: count === 0,
-      count
-    };
+    return { label: op.name || `Observed Property ${id}`, value: id, disabled: count === 0, count };
   });
 
   // Field definitions
@@ -232,64 +256,21 @@ export default function Datastreams() {
       thingOptions,
       sensorOptions,
       observedPropertyOptions,
-      includePhenomenonTime: false,
-      //network: selectedNetwork || "acsot"
+      includePhenomenonTime: false
     }),
-    [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
+    [t, thingOptions, sensorOptions, observedPropertyOptions]
   );
+
   const datastreamDetailFields = React.useMemo(
     () => buildDatastreamFields({
       t,
       thingOptions,
       sensorOptions,
       observedPropertyOptions,
-      includePhenomenonTime: true,
-      //network: selectedNetwork || "acsot"
+      includePhenomenonTime: true
     }),
-    [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
+    [t, thingOptions, sensorOptions, observedPropertyOptions]
   );
-
-  // Initialize CRUD handlers
-  const {
-    handleCancelCreate,
-    handleCancelEdit,
-    handleCreate,
-    handleEdit,
-    handleSaveEdit,
-    handleDelete,
-    fetchDatastreamWithExpand,
-  } = useDatastreamCRUDHandler({
-    item,
-    token,
-    setShowCreate,
-    setExpanded,
-    setEditDatastream,
-    setCreateLoading,
-    setCreateError,
-    setEditLoading,
-    setEditError,
-    refetchAll,
-    setNestedEntitiesMap,
-  });
-
-  // Initial fetch
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
-
-  // Expand from query param
-  React.useEffect(() => {
-    if (expandedFromQuery) setExpanded(expandedFromQuery);
-  }, [expandedFromQuery]);
-
-  // Fetch nested for each datastream
-  React.useEffect(() => {
-    if (datastreams.length > 0) {
-      datastreams.forEach(ds => {
-        fetchDatastreamWithExpand(ds["@iot.id"]);
-      });
-    }
-  }, [datastreams, token]);
 
   const loading = authLoading || entitiesLoading;
   if (loading) return <LoadingScreen />;
@@ -409,7 +390,6 @@ export default function Datastreams() {
             placeholderValue={now(timezone)}
           />
         </div>
-        {/* Bounding box */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <Input
             isClearable
