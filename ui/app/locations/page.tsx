@@ -1,124 +1,99 @@
 "use client";
-
 import * as React from "react";
-import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
 import fetchData from "../../server/fetchData";
-import fetchLogin from "../../server/fetchLogin";
-import "leaflet/dist/leaflet.css";
+import deleteData from "../../server/deleteData";
+import updateData from "../../server/updateData";
+import { useAuth } from "../../context/AuthContext";
+import { useEntities } from "../../context/EntitiesContext";
+import { Accordion, AccordionItem, Button, Input, Divider } from "@heroui/react";
+import DeleteButton from "../../components/customButtons/deleteButton";
+import createData from "../../server/createData";
+import EntityCreator from "../../components/EntityCreator";
+import { useTranslation } from "react-i18next";
+import MapWrapper from "../../components/MapWrapper";
+import EntityAccordion from "../../components/EntityAccordion";
+import { LoadingScreen } from "../../components/LoadingScreen";
+import { buildLocationFields } from "./utils";
 
-export const mainColor = siteConfig.main_color;
+// Define main and secondary colors from site config
+//export const mainColor = siteConfig.main_color;
+//export const secondaryColor = siteConfig.secondary_color;
+
+// Retrieve specific items from site configuration
+const item = siteConfig.items.find(i => i.label === "Locations");
 
 export default function Locations() {
-  const [locations, setLocations] = React.useState<any[]>([]);
+  const { t } = useTranslation();
+
+  // Define fields for the EntityCreator specific to Locations
+  const locationFields = React.useMemo(() => buildLocationFields(t), [t]);
+  
+  // Optional: label mapping for displaying fields
+  const getLabel = (key) => {
+    const map = {
+      name: t("datastreams.name"),
+      description: t("datastreams.description"),
+      latitude: t("locations.latitude"),
+      longitude: t("locations.longitude"),
+      encodingType: t("locations.encoding_type"),
+    };
+    return map[key] || key;
+  };
+
+  // Authentication and entities context
+  const { token, loading: authLoading } = useAuth();
+  const [locations, setLocations] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState(null);
   const [search, setSearch] = React.useState("");
-  const [mapHeight, setMapHeight] = React.useState(300);
-  const [isResizing, setIsResizing] = React.useState(false);
+  const [showMap, setShowMap] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(null);
+  const [split, setSplit] = React.useState(0.5);
+  const [isSplitting, setIsSplitting] = React.useState(false);
 
-  const mapContainerRef = React.useRef<HTMLDivElement>(null);
-  const mapInstanceRef = React.useRef<any>(null);
-  const markersRef = React.useRef<any[]>([]);
+  // State for creation form
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState(null);
 
+  // State for editing
+  const [editLocation, setEditLocation] = React.useState(null);
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [editError, setEditError] = React.useState(null);
+
+  // Fetch entities from context
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+
+  // Update locations when entities change
   React.useEffect(() => {
-    async function getData() {
-      try {
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
-        const locationData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Locations",
-          login.access_token
-        );
-        setLocations(locationData?.value || []);
-      } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
-      } finally {
-        setLoading(false);
-      }
-    }
-    getData();
+    setLocations(entities.locations || []);
+    setLoading(entitiesLoading);
+    setError(entitiesError);
+  }, [entities, entitiesLoading, entitiesError]);
+
+  // Refetch all entities on mount
+  React.useEffect(() => {
+    refetchAll();
   }, []);
 
-  const columns = React.useMemo(
-    () =>
-      locations.length > 0
-        ? Object.keys(locations[0]).filter((col) => col !== "location")
-        : [],
-    [locations]
-  );
-
-  const filteredLocations = locations.filter((loc) =>
-    JSON.stringify(loc).toLowerCase().includes(search.toLowerCase())
-  );
-
+  // Handle map splitter mouse events
+  const splitRef = React.useRef(null);
   React.useEffect(() => {
-    if (!mapContainerRef.current || typeof window === "undefined") return;
-
-    import("leaflet").then((L) => {
-      if (!mapInstanceRef.current) {
-        const first = filteredLocations[0]?.location?.coordinates;
-        const center = first ? [first[1], first[0]] : [45, 10];
-
-        const leafletMap = L.map(mapContainerRef.current, {
-          worldCopyJump: false,
-          maxBounds: [
-            [-90, -180],
-            [90, 180]
-          ],
-          maxBoundsViscosity: 1.0,
-        }
-        ).setView(center, 4);
-        mapInstanceRef.current = leafletMap;
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; OpenStreetMap contributors',
-        }).addTo(leafletMap);
-      }
-      setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
-      }, 200);
-
-
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
-
-      filteredLocations.forEach((loc) => {
-        const coords = loc.location?.coordinates;
-        if (Array.isArray(coords)) {
-          const marker = L.circleMarker([coords[1], coords[0]], {
-            radius: 6,
-            fillColor: "red",
-            color: "red",
-            weight: 1,
-            opacity: 1,
-            fillOpacity: 0.8,
-          })
-            .addTo(mapInstanceRef.current)
-            .bindPopup(`<pre>${JSON.stringify(loc, null, 2)}</pre>`);
-          markersRef.current.push(marker);
-        }
-      });
-    });
-  }, [filteredLocations]);
-
-  React.useEffect(() => {
-    function onMouseMove(e: MouseEvent) {
-      const containerTop = document
-        .getElementById("resizable-map-wrapper")
-        ?.getBoundingClientRect().top;
-      if (containerTop !== undefined) {
-        const newHeight = Math.max(100, window.innerHeight - e.clientY);
-        setMapHeight(newHeight);
-      }
+    function onMouseMove(e) {
+      if (!splitRef.current) return;
+      const rect = splitRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const newSplit = Math.min(Math.max(x / rect.width, 0.15), 0.85); // min 15%, max 85%
+      setSplit(newSplit);
     }
     function onMouseUp() {
-      setIsResizing(false);
+      setIsSplitting(false);
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     }
-    if (isResizing) {
+    if (isSplitting) {
       document.addEventListener("mousemove", onMouseMove);
       document.addEventListener("mouseup", onMouseUp);
     }
@@ -126,99 +101,220 @@ export default function Locations() {
       document.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("mouseup", onMouseUp);
     };
-  }, [isResizing]);
+  }, [isSplitting]);
 
-  if (loading) return <p>Loading...</p>;
+  // Filter locations based on search input
+  const filteredLocations = locations.filter((loc) =>
+    JSON.stringify(loc).toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Cancel creation handler
+  const handleCancelCreate = () => setShowCreate(false);
+
+  // Cancel edit handler
+  const handleCancelEdit = () => setEditLocation(null);
+
+  // Handle creation of a new location
+  const handleCreate = async (newLocation) => {
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      const payload = {
+        name: newLocation.name,
+        description: newLocation.description,
+        location: {
+          type: "Point",
+          coordinates: [
+            parseFloat(newLocation.longitude),
+            parseFloat(newLocation.latitude)
+          ]
+        },
+        encodingType: newLocation.encodingType
+      };
+      const res = await createData(item.root, token, payload);
+      if (!res) throw new Error("Creation failed");
+      setShowCreate(false);
+      const data = await fetchData(item.root, token);
+      setLocations(data?.value || []);
+      // Auto-expand the newly created location
+      if (data?.value && data.value.length > 0) {
+        setExpanded(String(data.value[data.value.length - 1]["@iot.id"]));
+      }
+    } catch (err) {
+      setCreateError(err.message || "Error creating location");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  // Handle edit button click: set the location to be edited and expand its accordion
+  const handleEdit = (entity) => {
+    setEditLocation(entity);
+    setExpanded(String(entity["@iot.id"]));
+  };
+
+  // Handle saving the edited location
+  const handleSaveEdit = async (updatedLocation, originalLocation) => {
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const payload = {
+        name: updatedLocation.name,
+        description: updatedLocation.description,
+        location: {
+          type: "Point",
+          coordinates: [
+            parseFloat(updatedLocation.longitude),
+            parseFloat(updatedLocation.latitude)
+          ]
+        },
+        encodingType: updatedLocation.encodingType
+      };
+      await updateData(`${item.root}(${originalLocation["@iot.id"]})`, token, payload);
+      const data = await fetchData(item.root, token);
+      setLocations(data?.value || []);
+      setExpanded(String(originalLocation["@iot.id"]));
+      setEditLocation(null);
+    } catch (err) {
+      setEditError(err.message || "Error updating location");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Handle deletion of a location
+  const handleDelete = async (id) => {
+    try {
+      await deleteData(`${item.root}(${id})`, token);
+      const data = await fetchData(item.root, token);
+      setLocations(data?.value || []);
+    } catch (err) {
+      console.error("Error deleting location:", err);
+    }
+  };
+
+  // Functions for MapWrapper
+  const getCoordinates = (loc) =>
+    Array.isArray(loc.location?.coordinates) ? loc.location.coordinates : null;
+
+  const getId = (loc) => String(loc["@iot.id"]);
+
+  const getLabelMap = (loc) => loc.name ?? "-";
+
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
   return (
-    <div className="p-4 min-h-[600px] relative" style={{ overflow: "hidden" }}>
-      <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search locations..."
-      />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Locations
-      </h1>
-      <div className="overflow-x-auto mb-6">
-        <table className="min-w-max table-auto border border-gray-300 bg-white">
-          <thead>
-            <tr className="bg-gray-100">
-              {columns.map((col) => (
-                <th key={col} className="px-4 py-2 border">
-                  {col}
-                </th>
-              ))}
-              <th className="px-4 py-2 border">Longitude</th>
-              <th className="px-4 py-2 border">Latitude</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLocations.map((obs, index) => (
-              <tr key={index} className="hover:bg-gray-50">
-                {columns.map((col) => (
-                  <td key={col} className="px-4 py-2 border">
-                    {typeof obs[col] === "object"
-                      ? JSON.stringify(obs[col])
-                      : obs[col]?.toString() ?? "-"}
-                  </td>
-                ))}
-                <td className="px-4 py-2 border">
-                  {obs.location?.coordinates?.[0] ?? "-"}
-                </td>
-                <td className="px-4 py-2 border">
-                  {obs.location?.coordinates?.[1] ?? "-"}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="min-h-screen p-4">
+      {/* Top navigation bar */}
+      <div className="flex items-center justify-between mb-2">
+        <SecNavbar title="Locations" />
       </div>
-
-
+      <Divider
+        style={{ backgroundColor: "white", height: 1, margin: "8px 0" }}
+      />
+      {/* Search and controls */}
+      <div className="flex mb-4">
+        {/* Search filter input */}
+        <Input
+          size="sm"
+          placeholder={t("general.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-64"
+        />
+        <Button
+          color="primary"
+          size="sm"
+          onPress={() => {
+            setShowCreate(true);
+            setExpanded("new-entity");
+          }}
+          style={{ fontSize: 24, padding: "0 12px", minWidth: 0 }}
+          aria-label="Add Location"
+        >
+          +
+        </Button>
+        {/* Button to toggle map visibility */}
+        <Button
+          size="sm"
+          variant="flat"
+          className="ml-auto"
+          onPress={() => setShowMap((prev) => !prev)}
+          //style={{ backgroundColor: secondaryColor, color: "white" }}
+        >
+          {showMap ? t("locations.hide_map") : t("locations.show_map")}
+        </Button>
+      </div>
+      {/* Main content: Accordion and Map */}
       <div
-        id="resizable-map-wrapper"
-        className="fixed left-0 right-0 z-50"
-        style={{
-          bottom: 0,
-          height: mapHeight,
-          minHeight: 100,
-          pointerEvents: "none",
-        }}
+        ref={splitRef}
+        className="flex flex-row gap-0"
+        style={{ height: `calc(100vh - 180px)`, position: "relative", userSelect: isSplitting ? "none" : undefined }}
       >
+        {/* Left: Accordion */}
         <div
-          className="w-full h-3 cursor-row-resize bg-gray-300 hover:bg-gray-400 transition"
+          className="h-full overflow-y-auto pr-2"
           style={{
-            borderRadius: "8px 8px 0 0",
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            pointerEvents: "auto",
+            flexBasis: showMap ? `${split * 100}%` : "100%",
+            minWidth: 150,
+            maxWidth: "100%",
+            transition: isSplitting ? "none" : "flex-basis 0.2s",
           }}
-          onMouseDown={() => setIsResizing(true)}
-          title="Drag to resize map"
-        />
-
-        <div
-          ref={mapContainerRef}
-          className="w-full border border-gray-300 shadow bg-white"
-          style={{
-
-            minHeight: 0,
-            borderRadius: "0 0 8px 8px",
-            overflow: "hidden",
-            position: "absolute",
-            top: 3,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 5,
-            pointerEvents: "auto",
-          }}
-        />
+        >
+          <EntityAccordion
+            items={filteredLocations}
+            fields={locationFields}
+            expandedId={expanded}
+            onItemSelect={setExpanded}
+            entityType="locations"
+            onCreate={handleCreate}
+            showCreateForm={showCreate}
+            isCreating={createLoading}
+            createError={createError}
+            onDelete={handleDelete}
+            token={token}
+            // Edit props
+            onEdit={handleEdit}
+            editEntity={editLocation}
+            isEditing={editLoading}
+            editError={editError}
+            handleCancelCreate={handleCancelCreate}
+            handleCancelEdit={handleCancelEdit} onSaveEdit={undefined}
+            sortOrder={""}
+            setSortOrder={undefined} chipColorStrategy={undefined}            />
+        </div>
+        {/* SPLITTER */}
+        {showMap && (
+          <>
+            <div
+              style={{
+                width: 4,
+                cursor: "col-resize",
+                background: "#eee",
+                zIndex: 20,
+                userSelect: "none",
+              }}
+              onMouseDown={() => setIsSplitting(true)}
+            />
+            <div style={{ width: 16 }} />
+          </>
+        )}
+        {/* Right: Map */}
+        {showMap && (
+          <MapWrapper
+            items={filteredLocations}
+            getCoordinates={getCoordinates}
+            getId={getId}
+            getLabel={getLabelMap}
+            getGeoJSON={loc => null}
+            expandedId={expanded}
+            onMarkerClick={id => setExpanded(id)}
+            showMap={showMap}
+            split={split}
+            setSplit={setSplit}
+          />
+        )}
       </div>
     </div>
   );

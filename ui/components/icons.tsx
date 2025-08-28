@@ -1,9 +1,12 @@
+import type { SVGProps } from "react";
+
+
 export const LogoIstSOS = ({
   size = 24,
   width,
   height,
   ...props
-}: { size?: number; width?: number; height?: number; [key: string]: any }) => {
+}: { size?: number; width?: number; height?: number;[key: string]: any }) => {
   const imgWidth = size || width || 24;
   const imgHeight = size || height || 24;
 
@@ -13,6 +16,29 @@ export const LogoIstSOS = ({
       width={imgWidth}
       height={imgHeight}
       alt="Logo IstSOS"
+      style={{
+        transition: "filter 0.3s"
+      }}
+      {...props}
+    />
+  );
+};
+
+export const LogoOSGeo = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: { size?: number; width?: number; height?: number;[key: string]: any }) => {
+  const imgWidth = size || width || 24;
+  const imgHeight = size || height || 24;
+
+  return (
+    <img
+      src="/osgeo_logo.png"
+      width={imgWidth}
+      height={imgHeight}
+      alt="Logo OSGeo"
       style={{
         transition: "filter 0.3s"
       }}
@@ -46,6 +72,121 @@ export const GithubIcon: React.FC<IconSvgProps> = ({
         fill="currentColor"
         fillRule="evenodd"
       />
+    </svg>
+  );
+};
+
+
+export const SearchIcon = (props: IconSvgProps) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height="1em"
+    role="presentation"
+    viewBox="0 0 24 24"
+    width="1em"
+    {...props}
+  >
+    <path
+      d="M11.5 21C16.7467 21 21 16.7467 21 11.5C21 6.25329 16.7467 2 11.5 2C6.25329 2 2 6.25329 2 11.5C2 16.7467 6.25329 21 11.5 21Z"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    />
+    <path
+      d="M22 22L20 20"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    />
+  </svg>
+);
+
+export const ChevronDownIcon = (props: IconSvgProps) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height="1em"
+    role="presentation"
+    viewBox="0 0 24 24"
+    width="1em"
+    {...props}
+  >
+    <path
+      d="m19.92 8.95-6.52 6.52c-.77.77-2.03.77-2.8 0L4.08 8.95"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeMiterlimit={10}
+      strokeWidth={1.5}
+    />
+  </svg>
+);
+
+export const VerticalDotsIcon = (props: IconSvgProps) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    focusable="false"
+    height="1em"
+    role="presentation"
+    viewBox="0 0 24 24"
+    width="1em"
+    {...props}
+  >
+    <path
+      d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+      fill="currentColor"
+    />
+  </svg>
+);
+
+export const DeleteIcon = ({ size = 24, ...props }) => {
+  const imgWidth = size || 24;
+  const imgHeight = size || 24;
+
+  return (
+    <svg
+      width={imgWidth}
+      height={imgHeight}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+};
+
+export const EditIcon = ({ size = 24, ...props }) => {
+  const imgWidth = size || 24;
+  const imgHeight = size || 24;
+
+  return (
+    <svg
+      width={imgWidth}
+      height={imgHeight}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="orange"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 0 0 -4 -4L4 16v4z" />
+      <path d="M13.5 6.5L19 12" />
     </svg>
   );
 };

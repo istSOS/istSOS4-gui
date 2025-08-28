@@ -3,7 +3,7 @@
   "scripts": {
 
     "dev": "next dev",
-    
+
     "build": "next build",
 
     "start": "next start",
@@ -18,13 +18,33 @@
 
     "framer-motion": "^12.16.0",
 
+    "i18next": "^25.3.0",
+
+    "i18next-browser-languagedetector": "^8.2.0",
+
+    "iana-tz-data": "^2019.1.0",
+
     "leaflet": "^1.9.4",
+
+    "leaflet-draw": "^1.0.4",
+
+    "luxon": "^3.7.1",
+
+    "mapbox": "^1.0.0-beta10",
+
+    "mapbox-gl": "^3.13.0",
+
+    "moment-timezone": "^0.6.0",
 
     "next": "^15.3.3",
 
     "react": "^19.1.0",
 
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+
+    "react-i18next": "^15.6.0",
+
+    "react-window": "^1.8.11"
 
   },
 
@@ -41,8 +61,6 @@
     "typescript": "5.8.3"
 
   }
-
-  
 
 }
 

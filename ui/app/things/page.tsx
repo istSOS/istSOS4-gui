@@ -1,98 +1,159 @@
 "use client";
-
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
-import { SecNavbar } from "../../components/bars/secNavbar";
-import fetchData from "../../server/fetchData";
-import fetchLogin from "../../server/fetchLogin";
+import { useAuth } from "../../context/AuthContext";
+import { useEntities } from "../../context/EntitiesContext";
+import { EntityActions } from "../../components/entity/EntityActions";
+import { SplitPanel } from "../../components/layout/SplitPanel";
+import { EntityList } from "../../components/entity/EntityList";
+import { LoadingScreen } from "../../components/LoadingScreen";
+import { buildThingFields } from "./utils";
+import { useTranslation } from "react-i18next";
+import ThingCreator from "./ThingCreator";
+import { useThingCRUDHandler } from "./ThingCRUDHandler";
 
-export const mainColor = siteConfig.main_color;
+const item = siteConfig.items.find(i => i.label === "Things");
 
 export default function Things() {
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+  const { token } = useAuth();
   const router = useRouter();
+  const { t } = useTranslation();
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
   const [things, setThings] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState("");
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [createLoading, setCreateLoading] = React.useState(false);
+  const [createError, setCreateError] = React.useState<string | null>(null);
+  const [editThing, setEditThing] = React.useState<any | null>(null);
+  const [editLoading, setEditLoading] = React.useState(false);
+  const [editError, setEditError] = React.useState<string | null>(null);
+  const [expanded, setExpanded] = React.useState<string | null>(null);
+  const [showMap, setShowMap] = React.useState(true);
+  const [split, setSplit] = React.useState(0.5);
 
   React.useEffect(() => {
-    async function getData() {
-      try {
-        const login = await fetchLogin("http://api:5000/istsos4/v1.1/Login");
-        const thingData = await fetchData(
-          "http://api:5000/istsos4/v1.1/Things",
-          login.access_token
-        );
-        setThings(thingData?.value || []);
-      } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    getData();
+    refetchAll();
   }, []);
 
-  const columns = React.useMemo(
-    () => (things.length > 0 ? Object.keys(things[0]) : []),
-    [things]
+  React.useEffect(() => {
+    setThings(entities.things || []);
+    setLoading(entitiesLoading);
+    setError(entitiesError ? String(entitiesError) : null);
+  }, [entities, entitiesLoading, entitiesError]);
+
+  const locationOptions = (entities?.locations || []).map(loc => ({
+    label: loc.name || `Location ${loc["@iot.id"]}`,
+    value: loc["@iot.id"]
+  }));
+
+  const thingFields = React.useMemo(
+    () => buildThingFields({ t, locationOptions }),
+    [t, locationOptions]
   );
 
-  const filteredThings = things.filter(thing =>
+  const filtered = things.filter(thing =>
     JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) return <p>Loading...</p>;
+  // Initialize CRUD handlers
+  const {
+    handleCancelCreate,
+    handleCancelEdit,
+    handleCreate,
+    handleEdit,
+    handleSaveEdit,
+    handleDelete,
+    fetchThingWithExpand,
+  } = useThingCRUDHandler({
+    item,
+    token,
+    setShowCreate,
+    setExpanded,
+    setEditThing,
+    setCreateLoading,
+    setCreateError,
+    setEditLoading,
+    setEditError,
+    refetchAll,
+    setNestedEntitiesMap,
+    setThings,
+  });
+
+  React.useEffect(() => {
+    if (things.length > 0) {
+      things.forEach(t => {
+        fetchThingWithExpand(t["@iot.id"]);
+      });
+    }
+  }, [things, token]);
+
+  if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
 
-  return (
-    <div className="p-4">
-      <SecNavbar
-        searchValue={search}
-        onSearchChange={setSearch}
-        placeholder="Search things..."
-      />
-      <h1 className="text-2xl font-bold mb-4" style={{ color: mainColor }}>
-        Things
-      </h1>
-      {things.length === 0 ? (
-        <p>No available things.</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-max table-auto border border-gray-300 bg-white">
-            <thead>
-              <tr className="bg-gray-100">
-                {columns.map((col) => (
-                  <th key={col} className="px-4 py-2 border">
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filteredThings.map((obs, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  {columns.map((col) => (
-                    <td key={col} className="px-4 py-2 border">
-                      {typeof obs[col] === "object"
-                        ? JSON.stringify(obs[col])
-                        : obs[col]?.toString() ?? "-"}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+  const entityListComponent = (
+    <EntityList
+      items={filtered}
+      fields={thingFields}
+      expandedId={expanded}
+      onItemSelect={setExpanded}
+      entityType="things"
+      onEdit={handleEdit}
+      onSaveEdit={handleSaveEdit}
+      onDelete={handleDelete}
+      onCreate={handleCreate}
+      handleCancelCreate={handleCancelCreate}
+      handleCancelEdit={handleCancelEdit}
+      showCreateForm={false}
+      isCreating={createLoading}
+      createError={createError}
+      editEntity={editThing}
+      isEditing={editLoading}
+      editError={editError}
+      token={token}
+      nestedEntities={nestedEntitiesMap}
+      sortOrder=""
+      setSortOrder={() => {}}
+    />
   );
 
+  return (
+    <div className="min-h-screen p-4">
+      <EntityActions
+        title="Things"
+        search={search}
+        onSearchChange={setSearch}
+        onCreatePress={() => {
+          setShowCreate(true);
+          setExpanded(null);
+        }}
+        showMap={showMap}
+        onToggleMap={() => setShowMap(prev => !prev)}
+      />
+      {showCreate && (
+        <div className="mb-6">
+          <ThingCreator
+            onCreate={handleCreate}
+            onCancel={handleCancelCreate}
+            isLoading={createLoading}
+            error={createError}
+            locationOptions={locationOptions} 
+            datastreamOptions={[]} 
+            observationTypeOptions={[]} 
+            unitOfMeasurementOptions={[]} 
+            sensorOptions={[]} 
+            observedPropertyOptions={[]}          />
+        </div>
+      )}
+      <SplitPanel
+        leftPanel={entityListComponent}
+        rightPanel={null}
+        showRightPanel={null}
+        initialSplit={split}
+      />
+    </div>
+  );
 }
-
-
-
-

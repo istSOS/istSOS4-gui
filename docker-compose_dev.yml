@@ -1,0 +1,19 @@
+services:
+  ui:
+    build:
+      context: ui
+      dockerfile: Dockerfile.dev
+    restart: always
+    ports:
+      - 3000:3000
+    volumes:
+      - ./ui/:/home/node/app/
+    command: npm run dev
+    environment:
+      NEXT_PUBLIC_BASE_PATH:
+    networks:
+     - istsos4_default
+     
+networks:
+  istsos4_default:
+    external: true
