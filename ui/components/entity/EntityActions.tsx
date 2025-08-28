@@ -95,12 +95,16 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
                   const item = Array.from(items)[0];
                   return <span>{item.textValue}</span>;
                 }}
+
+                classNames={{popoverContent: "w-auto"}}
               >
                 {filter.options.map(opt => (
                   <SelectItem
                     key={opt.value}
                     textValue={opt.label}
                     isDisabled={opt.disabled}
+                    
+                    
                   >
                     <div className="flex w-full items-center justify-between">
                       <span className="truncate">{opt.label}</span>

@@ -169,6 +169,7 @@ export const useThingCRUDHandler = ({
     } finally {
       setCreateLoading(false);
     }
+    refetchAll()
   };
 
   const handleEdit = (entity: any) => setEditThing(entity);
