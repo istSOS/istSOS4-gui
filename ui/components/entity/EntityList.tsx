@@ -1,5 +1,6 @@
 import React from "react";
 import EntityAccordion from "../EntityAccordion";
+import { LoadingScreen } from "../../components/LoadingScreen";
 
 interface EntityListProps {
   items: any[];
@@ -52,7 +53,7 @@ export const EntityList: React.FC<EntityListProps> = ({
   
 }) => {
   if (items.length === 0 && !showCreateForm) {
-    return <p>No entities available.</p>;
+    return <LoadingScreen />;
   }
 
   return (

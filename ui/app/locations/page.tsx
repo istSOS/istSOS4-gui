@@ -73,10 +73,6 @@ export default function Locations() {
     setError(entitiesError);
   }, [entities, entitiesLoading, entitiesError]);
 
-  // Refetch all entities on mount
-  React.useEffect(() => {
-    refetchAll();
-  }, []);
 
   // Handle map splitter mouse events
   const splitRef = React.useRef(null);

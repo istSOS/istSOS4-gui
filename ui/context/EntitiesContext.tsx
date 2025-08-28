@@ -1,4 +1,5 @@
 "use client";
+
 import React, { createContext, useContext, useEffect, useState } from "react";
 import fetchData from "../server/fetchData";
 import { useAuth } from "./AuthContext";
@@ -36,14 +37,15 @@ const EntitiesContext = createContext<EntitiesContextType>({
     historicalLocations: [],
     network: [],
   },
-  setEntities: () => { },
+  setEntities: () => {},
   loading: true,
   error: null,
-  refetchAll: async () => { },
+  refetchAll: async () => {},
 });
 
 export function EntitiesProvider({ children }: { children: React.ReactNode }) {
   const { token, loading: authLoading } = useAuth();
+
   const [entities, setEntities] = useState<Entities>({
     locations: [],
     things: [],
@@ -58,11 +60,30 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Helper to find a siteConfig item root by label
+  const getRoot = (label: string) =>
+    siteConfig.items.find(i => i.label === label)?.root || "";
+
+  const buildDatastreamsUrl = () => {
+    const dsItem = siteConfig.items.find(i => i.label === "Datastreams");
+    if (!dsItem) return getRoot("Datastreams");
+    const base = dsItem.root || "";
+    const nested: string[] = Array.isArray(dsItem.nested) ? dsItem.nested : [];
+    if (!nested.length) return base;
+    const expandParam = nested.join(",");
+    // Preserve existing query params if present
+    return base.includes("?")
+      ? `${base}&$expand=${expandParam}`
+      : `${base}?$expand=${expandParam}`;
+  };
+
   const refetchAll = async () => {
     if (!token || authLoading) return;
     setLoading(true);
     setError(null);
     try {
+      const datastreamsUrl = buildDatastreamsUrl();
+
       const [
         locations,
         things,
@@ -72,19 +93,31 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
         featuresOfInterest,
         observedProperties,
         historicalLocations,
-        network
+        network,
       ] = await Promise.all([
-        fetchData(siteConfig.items.find(i => i.label === "Locations")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "Things")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "Sensors")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "Datastreams")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "Observations")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "FeaturesOfInterest")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "ObservedProperties")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "HistoricalLocations")?.root, token).then(d => d?.value || []),
-        fetchData(siteConfig.items.find(i => i.label === "Networks")?.root, token).then(d => d?.value || []),
+        fetchData(getRoot("Locations"), token).then(d => d?.value || []),
+        fetchData(getRoot("Things"), token).then(d => d?.value || []),
+        fetchData(getRoot("Sensors"), token).then(d => d?.value || []),
+        // Datastreams with $expand (if configured)
+        fetchData(datastreamsUrl, token).then(d => d?.value || []),
+        fetchData(getRoot("Observations"), token).then(d => d?.value || []),
+        fetchData(getRoot("FeaturesOfInterest"), token).then(d => d?.value || []),
+        fetchData(getRoot("ObservedProperties"), token).then(d => d?.value || []),
+        fetchData(getRoot("HistoricalLocations"), token).then(d => d?.value || []),
+        fetchData(getRoot("Networks"), token).then(d => d?.value || []),
       ]);
-      setEntities({ locations, things, sensors, datastreams, observations, featuresOfInterest, observedProperties, historicalLocations, network });
+
+      setEntities({
+        locations,
+        things,
+        sensors,
+        datastreams,
+        observations,
+        featuresOfInterest,
+        observedProperties,
+        historicalLocations,
+        network,
+      });
     } catch (err: any) {
       setError("Error during data loading: " + err.message);
     } finally {
@@ -94,11 +127,13 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     refetchAll();
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, authLoading]);
 
   return (
-    <EntitiesContext.Provider value={{ entities, setEntities, loading, error, refetchAll }}>
+    <EntitiesContext.Provider
+      value={{ entities, setEntities, loading, error, refetchAll }}
+    >
       {children}
     </EntitiesContext.Provider>
   );
