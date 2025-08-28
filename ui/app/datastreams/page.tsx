@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
-import { unitOfMeasurementOptions, observationTypeURIs, buildDatastreamFields, delayThresholdOptions } from "./utils";
+import { unitOfMeasurementOptions, observationTypeOptions, buildDatastreamFields, delayThresholdOptions } from "./utils";
 import { useTranslation } from "react-i18next";
 import { useEnrichedDatastreams } from "../../components/hooks/useEnrichedDatastreams";
 import { createLastDelayColorStrategy } from "../../components/hooks/useLastDelayColor";
@@ -59,6 +59,7 @@ export default function Datastreams() {
   const [bboxInput, setBboxInput] = React.useState("");
   const [bbox, setBbox] = React.useState("");
   const [isBboxValid, setIsBboxValid] = React.useState(true);
+  const [currentBBox, setCurrentBBox] = React.useState("");
 
   const validateBboxInput = (input: string) => {
     if (input === "") return true;
@@ -73,6 +74,15 @@ export default function Datastreams() {
   };
 
   const handleSetBbox = () => {
+    if (!bboxInput) {
+      if (currentBBox) {
+        setBboxInput(currentBBox);
+        setIsBboxValid(true);
+        setBbox(currentBBox);
+      }
+      return;
+    }
+
     if (isBboxValid) {
       setBbox(bboxInput);
     }
@@ -92,13 +102,16 @@ export default function Datastreams() {
     const nested = nestedEntitiesMap[id] || {};
     const sensor = nested.Sensor || ds.Sensor;
     const thing = nested.Thing || ds.Thing;
+    const network = nested.Network || ds.network;
     const observedProperty = nested.ObservedProperty || ds.ObservedProperty;
     const sensorId = sensor && sensor["@iot.id"] ? String(sensor["@iot.id"]) : "";
     const thingId = thing && thing["@iot.id"] ? String(thing["@iot.id"]) : "";
     const observedPropertyId = observedProperty && observedProperty["@iot.id"] ? String(observedProperty["@iot.id"]) : "";
+    const networkName = network && (network.name || network.label) ? (network.name || network.label) : "";
     const matchesSearch = JSON.stringify(ds).toLowerCase().includes(search.toLowerCase());
     const matchesSensor = !filters.sensor || sensorId === String(filters.sensor);
     const matchesThing = !filters.thing || thingId === String(filters.thing);
+    const matchesNetwork = !selectedNetwork || networkName === selectedNetwork;
     const matchesObservedProperty = !filters.observedProperty || observedPropertyId === String(filters.observedProperty);
 
     const matchesBbox = () => {
@@ -117,14 +130,14 @@ export default function Datastreams() {
       return false;
     };
 
-    
-    
-    const matchesNetwork = !selectedNetwork || ds.network === selectedNetwork;
-    console.log("NETWORK: " + ds.network);
-    //return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox() && matchesNetwork;
-    
-    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
-    
+
+
+    //const matchesNetwork = !selectedNetwork || ds.network === selectedNetwork;
+    //console.log("Network " + networkName)
+    return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox() && matchesNetwork;
+
+    //return matchesSearch && matchesSensor && matchesThing && matchesObservedProperty && matchesBbox();
+
   });
 
   // Date range filtering
@@ -181,32 +194,34 @@ export default function Datastreams() {
 
   // Select options (existing entities)
   const locationOptions = (entities?.locations || []).map((x: any) => ({ label: x.name || `Location ${x["@iot.id"]}`, value: String(x["@iot.id"]) }));
-  const observationTypeOptions = observationTypeURIs.map(o => ({ label: o.label, value: o.value }));
   const thingOptions = (entities?.things || []).map(thing => {
     const id = thing["@iot.id"];
     const count = datastreamCounts.thing[id] || 0;
     return {
-      label: `${thing.name || `Thing ${id}`}${count ? ` (${count})` : " "}`,
+      label: thing.name || `Thing ${id}`,
       value: id,
-      disabled: count === 0
+      disabled: count === 0,
+      count
     };
   });
   const sensorOptions = (entities?.sensors || []).map(sensor => {
     const id = sensor["@iot.id"];
     const count = datastreamCounts.sensor[id] || 0;
     return {
-      label: `${sensor.name || `Sensor ${id}`}${count ? ` (${count})` : " "}`,
+      label: sensor.name || `Sensor ${id}`,
       value: id,
-      disabled: count === 0
+      disabled: count === 0,
+      count
     };
   });
   const observedPropertyOptions = (entities?.observedProperties || []).map(op => {
     const id = op["@iot.id"];
     const count = datastreamCounts.observedProperty[id] || 0;
     return {
-      label: `${op.name || `Observed Property ${id}`}${count ? ` (${count})` : " "}`,
+      label: op.name || `Observed Property ${id}`,
       value: id,
-      disabled: count === 0
+      disabled: count === 0,
+      count
     };
   });
 
@@ -254,13 +269,7 @@ export default function Datastreams() {
     setEditLoading,
     setEditError,
     refetchAll,
-    showCreate,
-    editDatastream,
-    createLoading,
-    editLoading,
-    nestedEntitiesMap,
     setNestedEntitiesMap,
-    expanded,
   });
 
   // Initial fetch
@@ -337,6 +346,7 @@ export default function Datastreams() {
       setSplit={setSplit}
       showMarkers={false}
       chipColorStrategy={chipColorStrategy}
+      onBBoxChange={setCurrentBBox}
     />
   ) : null;
 
@@ -402,11 +412,13 @@ export default function Datastreams() {
         {/* Bounding box */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           <Input
+            isClearable
             radius="sm"
             size="sm"
             label="Bounding Box"
             placeholder="minLat, minLon, maxLat, maxLon"
             value={bboxInput}
+            onClear={() => { setBboxInput(""); setBbox(""); setIsBboxValid(true); }}
             onChange={handleBboxInputChange}
             color={isBboxValid ? "default" : "danger"}
           />
@@ -435,8 +447,6 @@ export default function Datastreams() {
       {showCreate && (
         <div className="mb-6">
           <DatastreamCreator
-            observationTypeOptions={observationTypeOptions}
-            unitOfMeasurementOptions={unitOfMeasurementOptions}
             thingOptions={thingOptions}
             sensorOptions={sensorOptions}
             observedPropertyOptions={observedPropertyOptions}

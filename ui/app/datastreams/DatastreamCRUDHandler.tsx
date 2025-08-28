@@ -2,7 +2,7 @@
 import * as React from "react";
 import { siteConfig } from "../../config/site";
 import { createData, updateData, fetchData, deleteData } from "../../server/api";
-import { unitOfMeasurementOptions, observationTypeURIs, buildDatastreamFields, delayThresholdOptions } from "./utils";
+import { unitOfMeasurementOptions } from "./utils";
 
 interface DatastreamCRUDHandlerProps {
   item: any;
@@ -15,13 +15,7 @@ interface DatastreamCRUDHandlerProps {
   setEditLoading: (value: boolean) => void;
   setEditError: (value: string | null) => void;
   refetchAll: () => Promise<void>;
-  showCreate: boolean;
-  editDatastream: any;
-  createLoading: boolean;
-  editLoading: boolean;
-  nestedEntitiesMap: any;
   setNestedEntitiesMap: (value: any) => void;
-  expanded: string | null;
 }
 
 export const useDatastreamCRUDHandler = ({
@@ -35,13 +29,7 @@ export const useDatastreamCRUDHandler = ({
   setEditLoading,
   setEditError,
   refetchAll,
-  showCreate,
-  editDatastream,
-  createLoading,
-  editLoading,
-  nestedEntitiesMap,
   setNestedEntitiesMap,
-  expanded,
 }: DatastreamCRUDHandlerProps) => {
 
   const handleCancelCreate = () => setShowCreate(false);

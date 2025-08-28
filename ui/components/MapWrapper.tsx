@@ -24,6 +24,7 @@ type MapWrapperProps = {
     showMarkers?: boolean;
     mapRef?: React.MutableRefObject<any>;
     chipColorStrategy?: (item: any) => string;
+    onBBoxChange?: (bbox: string) => void;
 };
 const colorMap = new Map<string, string>([
     ["success", "#4ade80"],
@@ -58,6 +59,7 @@ export default function MapWrapper({
     showMarkers,
     mapRef,
     chipColorStrategy,
+    onBBoxChange,
 }: MapWrapperProps) {
     const mapContainerRef = React.useRef<HTMLDivElement>(null);
     const mapInstanceRef = React.useRef<any>(null);
@@ -96,15 +98,15 @@ export default function MapWrapper({
     const handleCopyBBox = () => {
         if (currentBBox) {
             navigator.clipboard.writeText(currentBBox).then(() => {
-                console.log("BBox copied to clipboard:", currentBBox);
+                //console.log("BBox copied to clipboard:", currentBBox);
                 setCopySuccess(true);
                 setTimeout(() => setCopySuccess(false), 2000);
             }).catch(err => {
                 console.error("Failed to copy BBox: ", err);
             });
-        } else {
-            console.log("currentBBox is empty");
         }
+
+        // else { console.log("currentBBox is empty"); }
     };
     const handleSearch = async (query: string) => {
         if (!query.trim()) return;
@@ -284,7 +286,8 @@ export default function MapWrapper({
                     const maxLon = bounds.getEast();
                     const bboxStr = `${minLat.toFixed(6)}, ${minLon.toFixed(6)}, ${maxLat.toFixed(6)}, ${maxLon.toFixed(6)}`;
                     setCurrentBBox(bboxStr);
-                    console.log("Updated BBox:", bboxStr);
+                    onBBoxChange && onBBoxChange(bboxStr);
+                    //console.log("Updated BBox:", bboxStr);
                 }
 
                 mapInstanceRef.current.on("moveend", updateBBox);
@@ -415,6 +418,12 @@ export default function MapWrapper({
             }}
         >
             <div style={{ padding: "4px", zIndex: 100, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
+                <p style={{
+                    fontSize: "12px",
+                    margin: "0 6px 0 0",
+                    fontWeight: 400,
+                    opacity: 0.5,
+                }}> Color mode</p>
                 <Switch
                     checked={colorMode}
                     onChange={() => setColorMode(v => !v)}

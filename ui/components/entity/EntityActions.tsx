@@ -1,5 +1,5 @@
 import React from "react";
-import { Button, Divider, Select, SelectItem, Tooltip } from "@heroui/react";
+import { Button, Chip, Divider, Select, SelectItem, Tooltip } from "@heroui/react";
 import { SearchBar } from "../bars/searchBar";
 import { SecNavbar } from "../bars/secNavbar";
 import { useTranslation } from "react-i18next";
@@ -12,7 +12,18 @@ interface EntityActionsProps {
   title: string;
   search: string;
   onSearchChange: (value: string) => void;
-  filters?: { [key: string]: { label: string; options: Array<{ label: string; value: string | number; disabled?: boolean }>; value: string | number } };
+  filters?: {
+    [key: string]: {
+      label: string;
+      options: Array<{
+        label: string;
+        value: string | number;
+        disabled?: boolean;
+        count?: number;
+      }>;
+      value: string | number;
+    }
+  };
   onFilterChange?: (key: string, value: string | number) => void;
 }
 
@@ -59,9 +70,12 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
             {Object.entries(filters).map(([key, filter]) => (
               <Select
                 key={key}
-                
                 radius="sm"
-                selectedKeys={filter.value !== undefined && filter.value !== null ? [filter.value] : []}
+                selectedKeys={
+                  filter.value !== undefined && filter.value !== null
+                    ? new Set([filter.value])
+                    : new Set()
+                }
                 onSelectionChange={(selection) => {
                   if (onFilterChange) {
                     const selectedValue = Array.from(selection)[0];
@@ -75,14 +89,33 @@ export const EntityActions: React.FC<EntityActionsProps> = ({
                   maxWidth: "300px",
                   width: "auto",
                 }}
+                placeholder={filter.label}
+                renderValue={(items) => {
+                  if (!items) return filter.label;
+                  const item = Array.from(items)[0];
+                  return <span>{item.textValue}</span>;
+                }}
               >
-                {[<SelectItem key="">{filter.label}</SelectItem>,
-                  ...filter.options.map(opt => (
-                    <SelectItem key={opt.value} isDisabled={opt.disabled}>
-                      {opt.label}
-                    </SelectItem>
-                  ))
-                ]}
+                {filter.options.map(opt => (
+                  <SelectItem
+                    key={opt.value}
+                    textValue={opt.label}
+                    isDisabled={opt.disabled}
+                  >
+                    <div className="flex w-full items-center justify-between">
+                      <span className="truncate">{opt.label}</span>
+                      {typeof opt.count === "number" && opt.count > 0 && (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          color="primary"
+                        >
+                          {opt.count}
+                        </Chip>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
               </Select>
             ))}
           </div>

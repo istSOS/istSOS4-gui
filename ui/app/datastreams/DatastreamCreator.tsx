@@ -9,15 +9,17 @@ import {
     Switch,
     Divider
 } from "@heroui/react";
-import { buildDatastreamFields } from "./utils";
+import { unitOfMeasurementOptions, observationTypeOptions, buildDatastreamFields, delayThresholdOptions } from "./utils";
 import { useTranslation } from "react-i18next";
 import ThingCreator from "../things/ThingCreator";
 import SensorCreator from "../sensors/SensorCreator";
 import ObservedPropertyCreator from "../observed-properties/ObservedPropertyCreator";
 import { useSearchParams } from "next/navigation";
+import { useEntities } from "../../context/EntitiesContext";
+
 
 interface Option {
-    name?: string
+    name?: string;
     label?: string;
     value?: any;
     symbol?: string;
@@ -25,8 +27,7 @@ interface Option {
 }
 
 interface DatastreamCreatorProps {
-    observationTypeOptions: Option[];
-    unitOfMeasurementOptions: Option[];
+
     thingOptions: Option[];
     sensorOptions: Option[];
     observedPropertyOptions: Option[];
@@ -35,23 +36,60 @@ interface DatastreamCreatorProps {
     onCancel: () => void;
     isLoading: boolean;
     error: string | null;
+    // If true, hides the Thing section and builds a Datastream object for deep insert inside a Thing
+    disableThing?: boolean;
+    disableSensor?: boolean;
+    disableObservedProperty?: boolean;
+    // Optional title override
+    title?: string;
 }
 
+
+
+
+
+/**
+ * DatastreamCreator
+ * Full mode: allows creating/selecting Thing, Sensor, ObservedProperty and building Datastream payload.
+ * Embedded (disableThing=true): used inside ThingCreator to deep insert a Datastream without choosing/creating a Thing here.
+ */
 const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
-    observationTypeOptions,
-    unitOfMeasurementOptions,
-    thingOptions,
-    sensorOptions,
-    observedPropertyOptions,
     locationOptions,
     onCreate,
     onCancel,
     isLoading,
-    error
+    error,
+    disableThing = false,
+    title
 }) => {
     const { t } = useTranslation();
     const searchParams = useSearchParams();
     const selectedNetwork = searchParams.get("network");
+    const networkIdParam = searchParams.get("id");
+
+    const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+
+    const thingOptions = (entities?.things || []).map(thing => {
+        const id = thing["@iot.id"];
+        return {
+            label: `${thing.name || `Thing ${id}`}`,
+            value: id,
+        };
+    });
+    const sensorOptions = (entities?.sensors || []).map(sensor => {
+        const id = sensor["@iot.id"];
+        return {
+            label: `${sensor.name || `Sensor ${id}`}`,
+            value: id,
+        };
+    });
+    const observedPropertyOptions = (entities?.observedProperties || []).map(op => {
+        const id = op["@iot.id"];
+        return {
+            label: `${op.name || `Observed Property ${id}`}`,
+            value: id,
+        };
+    });
 
     // Build field configs
     const datastreamFields = React.useMemo(
@@ -61,7 +99,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 thingOptions,
                 sensorOptions,
                 observedPropertyOptions,
-                network: selectedNetwork || "acsot",
+                network: selectedNetwork || "acsot"
             }),
         [t, thingOptions, sensorOptions, observedPropertyOptions, selectedNetwork]
     );
@@ -96,7 +134,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         return init;
     });
 
-    // State for Thing
+    // State for Thing (unused in embedded mode)
     const [useExistingThing, setUseExistingThing] = React.useState(true);
     const [thingId, setThingId] = React.useState("");
     const [newThing, setNewThing] = React.useState<any | null>(null);
@@ -134,28 +172,36 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         Object.fromEntries(arr.filter(p => p.key).map(p => [p.key, p.value]));
 
     const validate = () => {
+        // Basic required fields
         if (!ds.name || !ds.observationType || !ds.unitOfMeasurement) return false;
-        if (useExistingThing && !thingId) return false;
-        if (!useExistingThing && !newThing) return false;
+        // In full mode we must also have Thing choice
+        if (!disableThing) {
+            if (useExistingThing && !thingId) return false;
+            if (!useExistingThing && !newThing) return false;
+        }
         if (useExistingSensor && !sensorId) return false;
         if (!useExistingSensor && !newSensor) return false;
         if (useExistingObservedProperty && !observedPropertyId) return false;
         return true;
     };
 
+    // Build Thing locations for deep insert (only used in full mode if new Thing)
     const buildThingLocationsForDeepInsert = (thing: any) => {
         if (!thing) return [];
-        // existing IDs: thing.Locations (array) OR fallback legacy thing.Location
         const existingIds: any[] = Array.isArray(thing?.Locations)
             ? thing.Locations
-            : (thing?.Location ? [thing.Location] : []);
+            : thing?.Location
+                ? [thing.Location]
+                : [];
         const existing = existingIds
             .filter(id => id !== null && id !== undefined && id !== "")
             .map(id => ({ "@iot.id": Number(id) }));
 
         const createdArr: any[] = thing?.newLocations
             ? thing.newLocations
-            : (thing?.newLocation ? [thing.newLocation] : []);
+            : thing?.newLocation
+                ? [thing.newLocation]
+                : [];
 
         const created = createdArr.map((loc: any) => ({
             name: loc.name,
@@ -167,17 +213,18 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         return [...created, ...existing];
     };
 
+
     const handleSubmit = async () => {
         setLocalError(null);
         if (!validate()) return;
-        const uomOpt = unitOfMeasurementOptions.find(
-            o => o.name === ds.unitOfMeasurement
-        );
+        const uomOpt = unitOfMeasurementOptions.find(o => o.name === ds.unitOfMeasurement);
         if (!uomOpt) {
             setLocalError("Invalid Unit of Measurement");
             return;
         }
-        const payload = {
+
+        // Build base datastream payload
+        const basePayload: any = {
             unitOfMeasurement: {
                 name: uomOpt.name,
                 symbol: uomOpt.symbol,
@@ -185,7 +232,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
             },
             description: ds.description,
             name: ds.name,
-            network: ds.network,
+            Network: { "@iot.id": Number(networkIdParam) },
             properties: buildPropertiesObject(ds.properties),
             observationType: ds.observationType,
             ObservedProperty: useExistingObservedProperty
@@ -202,18 +249,22 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     description: newSensor.description,
                     encodingType: newSensor.encodingType,
                     metadata: newSensor.metadata
-                },
-            Thing: useExistingThing
+                }
+        };
+
+        // In full mode we attach Thing reference or deep insert structure
+        if (!disableThing) {
+            basePayload.Thing = useExistingThing
                 ? { "@iot.id": Number(thingId) }
                 : {
                     name: newThing.name,
                     description: newThing.description,
                     properties: newThing.properties || {},
                     Locations: buildThingLocationsForDeepInsert(newThing)
-                },
-        };
+                };
+        }
 
-        await onCreate(payload);
+        await onCreate(basePayload);
     };
 
     const renderPropertiesEditor = (
@@ -226,12 +277,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         <div className="flex flex-col gap-2">
             <div className="flex justify-between items-center">
                 <span className="text-sm font-medium">{title}</span>
-                <Button
-                    size="sm"
-                    variant="bordered"
-                    onPress={onAdd}
-                    disabled={isLoading}
-                >
+                <Button size="sm" variant="bordered" onPress={onAdd} disabled={isLoading}>
                     + Add
                 </Button>
             </div>
@@ -273,13 +319,16 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
     );
 
     const renderJsonEditor = () => {
-        const entityJson = {
-            unitOfMeasurement: unitOfMeasurementOptions.find(
-                o => o.name === ds.unitOfMeasurement
-            ) || { name: "", symbol: "", definition: "" },
+        const entityJson: any = {
+            unitOfMeasurement:
+                unitOfMeasurementOptions.find(o => o.name === ds.unitOfMeasurement) || {
+                    name: "",
+                    symbol: "",
+                    definition: ""
+                },
             description: ds.description,
             name: ds.name,
-            network: ds.network,
+            Network: { "@iot.id": Number(networkIdParam) },
             observationType: ds.observationType,
             ObservedProperty: useExistingObservedProperty
                 ? { "@iot.id": Number(observedPropertyId) }
@@ -295,17 +344,18 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     description: newSensor?.description || "",
                     encodingType: newSensor?.encodingType || "",
                     metadata: newSensor?.metadata || ""
-                },
-            Thing: useExistingThing
+                }
+        };
+        if (!disableThing) {
+            entityJson.Thing = useExistingThing
                 ? { "@iot.id": Number(thingId) }
                 : {
                     name: newThing?.name || "",
                     description: newThing?.description || "",
                     properties: newThing?.properties || {},
                     Locations: buildThingLocationsForDeepInsert(newThing)
-                }
-        };
-
+                };
+        }
         setJsonContent(JSON.stringify(entityJson, null, 2));
         setShowJsonEditor(true);
     };
@@ -319,7 +369,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
         setExistingId: (value: string) => void,
         newEntity: any,
         setNewEntity: (value: any) => void,
-        creatorComponent: React.ReactNode,
+        creatorComponent: React.ReactNode
     ) => (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
@@ -359,12 +409,16 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                         <div className="border border-success-300 rounded-md p-3 bg-success-50 text-sm">
                             New {title} saved
                             <div className="flex gap-2 mt-2">
+                                <Button size="sm" variant="bordered" onPress={renderJsonEditor}>
+                                    JSON Preview
+                                </Button>
                                 <Button
                                     size="sm"
                                     variant="bordered"
-                                    onPress={renderJsonEditor}
+                                    color="danger"
+                                    onPress={() => setNewEntity(null)}
                                 >
-                                    JSON Preview
+                                    Reset
                                 </Button>
                             </div>
                         </div>
@@ -376,7 +430,9 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
 
     return (
         <div className="flex flex-col gap-6 border border-default-200 rounded-md p-5 bg-content1 bg-gray-100">
-            <div className="text-sm font-semibold">Create Datastream</div>
+            <div className="text-sm font-semibold">
+                {title || (disableThing ? "Create Datastream (Embedded)" : "Create Datastream")}
+            </div>
             <div className="grid grid-cols-2 gap-4">
                 <Input
                     size="sm"
@@ -397,12 +453,8 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     size="sm"
                     variant="bordered"
                     label={labelFor("observationType")}
-                    selectedKeys={
-                        ds.observationType ? new Set([ds.observationType]) : new Set()
-                    }
-                    onSelectionChange={keys =>
-                        updateDs("observationType", getFirstKey(keys))
-                    }
+                    selectedKeys={ds.observationType ? new Set([ds.observationType]) : new Set()}
+                    onSelectionChange={keys => updateDs("observationType", getFirstKey(keys))}
                     isRequired
                 >
                     {observationTypeOptions.map(o => (
@@ -414,12 +466,8 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     size="sm"
                     variant="bordered"
                     label={labelFor("unitOfMeasurement")}
-                    selectedKeys={
-                        ds.unitOfMeasurement ? new Set([ds.unitOfMeasurement]) : new Set()
-                    }
-                    onSelectionChange={keys =>
-                        updateDs("unitOfMeasurement", getFirstKey(keys))
-                    }
+                    selectedKeys={ds.unitOfMeasurement ? new Set([ds.unitOfMeasurement]) : new Set()}
+                    onSelectionChange={keys => updateDs("unitOfMeasurement", getFirstKey(keys))}
                     isRequired
                 >
                     {unitOfMeasurementOptions.map(o => (
@@ -450,29 +498,37 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 />
             </div>
             <Divider />
-            {renderEntityBlock(
-                "Thing",
-                useExistingThing,
-                setUseExistingThing,
-                thingOptions,
-                thingId,
-                setThingId,
-                newThing,
-                setNewThing,
-                <ThingCreator
-                    onCreate={async payload => {
-                        setNewThing(payload);
-                    }}
-                    onCancel={() => {
-                        setUseExistingThing(true);
-                        setNewThing(null);
-                    }}
-                    isLoading={false}
-                    error={null}
-                    locationOptions={locationOptions}
-                />,
-            )}
-            <Divider />
+            {!disableThing &&
+                renderEntityBlock(
+                    "Thing",
+                    useExistingThing,
+                    setUseExistingThing,
+                    thingOptions,
+                    thingId,
+                    setThingId,
+                    newThing,
+                    setNewThing,
+                    <ThingCreator
+                        onCreate={async payload => {
+                            setNewThing(payload);
+                        }}
+                        onCancel={() => {
+                            setUseExistingThing(true);
+                            setNewThing(null);
+                        }}
+                        isLoading={false}
+                        error={null}
+                        locationOptions={locationOptions}
+                        // Embedded ThingCreator needs the datastream-related option props but not used here
+                        datastreamOptions={[]}
+                        observationTypeOptions={observationTypeOptions}
+                        unitOfMeasurementOptions={unitOfMeasurementOptions}
+                        sensorOptions={sensorOptions}
+                        observedPropertyOptions={observedPropertyOptions}
+                        disableDatastreams
+                    />
+                )}
+            {!disableThing && <Divider />}
             {renderEntityBlock(
                 "Sensor",
                 useExistingSensor,
@@ -492,7 +548,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     }}
                     isLoading={false}
                     error={null}
-                />,
+                />
             )}
             <Divider />
             {renderEntityBlock(
@@ -522,7 +578,7 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 <div className="flex flex-col gap-2">
                     <Textarea
                         classNames={{
-                            input: "resize-y min-h-[40px]",
+                            input: "resize-y min-h-[40px]"
                         }}
                         variant="bordered"
                         label="JSON Editor"
@@ -573,14 +629,10 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                     isLoading={isLoading}
                     isDisabled={isLoading || !validate()}
                 >
-                    Create
+                    {disableThing ? "Add Datastream" : "Create"}
                 </Button>
 
-                <Button
-                    size="sm"
-                    variant="bordered"
-                    onPress={renderJsonEditor}
-                >
+                <Button size="sm" variant="bordered" onPress={renderJsonEditor}>
                     JSON Preview
                 </Button>
 
@@ -594,8 +646,9 @@ const DatastreamCreator: React.FC<DatastreamCreatorProps> = ({
                 </Button>
             </div>
             <div className="text-[10px] opacity-60">
-                Entities created in New mode will be deep inserted; otherwise references
-                by @iot.id will be used.
+                {disableThing
+                    ? "Embedded mode: resulting object excludes Thing (parent Thing will wrap it)."
+                    : "Entities created in New mode will be deep inserted; otherwise references by @iot.id will be used."}
             </div>
         </div>
     );

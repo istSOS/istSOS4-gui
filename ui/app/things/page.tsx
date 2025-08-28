@@ -1,14 +1,9 @@
 "use client";
-
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { siteConfig } from "../../config/site";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
-import createData from "../../server/createData";
-import updateData from "../../server/updateData";
-import fetchData from "../../server/fetchData";
-import deleteData from "../../server/deleteData";
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
@@ -16,6 +11,7 @@ import { LoadingScreen } from "../../components/LoadingScreen";
 import { buildThingFields } from "./utils";
 import { useTranslation } from "react-i18next";
 import ThingCreator from "./ThingCreator";
+import { useThingCRUDHandler } from "./ThingCRUDHandler";
 
 const item = siteConfig.items.find(i => i.label === "Things");
 
@@ -24,7 +20,6 @@ export default function Things() {
   const { token } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
-
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
   const [things, setThings] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -64,114 +59,29 @@ export default function Things() {
     JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleCancelCreate = () => setShowCreate(false);
-  const handleCancelEdit = () => setEditThing(null);
-
-  // FIX: build nested Locations array inline if newLocation present
-  const handleCreate = async (newThing: any) => {
-    setCreateLoading(true);
-    setCreateError(null);
-    try {
-      const thingPayload: any = {
-        name: newThing.name,
-        description: newThing.description,
-        properties:
-          newThing.properties && Object.keys(newThing.properties).length > 0
-            ? newThing.properties
-            : {}
-      };
-
-      if (newThing.newLocation) {
-        thingPayload.Locations = [
-          {
-            name: newThing.newLocation.name,
-            description: newThing.newLocation.description,
-            encodingType: newThing.newLocation.encodingType || "application/vnd.geo+json",
-            location: newThing.newLocation.location
-          }
-        ];
-      } else if (newThing.Location) {
-        thingPayload.Locations = [{ "@iot.id": Number(newThing.Location) }];
-      }
-
-      await createData(item.root, token, thingPayload);
-
-      const data = await fetchData(item.root, token);
-      setThings(data?.value || []);
-      if (data?.value && data.value.length > 0) {
-        const newId = data.value[data.value.length - 1]["@iot.id"];
-        setExpanded(String(newId));
-        fetchThingWithExpand(newId);
-      }
-      setShowCreate(false);
-    } catch (err: any) {
-      setCreateError(err?.message || "Error creating Thing");
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  const handleEdit = (entity: any) => setEditThing(entity);
-
-  const handleSaveEdit = async (updatedThing: any, originalThing: any) => {
-    setEditLoading(true);
-    setEditError(null);
-    try {
-      const originalLocId = originalThing?.Locations?.[0]?.["@iot.id"];
-      const newLocId = updatedThing.Location || null;
-
-      const payload: any = {
-        name: updatedThing.name,
-        description: updatedThing.description,
-        properties:
-          Array.isArray(updatedThing.properties) && updatedThing.properties.length > 0
-            ? Object.fromEntries(
-                updatedThing.properties
-                  .filter((p: any) => p.key)
-                  .map((p: any) => [p.key, p.value])
-              )
-            : {}
-      };
-
-      if (Number(newLocId) !== Number(originalLocId)) {
-        if (newLocId) payload.Locations = [{ "@iot.id": Number(newLocId) }];
-        else payload.Locations = [];
-      }
-
-      await updateData(`${item.root}(${originalThing["@iot.id"]})`, token, payload);
-      const data = await fetchData(item.root, token);
-      setThings(data?.value || []);
-      setExpanded(String(originalThing["@iot.id"]));
-      setEditThing(null);
-      await fetchThingWithExpand(originalThing["@iot.id"]);
-    } catch (err: any) {
-      setEditError(err?.message || "Error updating Thing");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: string | number) => {
-    try {
-      await deleteData(`${item.root}(${id})`, token);
-      await refetchAll();
-    } catch (err) {
-      console.error("Error deleting Thing:", err);
-    }
-  };
-
-  const fetchThingWithExpand = async (thingId: string | number) => {
-    const nested = siteConfig.items.find(i => i.label === "Things")?.nested || [];
-    const nestedData: Record<string, any> = {};
-    await Promise.all(
-      nested.map(async (nestedKey: string) => {
-        const url = `${item.root}(${thingId})?$expand=${nestedKey}`;
-        const data = await fetchData(url, token);
-        if (data && data[nestedKey]) nestedData[nestedKey] = data[nestedKey];
-      })
-    );
-    setNestedEntitiesMap(prev => ({ ...prev, [thingId]: nestedData }));
-  };
+  // Initialize CRUD handlers
+  const {
+    handleCancelCreate,
+    handleCancelEdit,
+    handleCreate,
+    handleEdit,
+    handleSaveEdit,
+    handleDelete,
+    fetchThingWithExpand,
+  } = useThingCRUDHandler({
+    item,
+    token,
+    setShowCreate,
+    setExpanded,
+    setEditThing,
+    setCreateLoading,
+    setCreateError,
+    setEditLoading,
+    setEditError,
+    refetchAll,
+    setNestedEntitiesMap,
+    setThings,
+  });
 
   React.useEffect(() => {
     if (things.length > 0) {
@@ -223,17 +133,21 @@ export default function Things() {
         showMap={showMap}
         onToggleMap={() => setShowMap(prev => !prev)}
       />
-
       {showCreate && (
         <div className="mb-6">
           <ThingCreator
             onCreate={handleCreate}
             onCancel={handleCancelCreate}
             isLoading={createLoading}
-            error={createError} locationOptions={locationOptions}          />
+            error={createError}
+            locationOptions={locationOptions} 
+            datastreamOptions={[]} 
+            observationTypeOptions={[]} 
+            unitOfMeasurementOptions={[]} 
+            sensorOptions={[]} 
+            observedPropertyOptions={[]}          />
         </div>
       )}
-
       <SplitPanel
         leftPanel={entityListComponent}
         rightPanel={null}

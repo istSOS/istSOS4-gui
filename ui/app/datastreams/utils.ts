@@ -10,7 +10,7 @@ export const unitOfMeasurementOptions = [
 ];
 
 
-export const observationTypeURIs = [
+export const observationTypeOptions = [
     //label, value
     { label: "OM_Measurement", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_Measurement" },
     { label: "OM_CategoryObservation", value: "http://www.opengis.net/def/observationType/OGC-OM/2.0/OM_CategoryObservation" },
@@ -73,7 +73,7 @@ export function buildDatastreamFields(params: {
             label: t("datastreams.observation_type"),
             required: true,
             type: "select",
-            options: observationTypeURIs
+            options: observationTypeOptions
         },
         {
             name: "properties",
@@ -93,21 +93,21 @@ export function buildDatastreamFields(params: {
         {
             name: "thingId",
             label: "Thing",
-            required: false,
+            required: true,
             type: "select",
             options: thingOptions
         },
         {
             name: "sensorId",
             label: "Sensor",
-            required: false,
+            required: true,
             type: "select",
             options: sensorOptions
         },
         {
             name: "observedPropertyId",
             label: "ObservedProperty",
-            required: false,
+            required: true,
             type: "select",
             options: observedPropertyOptions
         },

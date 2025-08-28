@@ -10,6 +10,16 @@ import {
 import { useTranslation } from "react-i18next";
 import LocationCreator from "../locations/LocationCreator";
 import { buildThingFields } from "./utils";
+import DatastreamCreator from "../datastreams/DatastreamCreator";
+import { useEntities } from "../../context/EntitiesContext";
+
+interface Option {
+  label?: string;
+  value?: any;
+  name?: string;
+  symbol?: string;
+  definition?: string;
+}
 
 interface ThingCreatorProps {
   onCreate: (thing: Record<string, any>) => Promise<void>;
@@ -17,6 +27,14 @@ interface ThingCreatorProps {
   isLoading: boolean;
   error: string | null;
   locationOptions: Array<any>;
+
+  // New props to support Datastream deep insert
+  datastreamOptions: Option[];
+  observationTypeOptions: Option[];
+  unitOfMeasurementOptions: Option[];
+  sensorOptions: Option[];
+  observedPropertyOptions: Option[];
+  disableDatastreams?: boolean; // if true, hides the Datastreams section
 }
 
 interface ThingValues {
@@ -32,9 +50,22 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
   onCancel,
   isLoading,
   error,
-  locationOptions
+  locationOptions,
+  sensorOptions,
+  observedPropertyOptions,
+  disableDatastreams = false,
 }) => {
   const { t } = useTranslation();
+
+  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+
+  const datastreamOptions = (entities?.datastreams || []).map(ds => {
+    const id = ds["@iot.id"];
+    return {
+      label: `${ds.name || `Datastream ${id}`}`,
+      value: id,
+    };
+  });
 
   const fields = React.useMemo(
     () => buildThingFields({ t, locationOptions }),
@@ -58,11 +89,16 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
 
   const [touched, setTouched] = React.useState<Record<string, boolean>>({});
 
-  //new locations being created alongside the Thing
+  // New locations created inline
   const [newLocations, setNewLocations] = React.useState<any[]>([]);
   const [addingNewLocation, setAddingNewLocation] = React.useState(false);
 
-  // Helpers for properties and locations
+  // Datastream management
+  const [selectedDatastreamIds, setSelectedDatastreamIds] = React.useState<string[]>([]);
+  const [newDatastreams, setNewDatastreams] = React.useState<any[]>([]);
+  const [addingNewDatastream, setAddingNewDatastream] = React.useState(false);
+
+  // Helpers for properties
   const addProperty = () =>
     setValues(v => ({
       ...v,
@@ -85,19 +121,19 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
   const handleChange = (name: string, value: any) =>
     setValues(prev => ({ ...prev, [name]: value }));
 
+  // Basic validation for Thing (Datastreams optional)
   const validate = () => {
     for (const f of fields) {
       if (f.required) {
-        if (f.name === "Location") {
-          continue;
-        }
+        if (f.name === "Location") continue;
         const val = (values as any)[f.name];
         if (
           val === "" ||
           val === null ||
           val === undefined ||
           (Array.isArray(val) && val.length === 0)
-        ) return false;
+        )
+          return false;
       }
     }
     const locationField = fields.find(f => f.name === "Location");
@@ -121,26 +157,33 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
       )
     };
 
+    // Locations deep insert or references
     if (values.Locations.length > 0) {
+      // For backward compatibility you might keep just IDs; however deep insert expects objects.
+      // We keep IDs in a separate transformation layer (server) if needed.
       payload.Locations = values.Locations;
     }
     if (newLocations.length > 0) {
       payload.newLocations = newLocations;
     }
 
+    // Build Datastreams array only if user added any
+    if (selectedDatastreamIds.length > 0 || newDatastreams.length > 0) {
+      payload.Datastreams = [
+        ...newDatastreams.map(ds => ds),
+        ...selectedDatastreamIds.map(id => ({ "@iot.id": Number(id) }))
+      ];
+    }
+
     await onCreate(payload);
   };
 
+  // Render properties editor
   const renderPropertiesEditor = () => (
     <div className="flex flex-col gap-2 h-full">
       <div className="flex justify-between items-center">
         <span className="text-sm font-medium">Properties</span>
-        <Button
-          size="sm"
-            variant="bordered"
-          onPress={addProperty}
-          disabled={isLoading}
-        >
+        <Button size="sm" variant="bordered" onPress={addProperty} disabled={isLoading}>
           + Add
         </Button>
       </div>
@@ -181,6 +224,7 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
     </div>
   );
 
+  // Render Locations
   const renderLocationField = () => {
     const locationField = fields.find(f => f.name === "Location");
     return (
@@ -286,6 +330,110 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
     );
   };
 
+  // Render Datastreams management section
+  const renderDatastreamsSection = () => {
+    return (
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Datastreams</span>
+        </div>
+
+        <Select
+          size="sm"
+          selectionMode="multiple"
+          variant="bordered"
+          label="Select Existing Datastreams"
+          selectedKeys={new Set(selectedDatastreamIds)}
+          onSelectionChange={keys =>
+            setSelectedDatastreamIds(Array.from(keys).map(k => String(k)))
+          }
+          isDisabled={isLoading}
+        >
+          {datastreamOptions.map(o => (
+            <SelectItem key={o.value}>{o.label}</SelectItem>
+          ))}
+        </Select>
+
+        <div className="flex flex-col gap-2 border border-default-200 rounded-md p-3 bg-content2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium">New Datastreams</span>
+            {!addingNewDatastream && (
+              <Button
+                size="sm"
+                variant="bordered"
+                onPress={() => setAddingNewDatastream(true)}
+                disabled={isLoading}
+              >
+                + Add New Datastream
+              </Button>
+            )}
+          </div>
+
+          {addingNewDatastream && (
+            <DatastreamCreator
+              disableThing
+              title="New Datastream (Embedded)"
+              onCreate={async payload => {
+                // Remove potential Thing key if any (just in case)
+                const { Thing, ...rest } = payload;
+                setNewDatastreams(prev => [...prev, rest]);
+                setAddingNewDatastream(false);
+              }}
+              onCancel={() => setAddingNewDatastream(false)}
+              isLoading={false}
+              error={null}
+              thingOptions={[]} // not used in disableThing mode
+              sensorOptions={sensorOptions}
+              observedPropertyOptions={observedPropertyOptions}
+              locationOptions={[]} // not used here
+            />
+          )}
+
+          {newDatastreams.length === 0 && !addingNewDatastream && (
+            <div className="text-xs text-default-500">No new datastreams added.</div>
+          )}
+
+          {newDatastreams.length > 0 && !addingNewDatastream && (
+            <div className="flex flex-col gap-2">
+              {newDatastreams.map((ds, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between border border-primary-200 rounded-md px-2 py-1 bg-primary-50 text-xs"
+                >
+                  <span className="truncate">
+                    {ds.name || `New Datastream ${idx + 1}`}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button
+                      size="sm"
+                      variant="light"
+                      onPress={() => alert(JSON.stringify(ds, null, 2))}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      size="sm"
+                      color="danger"
+                      variant="light"
+                      onPress={() =>
+                        setNewDatastreams(list => list.filter((_, i) => i !== idx))
+                      }
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="text-[11px] opacity-60">
+          You can combine existing references with newly created Datastreams. (Optional)
+        </div>
+      </div>
+    );
+  };
+
   const renderBasicField = (field: any) => {
     if (field.name === "properties") return renderPropertiesEditor();
     if (field.name === "Location") return renderLocationField();
@@ -331,6 +479,9 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
         {propertyField && <div>{renderBasicField(propertyField)}</div>}
         {locationField && <div>{renderBasicField(locationField)}</div>}
       </div>
+
+      {/* Datastreams Section */}
+      {!disableDatastreams && <div>{renderDatastreamsSection()}</div>}
 
       {error && <div className="text-danger text-xs">{error}</div>}
       <div className="flex gap-2">

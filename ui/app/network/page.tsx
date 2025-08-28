@@ -42,7 +42,10 @@ export default function Page() {
   const { loading: authLoading } = useAuth();
   const { entities, loading: entitiesLoading, refetchAll } = useEntities();
   const searchParams = useSearchParams();
-  const selectedNetwork = searchParams.get("label") || "Network";
+
+  const network = entities?.network?.find((n: any) => String(n["@iot.id"]) === String(searchParams.get("id")));
+  //console.log("NETWORK OBJ: ", network);
+  const selectedNetwork = searchParams.get("name") || "Network";
 
   const { t } = useTranslation();
 
@@ -130,9 +133,10 @@ export default function Page() {
             isHoverable
             onPress={() => {
               if (item.label === "Datastreams") {
-                router.push(`${item.href}?network=${encodeURIComponent(selectedNetwork)}`);
+         
+                router.push(`${item.href}?network=${encodeURIComponent(network.name)}&id=${encodeURIComponent(network["@iot.id"])}`);
               } else {
-                router.push(item.href);
+                router.push(`${item.href}?network=${encodeURIComponent(network.name)}&id=${encodeURIComponent(network["@iot.id"])}`);
               }
             }}
             onMouseEnter={() => setHovered(item.label)}

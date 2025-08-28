@@ -191,7 +191,7 @@ const EntityAccordion = ({
                               >
                                 {entity.timeAgo ?? "-"}
                               </Chip>
-                              <span className="text-gray-600">{entity.lastValue ?? "-"}{entity.unitOfMeasurement?.symbol ?? "-"}</span>
+                              <span className="text-gray-600">{entity.lastValue ?? "-"} {entity.unitOfMeasurement?.symbol ?? "-"}</span>
                               <span className="text-gray-600">
                                 {formatDateWithTimezone(entity.startDate, timezone)}
                               </span>
