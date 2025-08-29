@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { getGlobalTimeShift } from "./formatDateWithTimezone";
 
 
 export function getLastDelayColor(
@@ -9,9 +10,11 @@ export function getLastDelayColor(
   if (!entity?.lastMeasurement) return "default";
   if (delayThreshold == null) return "default";
   try {
-    const last = DateTime.fromISO(entity.lastMeasurement).setZone(timezone);
+    const shift = getGlobalTimeShift();
+    const last = DateTime.fromISO(entity.lastMeasurement).setZone(timezone).plus({ hours: shift });
     if (!last.isValid) return "default";
-    const diffMinutes = DateTime.now().setZone(timezone).diff(last, "minutes").minutes;
+    const nowShifted = DateTime.now().setZone(timezone).plus({ hours: shift });
+    const diffMinutes = nowShifted.diff(last, "minutes").minutes;
     if (diffMinutes <= delayThreshold) return "success";
     if (diffMinutes <= delayThreshold * 2) return "warning";
     return "danger";

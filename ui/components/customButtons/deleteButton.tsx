@@ -41,7 +41,7 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, entityName
       {showConfirm && (
         <div className="absolute right-0 -top-10 bg-white border rounded shadow-lg p-4 z-10 flex flex-col items-center w-60">
           <p className="mb-2 text-sm">
-            {t("general.confirm_delete")}
+            {endpoint.includes("datastream") ? t("general.confirm_delete_datastream") : t("general.confirm_delete")}
           </p>
           <Input
             placeholder={`${entityName}`}
@@ -78,7 +78,8 @@ const DeleteButton: React.FC<DeleteButtonProps> = ({ endpoint, token, entityName
           {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
         </div>
       )}
-      <Tooltip content={t("general.delete")}>
+      <Tooltip content={
+        t("general.delete")}>
         <Button
           radius="sm"
           isIconOnly

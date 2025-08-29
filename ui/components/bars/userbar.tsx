@@ -17,23 +17,53 @@ import fetchLogout from "../../server/fetchLogout";
 import { siteConfig } from "../../config/site";
 import { useTranslation } from "react-i18next";
 import i18n from "../../i18n";
+import { useTimezone } from "../../context/TimezoneContext";
 
 const mainColor = siteConfig.main_color;
+
+// Build RFC3339 datetime string applying an artificial hour shift (not a real timezone).
+function buildShiftedRFC3339(shiftHours: number): string {
+  const nowUtc = DateTime.utc(); // current UTC time
+  const shifted = nowUtc.plus({ minutes: shiftHours * 60 });
+  // Core datetime portion (no offset)
+  const base = shifted.toFormat("yyyy-MM-dd'T'HH:mm:ss");
+  if (shiftHours === 0) return base + "Z";
+  // Build custom offset ±HH:MM from shiftHours
+  const abs = Math.abs(shiftHours);
+  const whole = Math.trunc(abs);
+  const minutes = Math.round((abs - whole) * 60); // handles 0.5 etc.
+  const sign = shiftHours > 0 ? "+" : "-";
+  const hh = whole.toString().padStart(2, "0");
+  const mm = minutes.toString().padStart(2, "0");
+  return `${base}${sign}${hh}:${mm}`;
+}
+
+// Human readable label for the shift
+function formatShiftLabel(h: number) {
+  if (h === 0) return "UTC ±0h";
+  const sign = h > 0 ? "+" : "-";
+  const abs = Math.abs(h);
+  const whole = Math.trunc(abs);
+  const minutes = Math.round((abs - whole) * 60);
+  const mm = minutes.toString().padStart(2, "0");
+  return `UTC ${sign}${whole}:${mm}h`;
+}
 
 export default function UserBar({ onLoginClick }: { onLoginClick?: () => void }) {
   const { token, setToken } = useAuth();
   const { t } = useTranslation();
+  const { timeShiftHours, setTimeShiftHours } = useTimezone();
 
-  // Timeshift (in hours, can be negative, step 0.5)
-  const [timeShiftHours, setTimeShiftHours] = useState<number>(0);
-  const [clock, setClock] = useState(
-    DateTime.now().plus({ minutes: timeShiftHours * 60 }).toFormat("HH:mm:ss")
+  // RFC3339 datetime string with current applied shift
+  const [rfc3339DateTime, setRfc3339DateTime] = useState<string>(
+    buildShiftedRFC3339(timeShiftHours)
   );
 
+  // Popup (slider) visibility
   const [showSlider, setShowSlider] = useState(false);
   const sliderWrapperRef = useRef<HTMLDivElement | null>(null);
 
-  // Username / role from token
+  // Username from JWT token
   let username = "User";
   if (token) {
     try {
@@ -44,20 +74,21 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
     }
   }
 
+  // Language handling
   const languages = [
     { code: "en", label: "EN" },
     { code: "it", label: "IT" }
   ];
   const [selectedLang, setSelectedLang] = useState(i18n.language || "en");
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    setSelectedLang(langCode);
+  };
 
-  // Update clock every second including shift
+  // Update RFC3339 datetime every second (reacts also to shift changes)
   useEffect(() => {
     const interval = setInterval(() => {
-      setClock(
-        DateTime.now()
-          .plus({ minutes: timeShiftHours * 60 })
-            .toFormat("HH:mm:ss")
-      );
+      setRfc3339DateTime(buildShiftedRFC3339(timeShiftHours));
     }, 1000);
     return () => clearInterval(interval);
   }, [timeShiftHours]);
@@ -66,30 +97,13 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
   useEffect(() => {
     if (!showSlider) return;
     const handleClick = (e: MouseEvent) => {
-      if (
-        sliderWrapperRef.current &&
-        !sliderWrapperRef.current.contains(e.target as Node)
-      ) {
+      if (sliderWrapperRef.current && !sliderWrapperRef.current.contains(e.target as Node)) {
         setShowSlider(false);
       }
     };
     window.addEventListener("mousedown", handleClick);
     return () => window.removeEventListener("mousedown", handleClick);
   }, [showSlider]);
-
-  const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode);
-    setSelectedLang(langCode);
-  };
-
-  const formatShiftLabel = (h: number) => {
-    if (h === 0) return "UTC ±0h";
-    const sign = h > 0 ? "+" : "-";
-    const abs = Math.abs(h);
-    const whole = Math.trunc(abs);
-    const half = abs - whole === 0.5;
-    return `UTC ${sign}${whole}${half ? ".5" : ""}h`;
-  };
 
   return (
     <div
@@ -106,7 +120,7 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
         position: "relative"
       }}
     >
-      {/* Logo */}
+      {/* Logo section */}
       <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
         <Link isExternal aria-label="istSOS4" href={siteConfig.links.istSOS}>
           <div
@@ -123,21 +137,26 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
         </Link>
       </div>
 
-      {/* Clock (clickable) */}
+      {/* Current shifted RFC3339 datetime (click to open shift panel) */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          fontSize: 30,
+          fontSize: 18,
           cursor: "pointer",
-          position: "relative"
+          position: "relative",
+          fontFamily: "monospace",
+          gap: 8
         }}
         onClick={() => setShowSlider(s => !s)}
-        aria-label="Time with UTC shift"
+        aria-label="Current date-time with custom UTC shift"
+        title="Click to adjust time shift"
       >
-        <span>
-          {clock}
-        </span>
+        <span>{rfc3339DateTime}</span>
+
+        {formatShiftLabel(timeShiftHours)}
+
+
         {showSlider && (
           <div
             ref={sliderWrapperRef}
@@ -147,13 +166,13 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
               left: "50%",
               transform: "translateX(-50%)",
               zIndex: 2000,
-              minWidth: 340
+              minWidth: 360
             }}
           >
             <Card
               shadow="lg"
               className="p-4"
-              
+
             >
               <div style={{ fontSize: 14, marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
                 <span style={{ fontWeight: 600 }}>Time shift</span>
@@ -205,7 +224,7 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
         )}
       </div>
 
-      {/* User + Language */}
+      {/* User + Language controls */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         {token && (
           <>
@@ -227,14 +246,14 @@ export default function UserBar({ onLoginClick }: { onLoginClick?: () => void })
           </>
         )}
         {!token && (
-            <Button
-              radius="sm"
-              color="primary"
-              size="sm"
-              onPress={() => onLoginClick && onLoginClick()}
-            >
-              Login
-            </Button>
+          <Button
+            radius="sm"
+            color="primary"
+            size="sm"
+            onPress={() => onLoginClick && onLoginClick()}
+          >
+            Login
+          </Button>
         )}
         <Dropdown>
           <DropdownTrigger>

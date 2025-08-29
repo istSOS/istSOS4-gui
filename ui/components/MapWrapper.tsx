@@ -76,7 +76,7 @@ export default function MapWrapper({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isSearching, setIsSearching] = React.useState(false);
   const [manualMarker, setManualMarker] = React.useState<any>(null);
-  const { timezone } = useTimezone();
+  const { timezone, timeShiftHours } = useTimezone();
   const { t } = useTranslation();
 
   const [cursorCoords, setCursorCoords] = React.useState<[number, number] | null>(null);
@@ -179,6 +179,7 @@ export default function MapWrapper({
   function getPopupContent(item: any) {
     const chipColor = chipColorStrategy ? chipColorStrategy(item) : "default";
     const color = colorMap.get(chipColor) || "#e5e7eb";
+    
     return `
         <div style="min-width:180px">
             <div>
@@ -196,9 +197,11 @@ export default function MapWrapper({
                 </span>
             </div>
             <div>${item.lastValue !== undefined ? `${t("general.last_value")}: <b>${item.lastValue}${item.unitOfMeasurement?.symbol || ""}</b>` : ""}</div>
-            <div>${item.lastMeasurement ? `${t("general.date")}: <b>${formatDateWithTimezone(item.lastMeasurement, timezone)}</b>` : ""}</div>
+            
+            <div>${item.lastMeasurement ? `${t("general.date")}: <b>${formatDateWithTimezone(item.lastMeasurement, timezone, timeShiftHours)}</b>` : ""}</div>
         </div>
     `;
+    
   }
 
   function updateCenterLabels(L, mapInstance, items, getGeoJSON) {
