@@ -9,9 +9,9 @@ import { useTranslation } from "react-i18next";
 import EntityModal from "./modals/EntityModal";
 import { useRouter } from "next/navigation";
 import { getTimeAgoDays, getColorScale } from "./hooks/useColorScale";
-import { useTimezone } from "../context/TimezoneContext";
 import { DateTime } from "luxon";
 import { formatDateWithTimezone } from "./hooks/formatDateWithTimezone";
+import { useTimezone } from "../context/TimezoneContext";
 import LocationCreator from "../app/locations/LocationCreator";
 
 const EntityAccordion = ({
@@ -46,7 +46,7 @@ const EntityAccordion = ({
   const [modalEntity, setModalEntity] = React.useState<any>(null);
   const [modalNestedEntities, setModalNestedEntities] = React.useState<Record<string, any>>({});
 
-  const { timezone } = useTimezone();
+  const { timezone, timeShiftHours } = useTimezone();
 
   // Stato per mostrare il LocationCreator inline per una Thing
   const [locationCreateForId, setLocationCreateForId] = React.useState<string | null>(null);
@@ -103,7 +103,7 @@ const EntityAccordion = ({
               {sortOrder === "desc" ? " ↓" : " ↑"}
             </span>
             <span className="pl-8">{t("general.last_value")}</span>
-            <span className="pl-12">{t("general.start_date")}</span>
+            <span className="pl-0">{t("general.start_date")}</span>
             <span className="pl-16">{t("general.end_date")}</span>
           </div>
         )}
@@ -192,11 +192,11 @@ const EntityAccordion = ({
                                 {entity.timeAgo ?? "-"}
                               </Chip>
                               <span className="text-gray-600">{entity.lastValue ?? "-"} {entity.unitOfMeasurement?.symbol ?? "-"}</span>
-                              <span className="text-gray-600">
-                                {formatDateWithTimezone(entity.startDate, timezone)}
+                              <span className="text-gray-600 -ml-12">
+                                {formatDateWithTimezone(entity.startDate, timezone, timeShiftHours)}
                               </span>
                               <span className="text-gray-600">
-                                {formatDateWithTimezone(entity.endDate, timezone)}
+                                {formatDateWithTimezone(entity.endDate, timezone, timeShiftHours)}
                               </span>
                             </>
                           ) : (
