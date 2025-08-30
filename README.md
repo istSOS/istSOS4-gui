@@ -204,7 +204,7 @@ This is the main page for displaying and managing Location entities.
 
 ### 📄utils.ts
 It has basically field configuration for Location forms.
-Provides 'buildLocationFields()' that returns an array of field (name, description, lat, lon, encoding type) definitions (name, label, type, etc.).
+Also provides 'buildLocationFields()' that returns an array of field (name, description, lat, lon, encoding type) definitions (name, label, type, etc.).
 
 ## 📁network
 _At the moment, network has just the main page.tsx file, in the future it will be possibile to manage networks as well._
