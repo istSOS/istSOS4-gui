@@ -77,7 +77,7 @@ You can run the istSOS4 web administration interface either locally (Node.js) or
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/LucaBTE/istSOS4-gui.git
+git clone https://github.com/istSOS/istSOS4-gui
 cd istSOS4-gui/ui
 ```
 
