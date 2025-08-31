@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import fetchData from "../../server/fetchData";
+import { fetchData } from "../../server/api";
 import { siteConfig } from "../../config/site";
 
 function getTimeAgo(isoDate: string | null) {

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Input, Button } from "@heroui/react";
 import DrawGeometryModal from "../../components/modals/DrawGeometryModal";
-import createData from "../../server/createData";
+import { createData } from "../../server/api"
 import { useAuth } from "../../context/AuthContext";
 import { siteConfig } from "../../config/site";
 

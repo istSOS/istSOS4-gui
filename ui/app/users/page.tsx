@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../context/AuthContext";
 import { siteConfig } from "../../config/site";
 import { SecNavbar } from "../../components/bars/secNavbar";
-import fetchData from "../../server/fetchData";
+import { fetchData } from "../../server/api";
 
 //export const mainColor = siteConfig.main_color;
 

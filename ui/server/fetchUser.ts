@@ -1,4 +1,4 @@
-import fetchData from "../server/fetchData";
+import { fetchData } from "../server/api";
 const fetchUser = async (token: string, username: string) => {
     try {
         const response = await fetchData(
