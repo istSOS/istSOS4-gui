@@ -1,0 +1,17 @@
+services:
+  ui:
+    build: ui
+    restart: always
+    ports:
+      - 3000:3000
+    volumes:
+      - ./ui/:/home/node/app/
+    command: npm run dev
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+     - istsos4_default
+     
+networks:
+  istsos4_default:
+    external: true
