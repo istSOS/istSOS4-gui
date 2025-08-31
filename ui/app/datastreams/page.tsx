@@ -124,7 +124,6 @@ export default function Datastreams() {
     handleEdit,
     handleSaveEdit,
     handleDelete,
-    fetchDatastreamWithExpand // used for single refresh post-create/edit (no longer for initial load)
   } = useDatastreamCRUDHandler({
     item,
     token,

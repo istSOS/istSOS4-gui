@@ -1,10 +1,7 @@
 "use client";
 import * as React from "react";
 import { siteConfig } from "../../config/site";
-import createData from "../../server/createData";
-import updateData from "../../server/updateData";
-import fetchData from "../../server/fetchData";
-import deleteData from "../../server/deleteData";
+import { createData, updateData, fetchData, deleteData } from "../../server/api";
 
 interface ThingCRUDHandlerProps {
   item: any;
