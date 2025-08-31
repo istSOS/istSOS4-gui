@@ -5,16 +5,13 @@ import { siteConfig } from "../../config/site";
 import { useAuth } from "../../context/AuthContext";
 import { useEntities } from "../../context/EntitiesContext";
 import { useTranslation } from "react-i18next";
-import createData from "../../server/createData";
-import updateData from "../../server/updateData";
-import fetchData from "../../server/fetchData";
-import deleteData from "../../server/deleteData";
 import { EntityActions } from "../../components/entity/EntityActions";
 import { SplitPanel } from "../../components/layout/SplitPanel";
 import { EntityList } from "../../components/entity/EntityList";
 import { LoadingScreen } from "../../components/LoadingScreen";
 import { buildSensorFields } from "./utils";
 import SensorCreator from "./SensorCreator";
+import { useSensorCRUDHandler } from "./SensorCRUDHandler";
 
 const item = siteConfig.items.find(i => i.label === "Sensors");
 
@@ -24,6 +21,7 @@ export default function Sensors() {
   const { token, loading: authLoading } = useAuth();
   const router = useRouter();
 
+  // Local state
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
   const [sensors, setSensors] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -39,118 +37,42 @@ export default function Sensors() {
   const [showMap, setShowMap] = React.useState(true);
   const [split, setSplit] = React.useState(0.5);
 
-
+  // Sync sensors from global entities context
   React.useEffect(() => {
     setSensors(entities.sensors || []);
     setLoading(entitiesLoading || authLoading);
     setError(entitiesError || null);
   }, [entities, entitiesLoading, entitiesError, authLoading]);
 
+  // CRUD handler hook
+  const {
+    handleCancelCreate,
+    handleCancelEdit,
+    handleCreate,
+    handleEdit,
+    handleSaveEdit,
+    handleDelete,
+  } = useSensorCRUDHandler({
+    item,
+    token,
+    setShowCreate,
+    setExpanded,
+    setEditSensor,
+    setCreateLoading,
+    setCreateError,
+    setEditLoading,
+    setEditError,
+    refetchAll,
+    setSensors
+  });
+
+  // Fields
   const sensorFields = React.useMemo(() => buildSensorFields(t), [t]);
 
+  // Search filter
   const filtered = sensors.filter(sensor =>
     JSON.stringify(sensor).toLowerCase().includes(search.toLowerCase())
   );
-
-  const handleCancelCreate = () => {
-    setShowCreate(false);
-    setCreateError(null);
-  };
-
-  const handleCancelEdit = () => {
-    setEditSensor(null);
-    setEditError(null);
-  };
-
-  const handleCreate = async (newSensor: Record<string, any>) => {
-    setCreateLoading(true);
-    setCreateError(null);
-    try {
-      const payload = {
-        name: newSensor.name,
-        description: newSensor.description,
-        encodingType: newSensor.encodingType,
-        metadata: newSensor.metadata
-      };
-      await createData(item.root, token, payload);
-      setShowCreate(false);
-      setExpanded(null);
-      const data = await fetchData(item.root, token);
-      setSensors(data?.value || []);
-      if (data?.value && data.value.length > 0) {
-        const newId = data.value[data.value.length - 1]["@iot.id"];
-        setExpanded(String(newId));
-        fetchSensorWithExpand(newId);
-      }
-    } catch (err: any) {
-      setCreateError(err?.message || "Error creating sensor");
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  const handleEdit = (entity: any) => {
-    setEditSensor(entity);
-  };
-
-  const handleSaveEdit = async (updatedSensor: any, originalSensor: any) => {
-    setEditLoading(true);
-    setEditError(null);
-    try {
-      const payload = {
-        name: updatedSensor.name,
-        description: updatedSensor.description,
-        encodingType: updatedSensor.encodingType,
-        metadata: updatedSensor.metadata
-      };
-      await updateData(`${item.root}(${originalSensor["@iot.id"]})`, token, payload);
-      const data = await fetchData(item.root, token);
-      setSensors(data?.value || []);
-      setExpanded(String(originalSensor["@iot.id"]));
-      setEditSensor(null);
-      await fetchSensorWithExpand(originalSensor["@iot.id"]);
-    } catch (err: any) {
-      setEditError(err?.message || "Error updating sensor");
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const handleDelete = async (id: string | number) => {
-    try {
-      await deleteData(`${item.root}(${id})`, token);
-      const data = await fetchData(item.root, token);
-      setSensors(data?.value || []);
-    } catch (err) {
-      console.error("Error deleting sensor:", err);
-    }
-  };
-
-  const fetchSensorWithExpand = async (sensorId: string | number) => {
-    const nested = siteConfig.items.find(i => i.label === "Sensors").nested;
-    const nestedData: Record<string, any> = {};
-    await Promise.all(
-      nested.map(async (nestedKey: string) => {
-        const url = `${item.root}(${sensorId})?$expand=${nestedKey}`;
-        const data = await fetchData(url, token);
-        if (data && data[nestedKey]) {
-          nestedData[nestedKey] = data[nestedKey];
-        }
-      })
-    );
-    setNestedEntitiesMap(prev => ({
-      ...prev,
-      [sensorId]: nestedData
-    }));
-  };
-
-  React.useEffect(() => {
-    if (sensors.length > 0) {
-      sensors.forEach(s => {
-        fetchSensorWithExpand(s["@iot.id"]);
-      });
-    }
-  }, [sensors, token]);
 
   if (loading) return <LoadingScreen />;
   if (error) return <p>{error}</p>;
@@ -161,7 +83,7 @@ export default function Sensors() {
         <SensorCreator
           onCreate={handleCreate}
           onCancel={handleCancelCreate}
-            isLoading={createLoading}
+          isLoading={createLoading}
           error={createError}
         />
       )}
@@ -178,8 +100,8 @@ export default function Sensors() {
         handleCancelCreate={handleCancelCreate}
         handleCancelEdit={handleCancelEdit}
         showCreateForm={false}
-        isCreating={false}
-        createError={null}
+        isCreating={createLoading}
+        createError={createError}
         editEntity={editSensor}
         isEditing={editLoading}
         editError={editError}
