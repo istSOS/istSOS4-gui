@@ -147,6 +147,22 @@ istSOS4-gui
 
 # 📁app
 In the app folder there are other sub-folders for each of Sensor Things API's entities: Datastream, Sensor, Thing, Location, HistoricalLocation, ObservedProperty, Observation, FeatureOfInterest (network, users).
+
+## 📁network
+_At the moment, network has just the main page.tsx file, in the future it will be possibile to manage networks as well._
+### 📄page.tsx
+The `app/network/page.tsx` page is displayed after selecting a network from `app/page.tsx`.
+It shows a set of Card Buttons, each displaying the current number of items in the database for a given entity.
+
+Navigation: clicking a card redirects to the corresponding entity page.
+
+Filtering: only Datastreams are filtered by network. All other entities display the same counts across different network pages.
+
+Hover effect: hovering over a card reveals a short description of the entity.
+
+Additionally, the page includes a map (MapWrapper.tsx) that displays all Datastreams of the selected network.
+
+
 ## 📁datastreams
 ### 📄​DatastreamCreator.tsx
 A component for creating new Datastream entities with support for creating/selecting related entities (Thing, Sensor, ObservedProperty).
@@ -181,6 +197,27 @@ Utility file containing constants and helper functions for Datastream management
 
 All these list of options will be taken from dedicated files and no more hard-coded.
 
+## 📁things
+### 📄page.tsx
+This is the main page for displaying and managing Datastream entities.
+
+<b>Features</b>
+- Displays list (rely on `EntityList.tsx`) of Things.
+- Use the creation form for new Things
+- Handles entity selection and expansion
+
+### 📄ThingCreator.tsx
+It takes the necessary fields for creating a Thing from `.../things/utils.ts`. Provides a form for creating a Thing also with deep insert for Datastreams and Locations with their forms taken from `DatastreamCreator.tsx` and `LocationCreator.tsx`.
+
+### 📄ThingCRUDHandler.tsx
+Basically it provides CRUD (Create, Read, Update, Delete) operations for Thing entities (rely on .../server/api.tsx) with validations.
+
+### 📄utils.ts
+It has basically field configuration for Thing forms.
+Also provides 'buildThingFields()' that returns an array of field (name, description, properties, locations) definitions (name, label, type, etc.).
+Locations are taken as a list of options, other entities options for deepinsert are given as props in ThingCreator. 
+
+
 ## 📁locations
 _Locations still not have a CRUDHandler component (to add)_ 
 ### 📄LocationCreator.tsx
@@ -194,6 +231,8 @@ A component for creating new Location entities with both manual coordinate input
 - Integration with DrawGeometryModal for visual geometry creation
 - Support for various geometry types (Point, LineString, Polygon, etc.)
 
+### 📄LocationCRUDHandler.tsx
+Basically it provides CRUD (Create, Read, Update, Delete) operations for Location entities (rely on .../server/api.tsx) with validations.
 
 ### 📄page.tsx
 This is the main page for displaying and managing Location entities.
@@ -206,17 +245,40 @@ This is the main page for displaying and managing Location entities.
 It has basically field configuration for Location forms.
 Also provides 'buildLocationFields()' that returns an array of field (name, description, lat, lon, encoding type) definitions (name, label, type, etc.).
 
-## 📁network
-_At the moment, network has just the main page.tsx file, in the future it will be possibile to manage networks as well._
+
+## 📁sensors
 ### 📄page.tsx
-The `app/network/page.tsx` page is displayed after selecting a network from `app/page.tsx`.
-It shows a set of Card Buttons, each displaying the current number of items in the database for a given entity.
+This is the main page for displaying and managing Sensor entities.
 
-Navigation: clicking a card redirects to the corresponding entity page.
+<b>Features</b>
+- Displays list (rely on `EntityList.tsx`) of Sensors.
+- Use the creation form for new Sensors
+- Handles entity selection and expansion
 
-Filtering: only Datastreams are filtered by network. All other entities display the same counts across different network pages.
+### 📄SensorCreator.tsx
+It takes the necessary fields for creating a Sensor from `.../sensors/utils.ts`. Provides a form for creating a Sensor.
 
-Hover effect: hovering over a card reveals a short description of the entity.
+### 📄SensorCRUDHandler.tsx
+Basically it provides CRUD (Create, Read, Update, Delete) operations for Sensor entities (rely on .../server/api.tsx) with validations.
 
-Additionally, the page includes a map (MapWrapper.tsx) that displays all Datastreams of the selected network.
+### 📄utils.ts
+It has basically field configuration for Sensor forms.
+Used also in deep insert in datastream form.
 
+
+## 📄layout.tsx
+It manages the page structure after the login.
+- Check by token if the user is authenticated.
+- If the user is not authenticate, shows `LoginModal`
+- If Authenticated
+  - Displays the custom navigation bar (CustomNavbar), the user bar (UserBar), a graphical divider, and the footer.
+  - Uses the HeroUIProvider to provide UI components.
+  - Shows the page content ({children}) centered and with padding.
+
+## 📄page.tsx
+Renders the main landing page where users can select a network. It does the following:
+
+- Retrieves the list of available networks from the global entities context.
+- Displays a title prompting the user to select a network, using internationalization support.
+- Shows each network as a clickable card in a responsive grid layout.
+- When a user clicks on a network card, they are redirected to the corresponding network page, passing the network's ID and name as URL parameters.

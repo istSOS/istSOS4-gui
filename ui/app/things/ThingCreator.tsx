@@ -28,7 +28,7 @@ interface ThingCreatorProps {
   error: string | null;
   locationOptions: Array<any>;
 
-  // New props to support Datastream deep insert
+  //props to support Datastream deep insert
   datastreamOptions: Option[];
   observationTypeOptions: Option[];
   unitOfMeasurementOptions: Option[];
