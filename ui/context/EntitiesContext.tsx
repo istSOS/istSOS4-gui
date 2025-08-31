@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import fetchData from "../server/fetchData";
+import { fetchData } from "../server/api";
 import { useAuth } from "./AuthContext";
 import { siteConfig } from "../config/site";
 
@@ -37,10 +37,10 @@ const EntitiesContext = createContext<EntitiesContextType>({
     historicalLocations: [],
     network: [],
   },
-  setEntities: () => {},
+  setEntities: () => { },
   loading: true,
   error: null,
-  refetchAll: async () => {},
+  refetchAll: async () => { },
 });
 
 export function EntitiesProvider({ children }: { children: React.ReactNode }) {

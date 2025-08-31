@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Button, Tooltip, Input } from "@heroui/react";
-import deleteData from "../../server/deleteData";
+import { deleteData } from "../../server/api";
 import { useTranslation } from "react-i18next";
 import { DeleteIcon } from "../icons";
 
