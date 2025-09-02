@@ -17,18 +17,19 @@
 "use client";
 import * as React from "react";
 import "leaflet/dist/leaflet.css";
-import { Input, Button, Chip, Switch } from "@heroui/react";
+import { Input, Button, Switch } from "@heroui/react";
 import { MAP_TILE_LAYER } from "../config/site";
-import { getColorScale } from "./hooks/useColorScale";
 import L from "leaflet";
 import { usePolygonCenter } from "./hooks/usePolygonCenter";
 import { useTimezone } from "../context/TimezoneContext";
 import { formatDateWithTimezone } from "./hooks/formatDateWithTimezone";
 import { useTranslation } from "react-i18next";
+import { toWGS84ForDisplay, detectCRSName, pointToWGS84 } from "./hooks/reprojection";
+import { getColorScale } from "./hooks/useColorScale";
 
 type MapWrapperProps = {
   items: any[];
-  getCoordinates: (item: any) => [number, number] | null; // [lon, lat]
+  getCoordinates: (item: any) => [number, number] | null; // [lon, lat] original CRS
   getId: (item: any) => string;
   getLabel: (item: any) => string;
   getGeoJSON: (item: any) => any | null;
@@ -51,16 +52,14 @@ const colorMap = new Map<string, string>([
   ["default", "#e5e7eb"]
 ]);
 const colorPalette = [
-  "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
-  "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
-  "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000",
-  "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080"
+  "#e6194b","#3cb44b","#ffe119","#4363d8","#f58231",
+  "#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe",
+  "#008080","#e6beff","#9a6324","#fffac8","#800000",
+  "#aaffc3","#808000","#ffd8b1","#000075","#808080"
 ];
 function getColorFromId(id: string) {
   let hash = 4353;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) + hash) + id.charCodeAt(i);
-  }
+  for (let i = 0; i < id.length; i++) hash = ((hash << 5) + hash) + id.charCodeAt(i);
   return colorPalette[Math.abs(hash) % colorPalette.length];
 }
 
@@ -93,11 +92,11 @@ export default function MapWrapper({
   const [manualMarker, setManualMarker] = React.useState<any>(null);
   const { timezone, timeShiftHours } = useTimezone();
   const { t } = useTranslation();
-
   const [cursorCoords, setCursorCoords] = React.useState<[number, number] | null>(null);
   const [currentBBox, setCurrentBBox] = React.useState<string>("");
   const [copySuccess, setCopySuccess] = React.useState<boolean>(false);
 
+  // Mouse position (lat/lon in WGS84)
   React.useEffect(() => {
     if (!showMap || typeof window === "undefined" || !mapContainerRef.current) return;
     const mapDiv = mapContainerRef.current;
@@ -110,22 +109,19 @@ export default function MapWrapper({
       if (point) setCursorCoords([point.lat, point.lng]);
     }
     mapDiv.addEventListener("mousemove", handleMouseMove);
-    return () => {
-      mapDiv.removeEventListener("mousemove", handleMouseMove);
-    };
-  }, [showMap, mapContainerRef]);
+    return () => mapDiv.removeEventListener("mousemove", handleMouseMove);
+  }, [showMap]);
 
+  // Copy BBox
   const handleCopyBBox = () => {
-    if (currentBBox) {
-      navigator.clipboard.writeText(currentBBox)
-        .then(() => {
-          setCopySuccess(true);
-          setTimeout(() => setCopySuccess(false), 2000);
-        })
-        .catch(err => console.error("Failed to copy BBox: ", err));
-    }
+    if (!currentBBox) return;
+    navigator.clipboard.writeText(currentBBox).then(() => {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }).catch(err => console.error("Failed to copy BBox: ", err));
   };
 
+  // Search (Nominatim)
   const handleSearch = async (query: string) => {
     if (!query.trim()) return;
     setIsSearching(true);
@@ -144,7 +140,7 @@ export default function MapWrapper({
             const newMarker = L.marker([parseFloat(lat), parseFloat(lon)], {
               icon: L.divIcon({
                 className: "temporary-marker",
-                html: `<div style="background-color:red;width:20px;height:20px;border-radius:50%;"></div>`
+                html: `<div style="background:red;width:18px;height:18px;border-radius:50%;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,.4)"></div>`
               })
             }).addTo(mapInstanceRef.current);
             setManualMarker(newMarker);
@@ -153,21 +149,22 @@ export default function MapWrapper({
                 mapInstanceRef.current.removeLayer(newMarker);
                 setManualMarker(null);
               }
-            }, 5000);
+            }, 4500);
           });
         }
       }
-    } catch (error) {
-      console.error("Error fetching search results:", error);
+    } catch (e) {
+      console.error("Search error:", e);
     } finally {
       setIsSearching(false);
     }
   };
-  const handleSearchSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     handleSearch(searchQuery);
   };
 
+  // Resizable split
   React.useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!mapContainerRef.current) return;
@@ -194,29 +191,39 @@ export default function MapWrapper({
   function getPopupContent(item: any) {
     const chipColor = chipColorStrategy ? chipColorStrategy(item) : "default";
     const color = colorMap.get(chipColor) || "#e5e7eb";
-    
     return `
-        <div style="min-width:180px">
-            <div>
-                <strong>${item.name ?? "-"}</strong>
-                <span style="
-                    display:inline-block;
-                    padding:2px 8px;
-                    border-radius:12px;
-                    background:${color};
-                    color:#222;
-                    font-weight:600;
-                    font-size:13px;
-                ">
-                    ${item.timeAgo ?? "-"}
-                </span>
-            </div>
-            <div>${item.lastValue !== undefined ? `${t("general.last_value")}: <b>${item.lastValue}${item.unitOfMeasurement?.symbol || ""}</b>` : ""}</div>
-            
-            <div>${item.lastMeasurement ? `${t("general.date")}: <b>${formatDateWithTimezone(item.lastMeasurement, timezone, timeShiftHours)}</b>` : ""}</div>
+      <div style="min-width:180px">
+        <div>
+          <strong>${item.name ?? "-"}</strong>
+          <span style="
+            display:inline-block;
+            padding:2px 8px;
+            margin-left:6px;
+            border-radius:12px;
+            background:${color};
+            color:#222;
+            font-weight:600;
+            font-size:12px;
+          ">
+            ${item.timeAgo ?? "-"}
+          </span>
         </div>
+        <div>${
+          item.lastValue !== undefined
+            ? `${t("general.last_value")}: <b>${item.lastValue}${item.unitOfMeasurement?.symbol || ""}</b>`
+            : ""
+        }</div>
+        <div>${
+          item.lastMeasurement
+            ? `${t("general.date")}: <b>${formatDateWithTimezone(
+                item.lastMeasurement,
+                timezone,
+                timeShiftHours
+              )}</b>`
+            : ""
+        }</div>
+      </div>
     `;
-    
   }
 
   function updateCenterLabels(L, mapInstance, items, getGeoJSON) {
@@ -225,47 +232,44 @@ export default function MapWrapper({
     }
     mapInstance._centerValueMarkers = [];
     items.forEach(item => {
-      const geoJSON = getGeoJSON(item) ? JSON.parse(JSON.stringify(getGeoJSON(item))) : null;
-      if (geoJSON) {
-        const center = usePolygonCenter(geoJSON);
-        if (center && typeof mapInstance.getZoom === "function" && mapInstance.getZoom() >= 12) {
-          const valueLabel = L.divIcon({
-            className: "datastream-value-label",
-            html: `<span style="
-                            font-weight: bold;
-                            font-size: 25px;
-                            opacity: 0.5;
-                            white-space: nowrap;
-                            padding: 0;
-                            margin: 0;
-                            text-align: left;
-                            position: relative;
-                            left: -40px;
-                        ">
-                            ${item.lastValue ?? item.name ?? ""} ${item.unitOfMeasurement?.symbol ?? ""}
-                        </span>`
-          });
-          const marker = L.marker([center[1], center[0]], { icon: valueLabel, interactive: false }).addTo(mapInstance);
-          mapInstance._centerValueMarkers.push(marker);
-        }
+      const rawGeo = getGeoJSON(item);
+      if (!rawGeo) return;
+      const displayGeo = toWGS84ForDisplay(rawGeo);
+      const center = usePolygonCenter(displayGeo);
+      if (center && typeof mapInstance.getZoom === "function" && mapInstance.getZoom() >= 12) {
+        const valueLabel = L.divIcon({
+          className: "datastream-value-label",
+          html: `<span style="
+              font-weight:600;
+              font-size:22px;
+              opacity:.5;
+              white-space:nowrap;
+              position:relative;
+              left:-40px;
+            ">${item.lastValue ?? item.name ?? ""} ${item.unitOfMeasurement?.symbol ?? ""}</span>`
+        });
+        const marker = L.marker([center[1], center[0]], {
+          icon: valueLabel,
+          interactive: false
+        }).addTo(mapInstance);
+        mapInstance._centerValueMarkers.push(marker);
       }
     });
   }
 
-  //Autofit bounds when items change
+  // Main effect: init + redraw
   React.useEffect(() => {
     if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
 
     import("leaflet").then((L) => {
       if (!mapContainerRef.current) return;
 
-      
+      // Init map
       if (!mapInstanceRef.current) {
         let center: [number, number] = [0, 0];
         const first = items[0] && getCoordinates(items[0]);
         if (first && typeof first[0] === "number" && typeof first[1] === "number") {
-            // first = [lon, lat]
-            center = [first[1], first[0]];
+          center = [first[1], first[0]]; // [lat, lon]
         }
         const leafletMap = L.map(mapContainerRef.current, {
           worldCopyJump: false,
@@ -282,34 +286,49 @@ export default function MapWrapper({
           attribution: MAP_TILE_LAYER.attribution
         }).addTo(leafletMap);
 
+        // BBox update
         function updateBBox() {
           if (!mapInstanceRef.current) return;
-          const bounds = mapInstanceRef.current.getBounds();
-          if (!bounds) return;
-            const minLat = bounds.getSouth();
-            const minLon = bounds.getWest();
-            const maxLat = bounds.getNorth();
-            const maxLon = bounds.getEast();
-            const bboxStr = `${minLat.toFixed(6)}, ${minLon.toFixed(6)}, ${maxLat.toFixed(6)}, ${maxLon.toFixed(6)}`;
-            setCurrentBBox(bboxStr);
-            onBBoxChange && onBBoxChange(bboxStr);
+          const b = mapInstanceRef.current.getBounds();
+          if (!b) return;
+          const minLat = b.getSouth();
+          const minLon = b.getWest();
+          const maxLat = b.getNorth();
+          const maxLon = b.getEast();
+          const bboxStr = `${minLat.toFixed(6)}, ${minLon.toFixed(6)}, ${maxLat.toFixed(6)}, ${maxLon.toFixed(6)}`;
+          setCurrentBBox(bboxStr);
+          onBBoxChange && onBBoxChange(bboxStr);
         }
         mapInstanceRef.current.on("moveend", updateBBox);
         updateBBox();
       }
 
-      //layers cleanup
+      // Cleanup old layers
       markersRef.current.forEach(m => m.remove());
       markersRef.current = [];
       geoJSONLayersRef.current.forEach(layer => layer.remove());
       geoJSONLayersRef.current = [];
 
-      //markers
+      // Rebuild layers
       items.forEach(item => {
-        const coords = getCoordinates(item);
         const id = getId(item);
-        const geoJSON = getGeoJSON(item) ? JSON.parse(JSON.stringify(getGeoJSON(item))) : null;
 
+        // Raw geometry (may contain CRS)
+        const rawGeo = getGeoJSON(item) ? JSON.parse(JSON.stringify(getGeoJSON(item))) : null;
+        const originalCRS = rawGeo ? detectCRSName(rawGeo) : "EPSG:4326";
+        const displayGeo = rawGeo ? toWGS84ForDisplay(rawGeo) : null;
+
+        // Coordinates (might come in original CRS)
+        let coords = getCoordinates(item);
+        if (coords && originalCRS !== "EPSG:4326") {
+          coords = pointToWGS84(coords, originalCRS); // now WGS84
+        }
+        // Fallback: derive from displayGeo if it's a Point
+        if (!coords && displayGeo && displayGeo.type === "Point") {
+          coords = displayGeo.coordinates;
+        }
+
+        // Markers
         if (showMarkers !== false && Array.isArray(coords)) {
           const marker = L.circleMarker([coords[1], coords[0]], {
             radius: 6,
@@ -330,12 +349,12 @@ export default function MapWrapper({
           markersRef.current.push(marker);
         }
 
-        if (geoJSON) {
-          const geoJSONLayer = L.geoJSON(geoJSON, {
+        // GeoJSON layers
+        if (displayGeo) {
+          const geoLayer = L.geoJSON(displayGeo, {
             style: () => {
               const color = colorMode
-                ? colorMap.get(chipColorStrategy ? chipColorStrategy(item) : "default")
-                  || "#e5e7eb"
+                ? colorMap.get(chipColorStrategy ? chipColorStrategy(item) : "default") || "#e5e7eb"
                 : getColorFromId(id);
               return {
                 color,
@@ -345,17 +364,16 @@ export default function MapWrapper({
                 fillColor: color
               };
             },
-            pointToLayer: (_feature, latlng) => {
-              return L.circleMarker(latlng, {
+            pointToLayer: (_feature, latlng) =>
+              L.circleMarker(latlng, {
                 radius: 8,
                 fillColor: "#007bff",
                 color: "#0056b3",
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.9
-              });
-            },
-            onEachFeature: (_feature, layer) => {
+              }),
+            onEachFeature: (_f, layer) => {
               layer.on({
                 click: () => onMarkerClick && onMarkerClick(id),
                 mouseover: function () {
@@ -367,38 +385,32 @@ export default function MapWrapper({
               });
             }
           }).addTo(mapInstanceRef.current);
-          geoJSONLayersRef.current.push(geoJSONLayer);
+          geoJSONLayersRef.current.push(geoLayer);
         }
       });
 
       updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
+      mapInstanceRef.current.on("zoomend", () =>
+        updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON)
+      );
 
-      mapInstanceRef.current.on("zoomend", () => {
-        updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
-      });
-
-      //if items changed, fit bounds
+      // Fit bounds when items change
       if (autoFit) {
         const signature = items.map(i => getId(i)).sort().join("|");
         if (signature !== previousItemsSignatureRef.current) {
           previousItemsSignatureRef.current = signature;
 
           const bounds = L.latLngBounds([]);
-
-          markersRef.current.forEach(m => {
-            if (m.getLatLng) bounds.extend(m.getLatLng());
+          markersRef.current.forEach(m => m.getLatLng && bounds.extend(m.getLatLng()));
+          geoJSONLayersRef.current.forEach(layer => {
+            if (layer.getBounds) {
+              const b = layer.getBounds();
+              if (b.isValid()) bounds.extend(b);
+            }
           });
-
-            geoJSONLayersRef.current.forEach(layer => {
-              if (layer.getBounds) {
-                const b = layer.getBounds();
-                if (b.isValid()) bounds.extend(b);
-              }
-            });
-
           if (bounds.isValid()) {
-            const SINGLE_POINT = bounds.getNorthEast().equals(bounds.getSouthWest());
-            if (SINGLE_POINT) {
+            const single = bounds.getNorthEast().equals(bounds.getSouthWest());
+            if (single) {
               mapInstanceRef.current.setView(bounds.getCenter(), 13, { animate: true });
             } else {
               mapInstanceRef.current.fitBounds(bounds, {
@@ -411,13 +423,22 @@ export default function MapWrapper({
         }
       }
 
-      setTimeout(() => {
-        mapInstanceRef.current?.invalidateSize();
-      }, 200);
+      setTimeout(() => mapInstanceRef.current?.invalidateSize(), 180);
     });
-  
-  }, [items, showMap, getCoordinates, getId, getLabel, getGeoJSON, onMarkerClick, colorMode, chipColorStrategy, autoFit]);
+  }, [
+    items,
+    showMap,
+    getCoordinates,
+    getId,
+    getLabel,
+    getGeoJSON,
+    onMarkerClick,
+    colorMode,
+    chipColorStrategy,
+    autoFit
+  ]);
 
+  // Cleanup if map hidden
   React.useEffect(() => {
     if (!showMap && mapInstanceRef.current) {
       mapInstanceRef.current.remove();
@@ -427,6 +448,7 @@ export default function MapWrapper({
     }
   }, [showMap]);
 
+  // Center on expanded entity
   React.useEffect(() => {
     if (!showMap || !expandedId || typeof window === "undefined") return;
     import("leaflet").then(() => {
@@ -444,8 +466,7 @@ export default function MapWrapper({
         mapInstanceRef.current.setView([coords[1], coords[0]], 12, { animate: true });
       }
     });
-  
-  }, [expandedId]);
+  }, [expandedId, showMap, items, getCoordinates, getId]);
 
   if (!showMap) return null;
 
@@ -462,59 +483,66 @@ export default function MapWrapper({
         boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         display: "flex",
         flexDirection: "column",
-        pointerEvents: "auto",
-        transition: "flex-basis 0.2s",
         position: "relative"
       }}
     >
-      <div style={{ padding: "4px", zIndex: 100, display: "flex", justifyContent: "flex-end", alignItems: "center" }}>
-        <p style={{
-          fontSize: "12px",
-          margin: "0 6px 0 0",
-          fontWeight: 400,
-          opacity: 0.5
-        }}> Color mode</p>
-        <Switch
-          checked={colorMode}
-          onChange={() => setColorMode(v => !v)}
-          size="sm"
-          className="mr-2"
-        />
-        <form onSubmit={handleSearchSubmit} style={{ display: "flex", alignItems: "center", marginRight: "16px" }}>
+      {/* Top controls */}
+      <div
+        style={{
+          padding: "4px",
+            zIndex: 100,
+          display: "flex",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 12
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 12, opacity: 0.6 }}>Color mode</span>
+          <Switch
+            checked={colorMode}
+            onChange={() => setColorMode(v => !v)}
+            size="sm"
+          />
+        </div>
+        <form
+          onSubmit={handleSearchSubmit}
+          style={{ display: "flex", alignItems: "center", gap: 6 }}
+        >
           <Input
             type="text"
             radius="sm"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={e => setSearchQuery(e.target.value)}
             placeholder={t("general.search_location")}
-            style={{ width: "200px" }}
+            style={{ width: 200 }}
           />
           <Button
             radius="sm"
             type="submit"
-            style={{ backgroundColor: "#007BFF", color: "white" }}
+            style={{ backgroundColor: "#007BFF", color: "#fff" }}
             disabled={isSearching}
           >
             {isSearching ? t("general.searching") : t("general.search")}
           </Button>
         </form>
       </div>
+
+      {/* Map container */}
       <div
         ref={mapContainerRef}
         className="w-full border border-gray-300 shadow bg-white"
         style={{
           minHeight: 0,
-          borderRadius: "8px",
+          borderRadius: 8,
           overflow: "hidden",
           position: "absolute",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 5,
-          pointerEvents: "auto"
+          inset: 0,
+          zIndex: 5
         }}
       />
+
+      {/* Bottom info panel */}
       <div
         style={{
           position: "absolute",
@@ -523,34 +551,38 @@ export default function MapWrapper({
           background: "rgba(255,255,255,0.95)",
           borderRadius: 6,
           padding: "6px 12px",
-          fontSize: "13px",
+          fontSize: 13,
           color: "#222",
           boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
           zIndex: 200,
-          minWidth: "220px",
+          minWidth: 240,
           display: "flex",
           alignItems: "center",
           gap: 8
         }}
       >
-        <div>
+        <div style={{ lineHeight: 1.3 }}>
           <span style={{ fontWeight: 500 }}>{t("general.cursor_coordinates")}:</span>
           <br />
           {cursorCoords
             ? `Lat: ${cursorCoords[0].toFixed(5)}, Lon: ${cursorCoords[1].toFixed(5)}`
             : "-"}
           <br />
+          <span style={{ fontWeight: 500 }}>BBox:</span><br />
+          <span style={{ fontSize: 11 }}>{currentBBox || "-"}</span>
         </div>
         <Button
           radius="sm"
           size="sm"
-            variant="flat"
-          style={{ minWidth: 32, padding: "0 8px" }}
+          variant="flat"
+          style={{ minWidth: 60, padding: "0 8px" }}
           onPress={handleCopyBBox}
         >
           Copy BBox
         </Button>
-        {copySuccess && <span style={{ color: "green", marginLeft: 10 }}>Copied!</span>}
+        {copySuccess && (
+          <span style={{ color: "green", fontSize: 11 }}>Copied!</span>
+        )}
       </div>
     </div>
   );
