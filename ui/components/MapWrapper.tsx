@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-"use client";
 import * as React from "react";
 import "leaflet/dist/leaflet.css";
 import { Input, Button, Switch } from "@heroui/react";
@@ -29,7 +28,7 @@ import { getColorScale } from "./hooks/useColorScale";
 
 type MapWrapperProps = {
   items: any[];
-  getCoordinates: (item: any) => [number, number] | null; // [lon, lat] original CRS
+  getCoordinates: (item: any) => [number, number] | null;
   getId: (item: any) => string;
   getLabel: (item: any) => string;
   getGeoJSON: (item: any) => any | null;
@@ -45,18 +44,27 @@ type MapWrapperProps = {
   autoFit?: boolean;
 };
 
+//Color mapping for different states (success, warning, danger, default)
 const colorMap = new Map<string, string>([
   ["success", "#4ade80"],
   ["warning", "#facc15"],
   ["danger", "#ef4444"],
   ["default", "#e5e7eb"]
 ]);
+
+//Color palette used for generating colors based on IDs
 const colorPalette = [
-  "#e6194b","#3cb44b","#ffe119","#4363d8","#f58231",
-  "#911eb4","#46f0f0","#f032e6","#bcf60c","#fabebe",
-  "#008080","#e6beff","#9a6324","#fffac8","#800000",
-  "#aaffc3","#808000","#ffd8b1","#000075","#808080"
+  "#e6194b", "#3cb44b", "#ffe119", "#4363d8", "#f58231",
+  "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe",
+  "#008080", "#e6beff", "#9a6324", "#fffac8", "#800000",
+  "#aaffc3", "#808000", "#ffd8b1", "#000075", "#808080"
 ];
+
+/**
+ * Generates a consistent color for a given ID by hashing the ID and selecting a color from the palette.
+ * @param {string} id - The ID to generate a color for.
+ * @returns {string} A color from the palette.
+ */
 function getColorFromId(id: string) {
   let hash = 4353;
   for (let i = 0; i < id.length; i++) hash = ((hash << 5) + hash) + id.charCodeAt(i);
@@ -80,11 +88,14 @@ export default function MapWrapper({
   onBBoxChange,
   autoFit = true
 }: MapWrapperProps) {
+  //Refs for managing the map and its elements
   const mapContainerRef = React.useRef<HTMLDivElement>(null);
   const mapInstanceRef = React.useRef<any>(null);
   const markersRef = React.useRef<any[]>([]);
   const geoJSONLayersRef = React.useRef<any[]>([]);
   const previousItemsSignatureRef = React.useRef<string>("");
+
+  //State for managing UI and interactions
   const [colorMode, setColorMode] = React.useState<boolean>(false);
   const [isSplitting, setIsSplitting] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -96,7 +107,7 @@ export default function MapWrapper({
   const [currentBBox, setCurrentBBox] = React.useState<string>("");
   const [copySuccess, setCopySuccess] = React.useState<boolean>(false);
 
-  // Mouse position (lat/lon in WGS84)
+  //Effect to handle mouse movement over the map and update cursor coordinates
   React.useEffect(() => {
     if (!showMap || typeof window === "undefined" || !mapContainerRef.current) return;
     const mapDiv = mapContainerRef.current;
@@ -112,7 +123,7 @@ export default function MapWrapper({
     return () => mapDiv.removeEventListener("mousemove", handleMouseMove);
   }, [showMap]);
 
-  // Copy BBox
+  //Function to handle copying the bounding box coordinates to clipboard
   const handleCopyBBox = () => {
     if (!currentBBox) return;
     navigator.clipboard.writeText(currentBBox).then(() => {
@@ -121,7 +132,7 @@ export default function MapWrapper({
     }).catch(err => console.error("Failed to copy BBox: ", err));
   };
 
-  // Search (Nominatim)
+  //Function to perform a search for a location using OpenStreetMap's Nominatim API
   const handleSearch = async (query: string) => {
     if (!query.trim()) return;
     setIsSearching(true);
@@ -159,12 +170,14 @@ export default function MapWrapper({
       setIsSearching(false);
     }
   };
+
+  //Handle form submission for search
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     handleSearch(searchQuery);
   };
 
-  // Resizable split
+  //Effect to handle resizing of the map
   React.useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!mapContainerRef.current) return;
@@ -188,6 +201,7 @@ export default function MapWrapper({
     };
   }, [isSplitting, setSplit]);
 
+  //Function to generate HTML content for a marker popup
   function getPopupContent(item: any) {
     const chipColor = chipColorStrategy ? chipColorStrategy(item) : "default";
     const color = colorMap.get(chipColor) || "#e5e7eb";
@@ -226,17 +240,71 @@ export default function MapWrapper({
     `;
   }
 
+  //Function to update center labels on the map, handling overlaps by placing labels in a circular pattern
   function updateCenterLabels(L, mapInstance, items, getGeoJSON) {
     if (mapInstance._centerValueMarkers) {
       mapInstance._centerValueMarkers.forEach(m => mapInstance.removeLayer(m));
     }
     mapInstance._centerValueMarkers = [];
+    const placedLabels = [];
+    const labelSpacing = 50;
+    const circleRadius = 60;
     items.forEach(item => {
       const rawGeo = getGeoJSON(item);
       if (!rawGeo) return;
       const displayGeo = toWGS84ForDisplay(rawGeo);
       const center = usePolygonCenter(displayGeo);
       if (center && typeof mapInstance.getZoom === "function" && mapInstance.getZoom() >= 12) {
+        const point = mapInstance.latLngToLayerPoint([center[1], center[0]]);
+        const labelText = `${item.lastValue ?? item.name ?? ""} ${item.unitOfMeasurement?.symbol ?? ""}`;
+        let overlapDetected = false;
+        for (const placedLabel of placedLabels) {
+          const distance = Math.sqrt(
+            Math.pow(point.x - placedLabel.point.x, 2) +
+            Math.pow(point.y - placedLabel.point.y, 2)
+          );
+          if (distance < labelSpacing) {
+            overlapDetected = true;
+            break;
+          }
+        }
+        if (overlapDetected) {
+          const overlapCount = placedLabels.filter(placedLabel => {
+            const distance = Math.sqrt(
+              Math.pow(point.x - placedLabel.point.x, 2) +
+              Math.pow(point.y - placedLabel.point.y, 2)
+            );
+            return distance < labelSpacing;
+          }).length;
+          const angleStep = (2 * Math.PI) / (overlapCount + 1);
+          let adjustedPoint;
+          for (let i = 0; i <= overlapCount; i++) {
+            const angle = i * angleStep;
+            adjustedPoint = {
+              x: point.x + circleRadius * Math.cos(angle),
+              y: point.y + circleRadius * Math.sin(angle)
+            };
+            let newPositionOverlaps = false;
+            for (const placedLabel of placedLabels) {
+              const distance = Math.sqrt(
+                Math.pow(adjustedPoint.x - placedLabel.point.x, 2) +
+                Math.pow(adjustedPoint.y - placedLabel.point.y, 2)
+              );
+              if (distance < labelSpacing) {
+                newPositionOverlaps = true;
+                break;
+              }
+            }
+            if (!newPositionOverlaps) {
+              break;
+            }
+          }
+          if (adjustedPoint) {
+            point.x = adjustedPoint.x;
+            point.y = adjustedPoint.y;
+          }
+        }
+        const adjustedLatLng = mapInstance.layerPointToLatLng([point.x, point.y]);
         const valueLabel = L.divIcon({
           className: "datastream-value-label",
           html: `<span style="
@@ -246,30 +314,31 @@ export default function MapWrapper({
               white-space:nowrap;
               position:relative;
               left:-40px;
-            ">${item.lastValue ?? item.name ?? ""} ${item.unitOfMeasurement?.symbol ?? ""}</span>`
+            ">${labelText}</span>`
         });
-        const marker = L.marker([center[1], center[0]], {
+        const marker = L.marker([adjustedLatLng.lat, adjustedLatLng.lng], {
           icon: valueLabel,
           interactive: false
         }).addTo(mapInstance);
+        placedLabels.push({
+          point: point,
+          labelText: labelText
+        });
         mapInstance._centerValueMarkers.push(marker);
       }
     });
   }
 
-  // Main effect: init + redraw
+  //Effect to initialize and update the map
   React.useEffect(() => {
     if (!showMap || !mapContainerRef.current || typeof window === "undefined") return;
-
     import("leaflet").then((L) => {
       if (!mapContainerRef.current) return;
-
-      // Init map
       if (!mapInstanceRef.current) {
         let center: [number, number] = [0, 0];
         const first = items[0] && getCoordinates(items[0]);
         if (first && typeof first[0] === "number" && typeof first[1] === "number") {
-          center = [first[1], first[0]]; // [lat, lon]
+          center = [first[1], first[0]];
         }
         const leafletMap = L.map(mapContainerRef.current, {
           worldCopyJump: false,
@@ -281,12 +350,9 @@ export default function MapWrapper({
         }).setView(center, 2);
         mapInstanceRef.current = leafletMap;
         if (mapRef) mapRef.current = leafletMap;
-
         L.tileLayer(MAP_TILE_LAYER.url, {
           attribution: MAP_TILE_LAYER.attribution
         }).addTo(leafletMap);
-
-        // BBox update
         function updateBBox() {
           if (!mapInstanceRef.current) return;
           const b = mapInstanceRef.current.getBounds();
@@ -302,33 +368,22 @@ export default function MapWrapper({
         mapInstanceRef.current.on("moveend", updateBBox);
         updateBBox();
       }
-
-      // Cleanup old layers
       markersRef.current.forEach(m => m.remove());
       markersRef.current = [];
       geoJSONLayersRef.current.forEach(layer => layer.remove());
       geoJSONLayersRef.current = [];
-
-      // Rebuild layers
       items.forEach(item => {
         const id = getId(item);
-
-        // Raw geometry (may contain CRS)
         const rawGeo = getGeoJSON(item) ? JSON.parse(JSON.stringify(getGeoJSON(item))) : null;
         const originalCRS = rawGeo ? detectCRSName(rawGeo) : "EPSG:4326";
         const displayGeo = rawGeo ? toWGS84ForDisplay(rawGeo) : null;
-
-        // Coordinates (might come in original CRS)
         let coords = getCoordinates(item);
         if (coords && originalCRS !== "EPSG:4326") {
-          coords = pointToWGS84(coords, originalCRS); // now WGS84
+          coords = pointToWGS84(coords, originalCRS);
         }
-        // Fallback: derive from displayGeo if it's a Point
         if (!coords && displayGeo && displayGeo.type === "Point") {
           coords = displayGeo.coordinates;
         }
-
-        // Markers
         if (showMarkers !== false && Array.isArray(coords)) {
           const marker = L.circleMarker([coords[1], coords[0]], {
             radius: 6,
@@ -348,8 +403,6 @@ export default function MapWrapper({
             });
           markersRef.current.push(marker);
         }
-
-        // GeoJSON layers
         if (displayGeo) {
           const geoLayer = L.geoJSON(displayGeo, {
             style: () => {
@@ -388,18 +441,14 @@ export default function MapWrapper({
           geoJSONLayersRef.current.push(geoLayer);
         }
       });
-
       updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON);
       mapInstanceRef.current.on("zoomend", () =>
         updateCenterLabels(L, mapInstanceRef.current, items, getGeoJSON)
       );
-
-      // Fit bounds when items change
       if (autoFit) {
         const signature = items.map(i => getId(i)).sort().join("|");
         if (signature !== previousItemsSignatureRef.current) {
           previousItemsSignatureRef.current = signature;
-
           const bounds = L.latLngBounds([]);
           markersRef.current.forEach(m => m.getLatLng && bounds.extend(m.getLatLng()));
           geoJSONLayersRef.current.forEach(layer => {
@@ -422,7 +471,6 @@ export default function MapWrapper({
           }
         }
       }
-
       setTimeout(() => mapInstanceRef.current?.invalidateSize(), 180);
     });
   }, [
@@ -438,7 +486,7 @@ export default function MapWrapper({
     autoFit
   ]);
 
-  // Cleanup if map hidden
+  //Effect to clean up the map when it is hidden
   React.useEffect(() => {
     if (!showMap && mapInstanceRef.current) {
       mapInstanceRef.current.remove();
@@ -448,7 +496,7 @@ export default function MapWrapper({
     }
   }, [showMap]);
 
-  // Center on expanded entity
+  //Effect to focus on an expanded item
   React.useEffect(() => {
     if (!showMap || !expandedId || typeof window === "undefined") return;
     import("leaflet").then(() => {
@@ -468,9 +516,11 @@ export default function MapWrapper({
     });
   }, [expandedId, showMap, items, getCoordinates, getId]);
 
+  //Render nothing if the map is not shown
   if (!showMap) return null;
 
   return (
+    //Main container for the map
     <div
       id="resizable-map-wrapper"
       className="relative"
@@ -486,11 +536,11 @@ export default function MapWrapper({
         position: "relative"
       }}
     >
-      {/* Top controls */}
+      {/*Controls and search bar*/}
       <div
         style={{
           padding: "4px",
-            zIndex: 100,
+          zIndex: 100,
           display: "flex",
           justifyContent: "flex-end",
           alignItems: "center",
@@ -528,7 +578,7 @@ export default function MapWrapper({
         </form>
       </div>
 
-      {/* Map container */}
+      {/*Map container*/}
       <div
         ref={mapContainerRef}
         className="w-full border border-gray-300 shadow bg-white"
@@ -542,7 +592,7 @@ export default function MapWrapper({
         }}
       />
 
-      {/* Bottom info panel */}
+      {/*Coordinates and bounding box info*/}
       <div
         style={{
           position: "absolute",
