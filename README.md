@@ -12,8 +12,8 @@
 [![Custom Badge](https://img.shields.io/badge/Wiki-blue.svg)](https://github.com/LucaBTE/istSOS4-gui/wiki)
 [![Status](https://img.shields.io/badge/status-active-success.svg)]()
 [![GitHub Issues](https://img.shields.io/github/issues/LucaBTE/istSOS4-gui
-)](https://github.com/kylelobo/The-Documentation-Compendium/issues)
-[![License](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](/LICENSE)
+)]([https://github.com/kylelobo/The-Documentation-Compendium/issues](https://github.com/LucaBTE/istSOS4-gui/issues))
+[![License](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](/LICENSE.txt)
 
 </div>
 
