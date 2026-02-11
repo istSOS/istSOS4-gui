@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,25 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { siteConfig } from '@/config/site'
 
-"use client";
-import * as React from "react";
-import { siteConfig } from "../../config/site";
-import { createData, updateData, fetchData, deleteData } from "../../server/api";
-import { unitOfMeasurementOptions } from "./utils";
+import { createData, deleteData, fetchData, updateData } from '@/server/api'
+
+import { unitOfMeasurementOptions } from './utils'
 
 interface DatastreamCRUDHandlerProps {
-  item: any;
-  token: string;
-  setShowCreate: (value: boolean) => void;
-  setExpanded: (value: string | null) => void;
-  setEditDatastream: (value: any) => void;
-  setCreateLoading: (value: boolean) => void;
-  setCreateError: (value: string | null) => void;
-  setEditLoading: (value: boolean) => void;
-  setEditError: (value: string | null) => void;
-  refetchAll: () => Promise<void>;
-  setNestedEntitiesMap: (value: any) => void;
+  item: any
+  token: string
+  setShowCreate: (value: boolean) => void
+  setExpanded: (value: string | null) => void
+  setEditDatastream: (value: any) => void
+  setCreateLoading: (value: boolean) => void
+  setCreateError: (value: string | null) => void
+  setEditLoading: (value: boolean) => void
+  setEditError: (value: string | null) => void
+  refetchAll: () => Promise<void>
+  setNestedEntitiesMap: (value: any) => void
 }
 
 export const useDatastreamCRUDHandler = ({
@@ -47,87 +48,93 @@ export const useDatastreamCRUDHandler = ({
   refetchAll,
   setNestedEntitiesMap,
 }: DatastreamCRUDHandlerProps) => {
-
-  const handleCancelCreate = () => setShowCreate(false);
-  const handleCancelEdit = () => setEditDatastream(null);
+  const handleCancelCreate = () => setShowCreate(false)
+  const handleCancelEdit = () => setEditDatastream(null)
 
   const handleCreate = async (formPayload: any) => {
-    setCreateLoading(true);
-    setCreateError(null);
+    setCreateLoading(true)
+    setCreateError(null)
     try {
-
       if (!formPayload?.name || !formPayload?.observationType) {
-        setCreateError("Missing required datastream fields");
-        setCreateLoading(false);
-        return;
+        setCreateError('Missing required datastream fields')
+        setCreateLoading(false)
+        return
       }
-      const uom = formPayload.unitOfMeasurement;
+      const uom = formPayload.unitOfMeasurement
       if (!uom || !uom.name || !uom.definition) {
-        setCreateError("Invalid Unit Of Measurement");
-        setCreateLoading(false);
-        return;
+        setCreateError('Invalid Unit Of Measurement')
+        setCreateLoading(false)
+        return
       }
 
       const hasThing =
         formPayload.Thing &&
-        (formPayload.Thing["@iot.id"] ||
-          (formPayload.Thing.name && formPayload.Thing.name !== ""));
+        (formPayload.Thing['@iot.id'] ||
+          (formPayload.Thing.name && formPayload.Thing.name !== ''))
       const hasSensor =
         formPayload.Sensor &&
-        (formPayload.Sensor["@iot.id"] ||
-          (formPayload.Sensor.name && formPayload.Sensor.name !== ""));
+        (formPayload.Sensor['@iot.id'] ||
+          (formPayload.Sensor.name && formPayload.Sensor.name !== ''))
       const hasObservedProperty =
         formPayload.ObservedProperty &&
-        (formPayload.ObservedProperty["@iot.id"] ||
-          (formPayload.ObservedProperty.name && formPayload.ObservedProperty.name !== ""));
+        (formPayload.ObservedProperty['@iot.id'] ||
+          (formPayload.ObservedProperty.name &&
+            formPayload.ObservedProperty.name !== ''))
       if (!hasThing || !hasSensor || !hasObservedProperty) {
-        setCreateError("Thing, Sensor and ObservedProperty are required (reference or deep insert)");
-        setCreateLoading(false);
-        return;
+        setCreateError(
+          'Thing, Sensor and ObservedProperty are required (reference or deep insert)'
+        )
+        setCreateLoading(false)
+        return
       }
 
-      if (!formPayload.properties) formPayload.properties = {};
-      
-      await createData(item.root, token, formPayload);
-      setShowCreate(false);
-      setExpanded(null);
-      await refetchAll();
+      if (!formPayload.properties) formPayload.properties = {}
 
-      const data = await fetchData(item.root, token);
+      await createData(item.root, token, formPayload)
+      setShowCreate(false)
+      setExpanded(null)
+      await refetchAll()
+
+      const data = await fetchData(item.root, token)
       if (data?.value && data.value.length > 0) {
-        const newId = data.value[data.value.length - 1]["@iot.id"];
-        setExpanded(String(newId));
-        fetchDatastreamWithExpand(newId);
+        const newId = data.value[data.value.length - 1]['@iot.id']
+        setExpanded(String(newId))
+        fetchDatastreamWithExpand(newId)
       }
     } catch (err: any) {
-      setCreateError(err.message || "Error creating datastream");
+      setCreateError(err.message || 'Error creating datastream')
     } finally {
-      setCreateLoading(false);
+      setCreateLoading(false)
     }
-  };
+  }
 
   const handleEdit = (entity: any) => {
-    setEditDatastream(entity);
-  };
+    setEditDatastream(entity)
+  }
 
-  const handleSaveEdit = async (updatedDatastream: any, originalDatastream: any) => {
-    setEditLoading(true);
-    setEditError(null);
+  const handleSaveEdit = async (
+    updatedDatastream: any,
+    originalDatastream: any
+  ) => {
+    setEditLoading(true)
+    setEditError(null)
     try {
       // Validate unit of measurement
-      const uomOption = unitOfMeasurementOptions.find(o => o.name === updatedDatastream.unitOfMeasurement.name);
+      const uomOption = unitOfMeasurementOptions.find(
+        (o) => o.name === updatedDatastream.unitOfMeasurement.name
+      )
       if (!uomOption) {
-        setEditError("Invalid Unit Of Measurement - editing");
-        setEditLoading(false);
-        return;
+        setEditError('Invalid Unit Of Measurement - editing')
+        setEditLoading(false)
+        return
       }
 
       // Validate observation type
-      const obsType = updatedDatastream.observationType;
+      const obsType = updatedDatastream.observationType
       if (!obsType) {
-        setEditError("Invalid Observation Type");
-        setEditLoading(false);
-        return;
+        setEditError('Invalid Observation Type')
+        setEditLoading(false)
+        return
       }
 
       // Create payload
@@ -140,71 +147,82 @@ export const useDatastreamCRUDHandler = ({
           definition: uomOption.definition,
         },
         observationType: obsType,
-        
+
         properties: {},
-      };
+      }
 
       // Add related entities if they exist
       if (updatedDatastream.thingId) {
-        payload.Thing = { "@iot.id": Number(updatedDatastream.thingId) };
+        payload.Thing = { '@iot.id': Number(updatedDatastream.thingId) }
       }
       if (updatedDatastream.sensorId) {
-        payload.Sensor = { "@iot.id": Number(updatedDatastream.sensorId) };
+        payload.Sensor = { '@iot.id': Number(updatedDatastream.sensorId) }
       }
       if (updatedDatastream.observedPropertyId) {
-        payload.ObservedProperty = { "@iot.id": Number(updatedDatastream.observedPropertyId) };
+        payload.ObservedProperty = {
+          '@iot.id': Number(updatedDatastream.observedPropertyId),
+        }
       }
 
       // Add properties if they exist
-      if (Array.isArray(updatedDatastream.properties) && updatedDatastream.properties.length > 0) {
+      if (
+        Array.isArray(updatedDatastream.properties) &&
+        updatedDatastream.properties.length > 0
+      ) {
         const props = Object.fromEntries(
           updatedDatastream.properties
             .filter((p: any) => p.key)
             .map((p: any) => [p.key, p.value])
-        );
+        )
         if (Object.keys(props).length > 0) {
-          payload.properties = props;
+          payload.properties = props
         }
       }
 
-      await updateData(`${item.root}(${originalDatastream["@iot.id"]})`, token, payload);
-      await refetchAll();
-      setExpanded(String(originalDatastream["@iot.id"]));
-      setEditDatastream(null);
-      await fetchDatastreamWithExpand(originalDatastream["@iot.id"]);
+      await updateData(
+        `${item.root}(${originalDatastream['@iot.id']})`,
+        token,
+        payload
+      )
+      await refetchAll()
+      setExpanded(String(originalDatastream['@iot.id']))
+      setEditDatastream(null)
+      await fetchDatastreamWithExpand(originalDatastream['@iot.id'])
     } catch (err: any) {
-      setEditError(err.message || "Error updating datastream");
+      setEditError(err.message || 'Error updating datastream')
     } finally {
-      setEditLoading(false);
+      setEditLoading(false)
     }
-  };
+  }
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteData(`${item.root}(${Number(id)})`, token);
-      await refetchAll();
+      await deleteData(`${item.root}(${Number(id)})`, token)
+      await refetchAll()
     } catch (err) {
-      console.error("Error deleting datastream:", err);
+      console.error('Error deleting datastream:', err)
     }
-  };
+  }
 
   const fetchDatastreamWithExpand = async (datastreamId: number) => {
-    const nested = siteConfig.items.find(i => i.label === "Datastreams").nested;
-    const nestedData: any = {};
+    const nested = siteConfig.items.find(
+      (i) => i.label === 'Datastreams'
+    ).nested
+    const nestedData: any = {}
     await Promise.all(
       nested.map(async (nestedKey: string) => {
-        const url = `${item.root}(${datastreamId})?$expand=${nestedKey}`;
-        const data = await fetchData(url, token);
+        const url = `${item.root}(${datastreamId})?$expand=${nestedKey}`
+        const data = await fetchData(url, token)
         if (data && data[nestedKey]) {
-          nestedData[nestedKey] = data[nestedKey];
+          nestedData[nestedKey] = data[nestedKey]
         }
       })
-    );
-    setNestedEntitiesMap(prev => ({
+    )
+    setNestedEntitiesMap((prev) => ({
       ...prev,
-      [datastreamId]: nestedData
-    }));
-  };
+      [datastreamId]: nestedData,
+    }))
+  }
 
   return {
     handleCancelCreate,
@@ -214,7 +232,5 @@ export const useDatastreamCRUDHandler = ({
     handleSaveEdit,
     handleDelete,
     fetchDatastreamWithExpand,
-  };
-};
-
-
+  }
+}

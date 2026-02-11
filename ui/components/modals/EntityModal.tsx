@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,20 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-"use client";
-
-import React, { useState } from "react";
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, Accordion, AccordionItem } from "@heroui/react";
-import { useTranslation } from "react-i18next";
-
+import { Accordion, AccordionItem } from '@heroui/accordion'
+import { Button } from '@heroui/button'
+import {
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@heroui/modal'
+import React, { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface EntityModalProps {
-  isOpen: boolean;
-  onOpenChange: (isOpen: boolean) => void;
-  entity: any; //main entity data
-  nestedEntities?: Record<string, any>; //nested entities data
-  title?: string;
+  isOpen: boolean
+  onOpenChange: (isOpen: boolean) => void
+  entity: any //main entity data
+  nestedEntities?: Record<string, any> //nested entities data
+  title?: string
 }
 
 const EntityModal: React.FC<EntityModalProps> = ({
@@ -36,33 +42,33 @@ const EntityModal: React.FC<EntityModalProps> = ({
   nestedEntities = {},
   title,
 }) => {
-  const { t } = useTranslation();
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
+  const { t } = useTranslation()
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
 
   const getLabel = (key: string) => {
     const map: Record<string, string> = {
-      name: t("fields.name"),
-      description: t("fields.description"),
-      unitOfMeasurement: t("fields.unit_of_measurement"),
-      observationType: t("fields.observation_type"),
-      observedArea: t("fields.observed_area"),
-      phenomenonTime: t("fields.phenomenon_time"),
-      properties: t("fields.properties"),
-      "@iot.id": t("fields.id"),
-      "@iot.selfLink": t("fields.self_link"),
-    };
-    return map[key] || key;
-  };
+      name: t('fields.name'),
+      description: t('fields.description'),
+      unitOfMeasurement: t('fields.unit_of_measurement'),
+      observationType: t('fields.observation_type'),
+      observedArea: t('fields.observed_area'),
+      phenomenonTime: t('fields.phenomenon_time'),
+      properties: t('fields.properties'),
+      '@iot.id': t('fields.id'),
+      '@iot.selfLink': t('fields.self_link'),
+    }
+    return map[key] || key
+  }
 
   const toggleExpand = (key: string) => {
-    const newSet = new Set(expandedKeys);
-    if (newSet.has(key)) newSet.delete(key);
-    else newSet.add(key);
-    setExpandedKeys(newSet);
-  };
+    const newSet = new Set(expandedKeys)
+    if (newSet.has(key)) newSet.delete(key)
+    else newSet.add(key)
+    setExpandedKeys(newSet)
+  }
 
   const renderValue = (value: any, depth = 0) => {
-    if (value === null || value === undefined) return "-";
+    if (value === null || value === undefined) return '-'
     if (Array.isArray(value)) {
       return (
         <Accordion>
@@ -71,33 +77,41 @@ const EntityModal: React.FC<EntityModalProps> = ({
               <div className="grid grid-cols-1 gap-2">
                 {Object.entries(item).map(([k, v]) => (
                   <div key={k} className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-700">{getLabel(k)}</label>
-                    <div className="p-2 bg-gray-100 rounded-md">{renderValue(v, depth + 1)}</div>
+                    <label className="text-sm font-medium text-gray-700">
+                      {getLabel(k)}
+                    </label>
+                    <div className="p-2 bg-gray-100 rounded-md">
+                      {renderValue(v, depth + 1)}
+                    </div>
                   </div>
                 ))}
               </div>
             </AccordionItem>
           ))}
         </Accordion>
-      );
+      )
     }
-    if (typeof value === "object") {
+    if (typeof value === 'object') {
       return (
         <div className="grid grid-cols-1 gap-2">
           {Object.entries(value).map(([k, v]) => (
             <div key={k} className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">{getLabel(k)}</label>
-              <div className="p-2 bg-gray-100 rounded-md">{renderValue(v, depth + 1)}</div>
+              <label className="text-sm font-medium text-gray-700">
+                {getLabel(k)}
+              </label>
+              <div className="p-2 bg-gray-100 rounded-md">
+                {renderValue(v, depth + 1)}
+              </div>
             </div>
           ))}
         </div>
-      );
+      )
     }
-    return String(value);
-  };
+    return String(value)
+  }
 
   const renderExpandedSection = (relationName: string, data: any) => {
-    const isExpanded = expandedKeys.has(relationName);
+    const isExpanded = expandedKeys.has(relationName)
     if (!data || (Array.isArray(data) && data.length === 0)) {
       return (
         <div key={relationName} className="mt-4 border-t pt-4">
@@ -108,15 +122,15 @@ const EntityModal: React.FC<EntityModalProps> = ({
             className="flex items-center justify-between w-full"
           >
             <span className="font-medium">{getLabel(relationName)}</span>
-            <span>{isExpanded ? "▲" : "▼"}</span>
+            <span>{isExpanded ? '▲' : '▼'}</span>
           </Button>
           {isExpanded && (
             <div className="mt-2 p-3 bg-gray-50 rounded-lg text-gray-500">
-              {t("fields.no_data")}
+              {t('fields.no_data')}
             </div>
           )}
         </div>
-      );
+      )
     }
     return (
       <div key={relationName} className="mt-4 border-t pt-4">
@@ -127,19 +141,26 @@ const EntityModal: React.FC<EntityModalProps> = ({
           className="flex items-center justify-between w-full"
         >
           <span className="font-medium">{getLabel(relationName)}</span>
-          <span>{isExpanded ? "▲" : "▼"}</span>
+          <span>{isExpanded ? '▲' : '▼'}</span>
         </Button>
         {isExpanded && (
           <div className="mt-2 p-3 bg-gray-50 rounded-lg">
             {Array.isArray(data) ? (
               <Accordion>
                 {data.map((item: any, idx: number) => (
-                  <AccordionItem key={idx} title={item.name || `${relationName} ${item["@iot.id"]}`}>
+                  <AccordionItem
+                    key={idx}
+                    title={item.name || `${relationName} ${item['@iot.id']}`}
+                  >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {Object.entries(item).map(([k, v]) => (
                         <div key={k} className="flex flex-col gap-1">
-                          <label className="text-sm font-medium text-gray-700">{getLabel(k)}</label>
-                          <div className="p-2 bg-gray-100 rounded-md">{renderValue(v)}</div>
+                          <label className="text-sm font-medium text-gray-700">
+                            {getLabel(k)}
+                          </label>
+                          <div className="p-2 bg-gray-100 rounded-md">
+                            {renderValue(v)}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -150,8 +171,12 @@ const EntityModal: React.FC<EntityModalProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.entries(data).map(([k, v]) => (
                   <div key={k} className="flex flex-col gap-1">
-                    <label className="text-sm font-medium text-gray-700">{getLabel(k)}</label>
-                    <div className="p-2 bg-gray-100 rounded-md">{renderValue(v)}</div>
+                    <label className="text-sm font-medium text-gray-700">
+                      {getLabel(k)}
+                    </label>
+                    <div className="p-2 bg-gray-100 rounded-md">
+                      {renderValue(v)}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -159,8 +184,8 @@ const EntityModal: React.FC<EntityModalProps> = ({
           </div>
         )}
       </div>
-    );
-  };
+    )
+  }
 
   return (
     <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="3xl">
@@ -168,40 +193,52 @@ const EntityModal: React.FC<EntityModalProps> = ({
         {(onClose) => (
           <>
             <ModalHeader className="flex flex-col gap-1">
-              {title || t("entity_modal.title")}
+              {title || t('entity_modal.title')}
             </ModalHeader>
             <ModalBody className="max-h-[70vh] overflow-y-auto">
               {!entity ? (
-                <p>{t("fields..no_data")}</p>
+                <p>{t('fields..no_data')}</p>
               ) : (
                 <div className="flex flex-col gap-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(entity).map(([key, value]) => {
                       // Skip internal metadata properties
-                      if (key.startsWith('@iot') || key.endsWith('@iot.navigationLink')) return null;
+                      if (
+                        key.startsWith('@iot') ||
+                        key.endsWith('@iot.navigationLink')
+                      )
+                        return null
                       return (
                         <div key={key} className="flex flex-col gap-1">
-                          <label className="text-sm font-medium text-gray-700">{getLabel(key)}</label>
-                          <div className="p-2 bg-gray-100 rounded-md">{renderValue(value)}</div>
+                          <label className="text-sm font-medium text-gray-700">
+                            {getLabel(key)}
+                          </label>
+                          <div className="p-2 bg-gray-100 rounded-md">
+                            {renderValue(value)}
+                          </div>
                         </div>
-                      );
+                      )
                     })}
                   </div>
                   {/* Nested relations */}
                   {Object.entries(nestedEntities).map(([relationName, data]) =>
                     renderExpandedSection(relationName, data)
                   )}
-                  {entity["@iot.selfLink"] && (
+                  {entity['@iot.selfLink'] && (
                     <div className="mt-4">
-                      <h3 className="text-sm font-medium mb-2">{t("fields.links")}</h3>
+                      <h3 className="text-sm font-medium mb-2">
+                        {t('fields.links')}
+                      </h3>
                       <div className="flex flex-wrap gap-2">
                         <Button
                           radius="sm"
                           size="sm"
                           variant="bordered"
-                          onPress={() => window.open(entity["@iot.selfLink"], "_blank")}
+                          onPress={() =>
+                            window.open(entity['@iot.selfLink'], '_blank')
+                          }
                         >
-                          {t("fields.self_link")}
+                          {t('fields.self_link')}
                         </Button>
                       </div>
                     </div>
@@ -210,18 +247,15 @@ const EntityModal: React.FC<EntityModalProps> = ({
               )}
             </ModalBody>
             <ModalFooter>
-              <Button
-                radius="sm"
-                color="primary"
-                onPress={onClose}>
-                {t("general.close")}
+              <Button radius="sm" color="primary" onPress={onClose}>
+                {t('general.close')}
               </Button>
             </ModalFooter>
           </>
         )}
       </ModalContent>
     </Modal>
-  );
-};
+  )
+}
 
-export default EntityModal;
+export default EntityModal

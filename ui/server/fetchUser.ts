@@ -13,35 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { fetchData } from './api'
 
-import { fetchData } from "../server/api";
+const API_ROOT =
+  process.env.NODE_ENV === 'development'
+    ? `${process.env.NEXT_PUBLIC_API_URL}`
+    : '__NEXT_API_URL__'
+
 const fetchUser = async (token: string, username: string) => {
-    try {
-        const response = await fetchData(
-            `http://api:5000/istsos4/v1.1/Users?$filter=username eq '${username}'`,
-            token
-        );
+  try {
+    const response = await fetchData(
+      `${API_ROOT}/Users?$filter=username eq '${username}'`,
+      token
+    )
 
-
-        if (!response.ok) {
-            throw new Error(`Error fetching user: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        if (!data || !data.value) {
-            console.warn("No user data found for username:", username);
-            return null;
-        }
-        return data.value && data.value.length > 0 ? data.value[0] : null;
-    } catch (error) {
-        console.error("Error fetching user:", error);
-        return null;
+    if (!response.ok) {
+      throw new Error(
+        `Error fetching user: ${response.status} ${response.statusText}`
+      )
     }
-    
-};
+    const data = await response.json()
+    if (!data || !data.value) {
+      console.warn('No user data found for username:', username)
+      return null
+    }
+    return data.value && data.value.length > 0 ? data.value[0] : null
+  } catch (error) {
+    console.error('Error fetching user:', error)
+    return null
+  }
+}
 
 export const fetchUserRole = async (token: string, username: string) => {
-    const user = await fetchUser(token, username);
-    return user?.role || null;
-};
+  const user = await fetchUser(token, username)
+  return user?.role || null
+}
 
-export default fetchUser;
+export default fetchUser

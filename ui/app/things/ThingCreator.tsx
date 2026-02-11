@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,52 +15,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Button } from '@heroui/button'
+import { Input } from '@heroui/input'
+import { Select, SelectItem } from '@heroui/select'
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
-"use client";
+import { useEntities } from '@/context/EntitiesContext'
 
-import * as React from "react";
-import {
-  Button,
-  Input,
-  Select,
-  SelectItem
-} from "@heroui/react";
-import { useTranslation } from "react-i18next";
-import LocationCreator from "../locations/LocationCreator";
-import { buildThingFields } from "./utils";
-import DatastreamCreator from "../datastreams/DatastreamCreator";
-import { useEntities } from "../../context/EntitiesContext";
+import { buildThingFields } from './utils'
+
+import DatastreamCreator from '../datastreams/DatastreamCreator'
+import LocationCreator from '../locations/LocationCreator'
 
 interface Option {
-  label?: string;
-  value?: any;
-  name?: string;
-  symbol?: string;
-  definition?: string;
+  label?: string
+  value?: any
+  name?: string
+  symbol?: string
+  definition?: string
 }
 
 interface ThingCreatorProps {
-  onCreate: (thing: Record<string, any>) => Promise<void>;
-  onCancel: () => void;
-  isLoading: boolean;
-  error: string | null;
-  locationOptions: Array<any>;
+  onCreate: (thing: Record<string, any>) => Promise<void>
+  onCancel: () => void
+  isLoading: boolean
+  error: string | null
+  locationOptions: Array<any>
 
   //props to support Datastream deep insert
-  datastreamOptions: Option[];
-  observationTypeOptions: Option[];
-  unitOfMeasurementOptions: Option[];
-  sensorOptions: Option[];
-  observedPropertyOptions: Option[];
-  disableDatastreams?: boolean; // if true, hides the Datastreams section
+  datastreamOptions: Option[]
+  observationTypeOptions: Option[]
+  unitOfMeasurementOptions: Option[]
+  sensorOptions: Option[]
+  observedPropertyOptions: Option[]
+  disableDatastreams?: boolean // if true, hides the Datastreams section
 }
 
 interface ThingValues {
-  name: string;
-  description: string;
-  properties: Array<{ key: string; value: string }>;
-  Locations: string[];
-  [k: string]: any;
+  name: string
+  description: string
+  properties: Array<{ key: string; value: string }>
+  Locations: string[]
+  [k: string]: any
 }
 
 const ThingCreator: React.FC<ThingCreatorProps> = ({
@@ -71,135 +70,147 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
   observedPropertyOptions,
   disableDatastreams = false,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
-  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
+  const {
+    entities,
+    loading: entitiesLoading,
+    error: entitiesError,
+    refetchAll,
+  } = useEntities()
 
-  const datastreamOptions = (entities?.datastreams || []).map(ds => {
-    const id = ds["@iot.id"];
+  const datastreamOptions = (entities?.datastreams || []).map((ds) => {
+    const id = ds['@iot.id']
     return {
       label: `${ds.name || `Datastream ${id}`}`,
       value: id,
-    };
-  });
+    }
+  })
 
   const fields = React.useMemo(
     () => buildThingFields({ t, locationOptions }),
     [t, locationOptions]
-  );
+  )
 
   const [values, setValues] = React.useState<ThingValues>(() => {
     const init: ThingValues = {
-      name: "",
-      description: "",
+      name: '',
+      description: '',
       properties: [],
-      Locations: []
-    };
-    fields.forEach(f => {
-      if (f.name === "properties" || f.name === "Location") return;
-      if (f.defaultValue !== undefined) init[f.name] = f.defaultValue;
-      else if (init[f.name] === undefined) init[f.name] = "";
-    });
-    return init;
-  });
+      Locations: [],
+    }
+    fields.forEach((f) => {
+      if (f.name === 'properties' || f.name === 'Location') return
+      if (f.defaultValue !== undefined) init[f.name] = f.defaultValue
+      else if (init[f.name] === undefined) init[f.name] = ''
+    })
+    return init
+  })
 
-  const [touched, setTouched] = React.useState<Record<string, boolean>>({});
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
 
   // New locations created inline
-  const [newLocations, setNewLocations] = React.useState<any[]>([]);
-  const [addingNewLocation, setAddingNewLocation] = React.useState(false);
+  const [newLocations, setNewLocations] = React.useState<any[]>([])
+  const [addingNewLocation, setAddingNewLocation] = React.useState(false)
 
   // Datastream management
-  const [selectedDatastreamIds, setSelectedDatastreamIds] = React.useState<string[]>([]);
-  const [newDatastreams, setNewDatastreams] = React.useState<any[]>([]);
-  const [addingNewDatastream, setAddingNewDatastream] = React.useState(false);
+  const [selectedDatastreamIds, setSelectedDatastreamIds] = React.useState<
+    string[]
+  >([])
+  const [newDatastreams, setNewDatastreams] = React.useState<any[]>([])
+  const [addingNewDatastream, setAddingNewDatastream] = React.useState(false)
 
   // Helpers for properties
   const addProperty = () =>
-    setValues(v => ({
+    setValues((v) => ({
       ...v,
-      properties: [...v.properties, { key: "", value: "" }]
-    }));
+      properties: [...v.properties, { key: '', value: '' }],
+    }))
 
-  const updateProperty = (idx: number, field: "key" | "value", val: string) =>
-    setValues(v => {
-      const arr = [...v.properties];
-      arr[idx] = { ...arr[idx], [field]: val };
-      return { ...v, properties: arr };
-    });
+  const updateProperty = (idx: number, field: 'key' | 'value', val: string) =>
+    setValues((v) => {
+      const arr = [...v.properties]
+      arr[idx] = { ...arr[idx], [field]: val }
+      return { ...v, properties: arr }
+    })
 
   const removeProperty = (idx: number) =>
-    setValues(v => ({
+    setValues((v) => ({
       ...v,
-      properties: v.properties.filter((_, i) => i !== idx)
-    }));
+      properties: v.properties.filter((_, i) => i !== idx),
+    }))
 
   const handleChange = (name: string, value: any) =>
-    setValues(prev => ({ ...prev, [name]: value }));
+    setValues((prev) => ({ ...prev, [name]: value }))
 
   // Basic validation for Thing (Datastreams optional)
   const validate = () => {
     for (const f of fields) {
       if (f.required) {
-        if (f.name === "Location") continue;
-        const val = (values as any)[f.name];
+        if (f.name === 'Location') continue
+        const val = (values as any)[f.name]
         if (
-          val === "" ||
+          val === '' ||
           val === null ||
           val === undefined ||
           (Array.isArray(val) && val.length === 0)
         )
-          return false;
+          return false
       }
     }
-    const locationField = fields.find(f => f.name === "Location");
+    const locationField = fields.find((f) => f.name === 'Location')
     if (locationField?.required) {
       if ((values.Locations?.length || 0) === 0 && newLocations.length === 0) {
-        return false;
+        return false
       }
     }
-    return true;
-  };
+    return true
+  }
 
   const handleSubmit = async () => {
-    setTouched(fields.reduce((acc, f) => ({ ...acc, [f.name]: true }), {}));
-    if (!validate()) return;
+    setTouched(fields.reduce((acc, f) => ({ ...acc, [f.name]: true }), {}))
+    if (!validate()) return
 
     const payload: Record<string, any> = {
       name: values.name,
       description: values.description,
       properties: Object.fromEntries(
-        values.properties.filter(p => p.key).map(p => [p.key, p.value])
-      )
-    };
+        values.properties.filter((p) => p.key).map((p) => [p.key, p.value])
+      ),
+    }
 
     // Locations deep insert or references
     if (values.Locations.length > 0) {
       // For backward compatibility you might keep just IDs; however deep insert expects objects.
       // We keep IDs in a separate transformation layer (server) if needed.
-      payload.Locations = values.Locations;
+      payload.Locations = values.Locations
     }
     if (newLocations.length > 0) {
-      payload.newLocations = newLocations;
+      payload.newLocations = newLocations
     }
 
     // Build Datastreams array only if user added any
     if (selectedDatastreamIds.length > 0 || newDatastreams.length > 0) {
       payload.Datastreams = [
-        ...newDatastreams.map(ds => ds),
-        ...selectedDatastreamIds.map(id => ({ "@iot.id": Number(id) }))
-      ];
+        ...newDatastreams.map((ds) => ds),
+        ...selectedDatastreamIds.map((id) => ({ '@iot.id': Number(id) })),
+      ]
     }
 
-    await onCreate(payload);
-  };
+    await onCreate(payload)
+  }
 
   // Render properties editor
   const renderPropertiesEditor = () => (
     <div className="flex flex-col gap-2 h-full">
       <div className="flex justify-between items-center">
         <span className="text-sm font-medium">Properties</span>
-        <Button size="sm" variant="bordered" onPress={addProperty} disabled={isLoading}>
+        <Button
+          size="sm"
+          variant="bordered"
+          onPress={addProperty}
+          disabled={isLoading}
+        >
           + Add
         </Button>
       </div>
@@ -214,7 +225,7 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
               variant="bordered"
               label="Key"
               value={p.key}
-              onChange={e => updateProperty(idx, "key", e.target.value)}
+              onChange={(e) => updateProperty(idx, 'key', e.target.value)}
               className="col-span-2"
             />
             <Input
@@ -222,7 +233,7 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
               variant="bordered"
               label="Value"
               value={p.value}
-              onChange={e => updateProperty(idx, "value", e.target.value)}
+              onChange={(e) => updateProperty(idx, 'value', e.target.value)}
               className="col-span-2"
             />
             <Button
@@ -238,11 +249,11 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
         ))}
       </div>
     </div>
-  );
+  )
 
   // Render Locations
   const renderLocationField = () => {
-    const locationField = fields.find(f => f.name === "Location");
+    const locationField = fields.find((f) => f.name === 'Location')
     return (
       <div className="flex flex-col gap-3 h-full">
         <div className="text-sm font-medium">Locations</div>
@@ -252,9 +263,9 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
           variant="bordered"
           label="Select Existing Locations"
           selectedKeys={new Set(values.Locations)}
-          onSelectionChange={keys => {
-            const arr = Array.from(keys).map(k => String(k));
-            setValues(v => ({ ...v, Locations: arr }));
+          onSelectionChange={(keys) => {
+            const arr = Array.from(keys).map((k) => String(k))
+            setValues((v) => ({ ...v, Locations: arr }))
           }}
           isDisabled={isLoading}
           isRequired={!!locationField?.required}
@@ -281,12 +292,12 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
 
           {addingNewLocation && (
             <LocationCreator
-              onCreate={loc => {
-                setNewLocations(prev => [...prev, loc]);
-                setAddingNewLocation(false);
+              onCreate={(loc) => {
+                setNewLocations((prev) => [...prev, loc])
+                setAddingNewLocation(false)
               }}
               onCancel={() => {
-                setAddingNewLocation(false);
+                setAddingNewLocation(false)
               }}
               isLoading={false}
               error={null}
@@ -314,7 +325,7 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
                       size="sm"
                       variant="light"
                       onPress={() => {
-                        alert(JSON.stringify(loc, null, 2));
+                        alert(JSON.stringify(loc, null, 2))
                       }}
                     >
                       View
@@ -324,7 +335,9 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
                       color="danger"
                       variant="light"
                       onPress={() =>
-                        setNewLocations(list => list.filter((_, i) => i !== idx))
+                        setNewLocations((list) =>
+                          list.filter((_, i) => i !== idx)
+                        )
                       }
                     >
                       Remove
@@ -339,12 +352,12 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
         <div className="text-[11px] opacity-60">
           You can mix existing and newly created Locations.
           {locationField?.required
-            ? " At least one is required."
-            : " (Optional)."}
+            ? ' At least one is required.'
+            : ' (Optional).'}
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   // Render Datastreams management section
   const renderDatastreamsSection = () => {
@@ -360,12 +373,12 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
           variant="bordered"
           label="Select Existing Datastreams"
           selectedKeys={new Set(selectedDatastreamIds)}
-          onSelectionChange={keys =>
-            setSelectedDatastreamIds(Array.from(keys).map(k => String(k)))
+          onSelectionChange={(keys) =>
+            setSelectedDatastreamIds(Array.from(keys).map((k) => String(k)))
           }
           isDisabled={isLoading}
         >
-          {datastreamOptions.map(o => (
+          {datastreamOptions.map((o) => (
             <SelectItem key={o.value}>{o.label}</SelectItem>
           ))}
         </Select>
@@ -389,11 +402,11 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
             <DatastreamCreator
               disableThing
               title="New Datastream (Embedded)"
-              onCreate={async payload => {
+              onCreate={async (payload) => {
                 // Remove potential Thing key if any (just in case)
-                const { Thing, ...rest } = payload;
-                setNewDatastreams(prev => [...prev, rest]);
-                setAddingNewDatastream(false);
+                const { Thing, ...rest } = payload
+                setNewDatastreams((prev) => [...prev, rest])
+                setAddingNewDatastream(false)
               }}
               onCancel={() => setAddingNewDatastream(false)}
               isLoading={false}
@@ -402,12 +415,13 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
               sensorOptions={sensorOptions}
               observedPropertyOptions={observedPropertyOptions}
               locationOptions={[]} // not used here
-              
             />
           )}
 
           {newDatastreams.length === 0 && !addingNewDatastream && (
-            <div className="text-xs text-default-500">No new datastreams added.</div>
+            <div className="text-xs text-default-500">
+              No new datastreams added.
+            </div>
           )}
 
           {newDatastreams.length > 0 && !addingNewDatastream && (
@@ -433,7 +447,9 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
                       color="danger"
                       variant="light"
                       onPress={() =>
-                        setNewDatastreams(list => list.filter((_, i) => i !== idx))
+                        setNewDatastreams((list) =>
+                          list.filter((_, i) => i !== idx)
+                        )
                       }
                     >
                       Remove
@@ -445,49 +461,50 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
           )}
         </div>
         <div className="text-[11px] opacity-60">
-          You can combine existing references with newly created Datastreams. (Optional)
+          You can combine existing references with newly created Datastreams.
+          (Optional)
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   const renderBasicField = (field: any) => {
-    if (field.name === "properties") return renderPropertiesEditor();
-    if (field.name === "Location") return renderLocationField();
+    if (field.name === 'properties') return renderPropertiesEditor()
+    if (field.name === 'Location') return renderLocationField()
 
     const invalid =
       field.required &&
       touched[field.name] &&
-      (values[field.name] === "" ||
+      (values[field.name] === '' ||
         values[field.name] === null ||
-        values[field.name] === undefined);
+        values[field.name] === undefined)
 
     return (
       <Input
         size="sm"
         variant="bordered"
         label={field.label || field.name}
-        value={values[field.name] ?? ""}
-        onChange={e => handleChange(field.name, e.target.value)}
+        value={values[field.name] ?? ''}
+        onChange={(e) => handleChange(field.name, e.target.value)}
         isRequired={field.required}
-        validationState={invalid ? "invalid" : "valid"}
-        errorMessage={invalid ? "Required field" : undefined}
+        validationState={invalid ? 'invalid' : 'valid'}
+        errorMessage={invalid ? 'Required field' : undefined}
       />
-    );
-  };
+    )
+  }
 
-  const propertyField = fields.find(f => f.name === "properties");
-  const locationField = fields.find(f => f.name === "Location");
+  const propertyField = fields.find((f) => f.name === 'properties')
+  const locationField = fields.find((f) => f.name === 'Location')
   const otherFields = fields.filter(
-    f => f.name !== "properties" && f.name !== "Location"
-  );
+    (f) => f.name !== 'properties' && f.name !== 'Location'
+  )
 
   return (
     <div className="flex flex-col gap-4 border border-default-200 rounded-md p-4 bg-content1 bg-gray-100">
       <div className="text-sm font-medium">Create Thing</div>
 
       <div className="grid grid-cols-2 gap-4">
-        {otherFields.map(f => (
+        {otherFields.map((f) => (
           <div key={f.name}>{renderBasicField(f)}</div>
         ))}
       </div>
@@ -521,7 +538,7 @@ const ThingCreator: React.FC<ThingCreatorProps> = ({
         </Button>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default ThingCreator;
+export default ThingCreator

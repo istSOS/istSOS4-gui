@@ -13,33 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import * as React from "react";
-import { Input, Button } from "@heroui/react";
-import { t } from "i18next";
+import { Input } from '@heroui/input'
+import { t } from 'i18next'
+import * as React from 'react'
 
 interface SearchBarProps {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  className?: string;
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  className?: string
 }
 
 export function SearchBar({
   value,
   onChange,
-  placeholder = t("general.search"),
-  className = "w-64",
+  placeholder = t('general.search'),
+  className = 'w-64',
 }: SearchBarProps) {
   return (
     <div className="flex">
       <Input
-        radius = "sm"
+        radius="sm"
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={className}
       />
     </div>
-  );
+  )
 }

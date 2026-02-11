@@ -102,7 +102,7 @@ npm run dev
 #### Build and run with Docker Compose (recommended)
 From the project root:
 ```bash
-docker-compose -f docker-compose_dev.yml -d
+docker compose -f docker-compose_dev.yml up -d
 ```
 - The UI will be available at [http://localhost:3000](http://localhost:3000)
 

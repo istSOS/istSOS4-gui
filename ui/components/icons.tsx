@@ -14,59 +14,75 @@
  * limitations under the License.
  */
 
-
-
 export const LogoIstSOS = ({
   size = 24,
   width,
   height,
   ...props
-}: { size?: number; width?: number; height?: number;[key: string]: any }) => {
-  const imgWidth = size || width || 24;
-  const imgHeight = size || height || 24;
+}: {
+  size?: number
+  width?: number
+  height?: number
+  [key: string]: any
+}) => {
+  const imgWidth = size || width || 24
+  const imgHeight = size || height || 24
 
   return (
     <img
-      src="/istsos_bars_white.png"
+      src={
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.NEXT_PUBLIC_BASE_PATH}/istsos_logo.png`
+          : '/NEXT_APP_URL/istsos_logo.png'
+      }
       width={imgWidth}
       height={imgHeight}
       alt="Logo IstSOS"
       style={{
-        transition: "filter 0.3s"
+        transition: 'filter 0.3s',
       }}
       {...props}
     />
-  );
-};
+  )
+}
 
 export const LogoOSGeo = ({
   size = 24,
   width,
   height,
   ...props
-}: { size?: number; width?: number; height?: number;[key: string]: any }) => {
-  const imgWidth = size || width || 24;
-  const imgHeight = size || height || 24;
+}: {
+  size?: number
+  width?: number
+  height?: number
+  [key: string]: any
+}) => {
+  const imgWidth = size || width || 24
+  const imgHeight = size || height || 24
 
   return (
     <img
-      src="/osgeo_logo.png"
+      src={
+        process.env.NODE_ENV === 'development'
+          ? `${process.env.NEXT_PUBLIC_BASE_PATH}/osgeo_logo.png`
+          : '/NEXT_APP_URL/osgeo_logo.png'
+      }
       width={imgWidth}
       height={imgHeight}
       alt="Logo OSGeo"
       style={{
-        transition: "filter 0.3s"
+        transition: 'filter 0.3s',
       }}
       {...props}
     />
-  );
-};
+  )
+}
 
 type IconSvgProps = React.SVGProps<SVGSVGElement> & {
-  size?: number;
-  width?: number;
-  height?: number;
-};
+  size?: number
+  width?: number
+  height?: number
+}
 
 export const GithubIcon: React.FC<IconSvgProps> = ({
   size = 24,
@@ -88,9 +104,8 @@ export const GithubIcon: React.FC<IconSvgProps> = ({
         fillRule="evenodd"
       />
     </svg>
-  );
-};
-
+  )
+}
 
 export const SearchIcon = (props: IconSvgProps) => (
   <svg
@@ -118,7 +133,7 @@ export const SearchIcon = (props: IconSvgProps) => (
       strokeWidth="2"
     />
   </svg>
-);
+)
 
 export const ChevronDownIcon = (props: IconSvgProps) => (
   <svg
@@ -140,7 +155,7 @@ export const ChevronDownIcon = (props: IconSvgProps) => (
       strokeWidth={1.5}
     />
   </svg>
-);
+)
 
 export const VerticalDotsIcon = (props: IconSvgProps) => (
   <svg
@@ -158,11 +173,11 @@ export const VerticalDotsIcon = (props: IconSvgProps) => (
       fill="currentColor"
     />
   </svg>
-);
+)
 
 export const DeleteIcon = ({ size = 24, ...props }) => {
-  const imgWidth = size || 24;
-  const imgHeight = size || 24;
+  const imgWidth = size || 24
+  const imgHeight = size || 24
 
   return (
     <svg
@@ -181,12 +196,12 @@ export const DeleteIcon = ({ size = 24, ...props }) => {
       <path d="M10 11v6" />
       <path d="M14 11v6" />
     </svg>
-  );
-};
+  )
+}
 
 export const EditIcon = ({ size = 24, ...props }) => {
-  const imgWidth = size || 24;
-  const imgHeight = size || 24;
+  const imgWidth = size || 24
+  const imgHeight = size || 24
 
   return (
     <svg
@@ -203,5 +218,5 @@ export const EditIcon = ({ size = 24, ...props }) => {
       <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 0 0 -4 -4L4 16v4z" />
       <path d="M13.5 6.5L19 12" />
     </svg>
-  );
-};
+  )
+}

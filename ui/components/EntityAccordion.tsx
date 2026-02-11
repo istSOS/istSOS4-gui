@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,21 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Accordion, AccordionItem } from '@heroui/accordion'
+import { Button } from '@heroui/button'
+import { Chip } from '@heroui/chip'
+import { Textarea } from '@heroui/input'
+import React from 'react'
+import { useTranslation } from 'react-i18next'
 
-"use client";
-import React from "react";
-import { Accordion, AccordionItem, Button, Input, Textarea, Chip } from "@heroui/react";
-import EntityCreator from "../components/EntityCreator";
-import DeleteButton from "../components/customButtons/deleteButton";
-import EditButton from "../components/customButtons/editButton";
-import { EditIcon } from "../components/icons";
-import { useTranslation } from "react-i18next";
-import EntityModal from "./modals/EntityModal";
-import { useRouter } from "next/navigation";
-import { getTimeAgoDays, getColorScale } from "./hooks/useColorScale";
-import { formatDateWithTimezone } from "./hooks/formatDateWithTimezone";
-import { useTimezone } from "../context/TimezoneContext";
-import LocationCreator from "../app/locations/LocationCreator";
+import { useRouter } from 'next/navigation'
+
+import LocationCreator from '@/app/locations/LocationCreator'
+
+import { useTimezone } from '@/context/TimezoneContext'
+
+import EntityCreator from './EntityCreator'
+import DeleteButton from './customButtons/deleteButton'
+import EditButton from './customButtons/editButton'
+import { formatDateWithTimezone } from './hooks/formatDateWithTimezone'
+import { getColorScale } from './hooks/useColorScale'
+import EntityModal from './modals/EntityModal'
 
 const EntityAccordion = ({
   items,
@@ -51,20 +57,24 @@ const EntityAccordion = ({
   nestedEntities = {},
   sortOrder,
   setSortOrder,
-  chipColorStrategy
+  chipColorStrategy,
 }) => {
-  const { t } = useTranslation();
-  const router = useRouter();
+  const { t } = useTranslation()
+  const router = useRouter()
 
   // Modal state for nested entity details
-  const [modalOpen, setModalOpen] = React.useState(false);
-  const [modalEntity, setModalEntity] = React.useState<any>(null);
-  const [modalNestedEntities, setModalNestedEntities] = React.useState<Record<string, any>>({});
+  const [modalOpen, setModalOpen] = React.useState(false)
+  const [modalEntity, setModalEntity] = React.useState<any>(null)
+  const [modalNestedEntities, setModalNestedEntities] = React.useState<
+    Record<string, any>
+  >({})
 
-  const { timezone, timeShiftHours } = useTimezone();
+  const { timezone, timeShiftHours } = useTimezone()
 
   // Stato per mostrare il LocationCreator inline per una Thing
-  const [locationCreateForId, setLocationCreateForId] = React.useState<string | null>(null);
+  const [locationCreateForId, setLocationCreateForId] = React.useState<
+    string | null
+  >(null)
 
   const getLabel = (key) => {
     const map = {
@@ -86,40 +96,39 @@ const EntityAccordion = ({
       lastValue: t(`general.last_value`),
       startDate: t(`general.start_date`),
       endDate: t(`general.end_date`),
-    };
-    return map[key] || key;
-  };
+    }
+    return map[key] || key
+  }
 
   const handleEditClick = (entity) => {
-    if (onEdit) onEdit(entity);
-    if (onItemSelect) onItemSelect(String(entity["@iot.id"]));
-  };
-
+    if (onEdit) onEdit(entity)
+    if (onItemSelect) onItemSelect(String(entity['@iot.id']))
+  }
 
   const handleLocationCreate = (loc, thingId) => {
-
-    setLocationCreateForId(null);
-
-  };
+    setLocationCreateForId(null)
+  }
 
   return (
     <>
       <div className="bg-gray-100 p-1 rounded-md">
         {/* Header for the accordion "table" */}
-        {entityType === "datastreams" && !showCreateForm && (
+        {entityType === 'datastreams' && !showCreateForm && (
           <div className="grid grid-cols-5 gap-x-8 pl-2 py-1 pr-60 font-semibold text-gray-700 text-sm">
-            <span>{getLabel("name")}</span>
+            <span>{getLabel('name')}</span>
             <span
               className="pl-4 cursor-pointer select-none hover:underline"
-              onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
-              title={sortOrder === "desc" ? "Sort by oldest" : "Sort by newest"}
+              onClick={() =>
+                setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
+              }
+              title={sortOrder === 'desc' ? 'Sort by oldest' : 'Sort by newest'}
             >
-              {t("general.last")}
-              {sortOrder === "desc" ? " ↓" : " ↑"}
+              {t('general.last')}
+              {sortOrder === 'desc' ? ' ↓' : ' ↑'}
             </span>
-            <span className="pl-8">{t("general.last_value")}</span>
-            <span className="pl-0">{t("general.start_date")}</span>
-            <span className="pl-16">{t("general.end_date")}</span>
+            <span className="pl-8">{t('general.last_value')}</span>
+            <span className="pl-0">{t('general.start_date')}</span>
+            <span className="pl-16">{t('general.end_date')}</span>
           </div>
         )}
 
@@ -128,16 +137,15 @@ const EntityAccordion = ({
           {showCreateForm && (
             <div className="flex items-center w-full">
               <div className="flex-1">
-                <Accordion
-                  isCompact
-                  selectedKeys={["new-entity"]}
-                >
+                <Accordion isCompact selectedKeys={['new-entity']}>
                   <AccordionItem
                     key="new-entity"
                     id={`entity-accordion-item-new-${entityType}`}
                     title={
                       <div className="grid grid-cols-5 gap-2 pl-2 items-center w-full">
-                        <span className="font-bold text-lg text-gray-800">New {entityType}</span>
+                        <span className="font-bold text-lg text-gray-800">
+                          New {entityType}
+                        </span>
                       </div>
                     }
                     value="new-entity"
@@ -148,14 +156,11 @@ const EntityAccordion = ({
                       onCancel={handleCancelCreate}
                       isLoading={isCreating}
                       error={createError}
-                      initialValues={
-                        fields.reduce((acc, field) => {
-                          acc[field.name] = field.defaultValue || "";
-                          return acc;
-                        }, {})
-                      }
+                      initialValues={fields.reduce((acc, field) => {
+                        acc[field.name] = field.defaultValue || ''
+                        return acc
+                      }, {})}
                     />
-
                   </AccordionItem>
                 </Accordion>
               </div>
@@ -168,107 +173,150 @@ const EntityAccordion = ({
             <p>No available {entityType.toLowerCase()}s.</p>
           ) : (
             items.map((entity, idx) => (
-              <div key={entity["@iot.id"] ?? idx} className="flex items-center w-full border-b border-gray-300 last:border-b-0">
+              <div
+                key={entity['@iot.id'] ?? idx}
+                className="flex items-center w-full border-b border-gray-300 last:border-b-0"
+              >
                 {/* AccordionItem (trigger and content) */}
                 <div className="flex-1">
                   <Accordion
                     isCompact
                     selectedKeys={expandedId ? [expandedId] : []}
                     onSelectionChange={(key) => {
-                      if (typeof key === "string") onItemSelect(key);
-                      else if (key && typeof key === "object" && "has" in key) {
-                        const arr = Array.from(key);
-                        onItemSelect(arr[0] != null ? String(arr[0]) : null);
+                      if (typeof key === 'string') onItemSelect(key)
+                      else if (key && typeof key === 'object' && 'has' in key) {
+                        const arr = Array.from(key)
+                        onItemSelect(arr[0] != null ? String(arr[0]) : null)
                       } else if (Array.isArray(key)) {
-                        onItemSelect(key[0] ?? null);
+                        onItemSelect(key[0] ?? null)
                       } else {
-                        onItemSelect(null);
+                        onItemSelect(null)
                       }
                     }}
                   >
                     <AccordionItem
-                      key={entity["@iot.id"] ?? idx}
+                      key={entity['@iot.id'] ?? idx}
                       title={
                         <div className="grid grid-cols-5 w-full">
-                          <span className="font-bold text-gray-800">{entity.name ?? entity["@iot.id"] ?? "-"}</span>
-                          {entityType === "datastreams" ? (
+                          <span className="font-bold text-gray-800">
+                            {entity.name ?? entity['@iot.id'] ?? '-'}
+                          </span>
+                          {entityType === 'datastreams' ? (
                             <>
                               <Chip
                                 className="capitalize"
                                 variant="dot"
                                 color={
-                                  entityType === "datastreams"
-                                    ? (chipColorStrategy
+                                  entityType === 'datastreams'
+                                    ? chipColorStrategy
                                       ? chipColorStrategy(entity)
-                                      : getColorScale(items, entity))
-                                    : "default"
+                                      : getColorScale(items, entity)
+                                    : 'default'
                                 }
                               >
-                                {entity.timeAgo ?? "-"}
+                                {entity.timeAgo ?? '-'}
                               </Chip>
-                              <span className="text-gray-600">{entity.lastValue ?? "-"} {entity.unitOfMeasurement?.symbol ?? "-"}</span>
+                              <span className="text-gray-600">
+                                {entity.lastValue ?? '-'}{' '}
+                                {entity.unitOfMeasurement?.symbol ?? '-'}
+                              </span>
                               <span className="text-gray-600 -ml-12">
-                                {formatDateWithTimezone(entity.startDate, timezone, timeShiftHours)}
+                                {formatDateWithTimezone(
+                                  entity.startDate,
+                                  timezone,
+                                  timeShiftHours
+                                )}
                               </span>
                               <span className="text-gray-600">
-                                {formatDateWithTimezone(entity.endDate, timezone, timeShiftHours)}
+                                {formatDateWithTimezone(
+                                  entity.endDate,
+                                  timezone,
+                                  timeShiftHours
+                                )}
                               </span>
                             </>
                           ) : (
                             <>
-                              <span className="text-gray-600">{entity.description ?? "-"}</span>
+                              <span className="text-gray-600">
+                                {entity.description ?? '-'}
+                              </span>
                             </>
                           )}
                         </div>
                       }
-                      value={String(entity["@iot.id"] ?? idx)}
+                      value={String(entity['@iot.id'] ?? idx)}
                     >
-                      {editEntity && editEntity["@iot.id"] === entity["@iot.id"] ? (
+                      {editEntity &&
+                      editEntity['@iot.id'] === entity['@iot.id'] ? (
                         <div className="mt-2 flex flex-row gap-8">
                           <div className="flex-[2] gap-2">
                             <EntityCreator
                               fields={fields}
-                              onCreate={(updatedEntity) => onSaveEdit(updatedEntity, entity)}
+                              onCreate={(updatedEntity) =>
+                                onSaveEdit(updatedEntity, entity)
+                              }
                               onCancel={handleCancelEdit}
                               isLoading={isEditing}
                               error={editError}
-                              initialValues={
-                                fields.reduce((acc, field) => {
-                                  let value = entity[field.name];
-                                  if (field.type === "select" && value && typeof value === "object" && "@iot.id" in value) {
-                                    acc[field.name] = String(value["@iot.id"]);
-                                  } else if (field.name === "unitOfMeasurement" && value && typeof value === "object") {
-                                    acc[field.name] = value.name || "";
-                                  } else if (field.name === "properties" && value && typeof value === "object" && !Array.isArray(value)) {
-                                    acc[field.name] = Object.entries(value).map(([k, v]) => ({ key: k, value: v }));
-                                  } else {
-                                    acc[field.name] = value ?? "";
-                                  }
-                                  return acc;
-                                }, {})
-                              }
-
+                              initialValues={fields.reduce((acc, field) => {
+                                let value = entity[field.name]
+                                if (
+                                  field.type === 'select' &&
+                                  value &&
+                                  typeof value === 'object' &&
+                                  '@iot.id' in value
+                                ) {
+                                  acc[field.name] = String(value['@iot.id'])
+                                } else if (
+                                  field.name === 'unitOfMeasurement' &&
+                                  value &&
+                                  typeof value === 'object'
+                                ) {
+                                  acc[field.name] = value.name || ''
+                                } else if (
+                                  field.name === 'properties' &&
+                                  value &&
+                                  typeof value === 'object' &&
+                                  !Array.isArray(value)
+                                ) {
+                                  acc[field.name] = Object.entries(value).map(
+                                    ([k, v]) => ({ key: k, value: v })
+                                  )
+                                } else {
+                                  acc[field.name] = value ?? ''
+                                }
+                                return acc
+                              }, {})}
                             />
                           </div>
                         </div>
                       ) : (
                         <div className="mt-2 flex flex-row gap-8">
                           <div className="flex-[2] grid grid-cols-2 gap-2">
-                            {fields.map(field => {
-                              const value = entity[field.name];
-                              if (value == null) return null;
+                            {fields.map((field) => {
+                              const value = entity[field.name]
+                              if (value == null) return null
 
-                              let displayValue: string;
-                              if (field.name === "unitOfMeasurement" && value && typeof value === "object") {
-                                displayValue = `${value.symbol || ""} ${value.name ? `(${value.name})` : ""}`.trim() || "-";
-                              } else if (typeof value === "object") {
-                                displayValue = JSON.stringify(value);
+                              let displayValue: string
+                              if (
+                                field.name === 'unitOfMeasurement' &&
+                                value &&
+                                typeof value === 'object'
+                              ) {
+                                displayValue =
+                                  `${value.symbol || ''} ${value.name ? `(${value.name})` : ''}`.trim() ||
+                                  '-'
+                              } else if (typeof value === 'object') {
+                                displayValue = JSON.stringify(value)
                               } else {
-                                displayValue = value?.toString() ?? "-";
+                                displayValue = value?.toString() ?? '-'
                               }
 
                               return (
-                                <div key={field.name} className="flex items-center gap-2">
+                                <div
+                                  key={field.name}
+                                  className="flex items-center gap-2"
+                                >
                                   <Textarea
                                     disableAutosize
                                     readOnly
@@ -279,56 +327,82 @@ const EntityAccordion = ({
                                     className="flex-1"
                                   />
                                 </div>
-                              );
+                              )
                             })}
 
                             <div className="col-span-2">
                               <hr className="my-1" />
                               <span className="font-semibold text-gray-700 block mb-1">
-                                {t("general.nested_entities") || "Nested Entities"}:
+                                {t('general.nested_entities') ||
+                                  'Nested Entities'}
+                                :
                               </span>
 
                               <div className="flex gap-2 items-center mb-2">
                                 {/* Render buttons for nested entities */}
-                                {Object.entries(nestedEntities?.[entity["@iot.id"]] || {})
-                                  .filter(([key]) => key !== "Observations")
+                                {Object.entries(
+                                  nestedEntities?.[entity['@iot.id']] || {}
+                                )
+                                  .filter(([key]) => key !== 'Observations')
                                   .map(([key, nestedEntity]) => {
-                                    if (!nestedEntity) return null;
-                                    const entitiesArray = Array.isArray(nestedEntity) ? nestedEntity : [nestedEntity];
+                                    if (!nestedEntity) return null
+                                    const entitiesArray = Array.isArray(
+                                      nestedEntity
+                                    )
+                                      ? nestedEntity
+                                      : [nestedEntity]
                                     return (
-                                      <div key={key} className="flex items-center gap-2">
-                                        <span className="text-sm font-medium">{key}:</span>
+                                      <div
+                                        key={key}
+                                        className="flex items-center gap-2"
+                                      >
+                                        <span className="text-sm font-medium">
+                                          {key}:
+                                        </span>
                                         {entitiesArray.map((ent, idx) => (
                                           <Button
                                             radius="sm"
-                                            key={ent["@iot.id"] || idx}
+                                            key={ent['@iot.id'] || idx}
                                             size="sm"
                                             variant="solid"
                                             onPress={() => {
-                                              setModalEntity(ent);
-                                              const nestedId = ent?.["@iot.id"];
-                                              setModalNestedEntities(nestedEntities?.[nestedId] || {});
-                                              setModalOpen(true);
+                                              setModalEntity(ent)
+                                              const nestedId = ent?.['@iot.id']
+                                              setModalNestedEntities(
+                                                nestedEntities?.[nestedId] || {}
+                                              )
+                                              setModalOpen(true)
                                             }}
                                           >
-                                            {(ent.name || ent.description || ent["@iot.id"] || "Details")}
+                                            {ent.name ||
+                                              ent.description ||
+                                              ent['@iot.id'] ||
+                                              'Details'}
                                           </Button>
                                         ))}
                                       </div>
-                                    );
+                                    )
                                   })}
-
                               </div>
 
                               {/* Se il bottone è stato premuto, mostra il LocationCreator inline */}
-                              {entityType === "things" && locationCreateForId === String(entity["@iot.id"]) && (
-                                <div className="mt-2 p-2 border rounded bg-white">
-                                  <LocationCreator
-                                    onCreate={loc => handleLocationCreate(loc, entity["@iot.id"])}
-                                    onCancel={() => setLocationCreateForId(null)}
-                                  />
-                                </div>
-                              )}
+                              {entityType === 'things' &&
+                                locationCreateForId ===
+                                  String(entity['@iot.id']) && (
+                                  <div className="mt-2 p-2 border rounded bg-white">
+                                    <LocationCreator
+                                      onCreate={(loc) =>
+                                        handleLocationCreate(
+                                          loc,
+                                          entity['@iot.id']
+                                        )
+                                      }
+                                      onCancel={() =>
+                                        setLocationCreateForId(null)
+                                      }
+                                    />
+                                  </div>
+                                )}
                             </div>
                           </div>
                         </div>
@@ -340,13 +414,17 @@ const EntityAccordion = ({
                 <div className="flex items-center gap-1 pr-2">
                   <EditButton
                     onEdit={() => handleEditClick(entity)}
-                    isLoading={isEditing && editEntity && editEntity["@iot.id"] === entity["@iot.id"]}
+                    isLoading={
+                      isEditing &&
+                      editEntity &&
+                      editEntity['@iot.id'] === entity['@iot.id']
+                    }
                   />
                   <DeleteButton
-                    endpoint={`${entityType}(${entity["@iot.id"]})`}
+                    endpoint={`${entityType}(${entity['@iot.id']})`}
                     token={token}
-                    entityName={entity.name || entity["@iot.id"] || ""}
-                    onDeleted={() => onDelete(entity["@iot.id"])}
+                    entityName={entity.name || entity['@iot.id'] || ''}
+                    onDeleted={() => onDelete(entity['@iot.id'])}
                   />
                 </div>
               </div>
@@ -366,7 +444,7 @@ const EntityAccordion = ({
         />
       )}
     </>
-  );
-};
+  )
+}
 
-export default EntityAccordion;
+export default EntityAccordion

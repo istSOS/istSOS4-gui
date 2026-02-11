@@ -1,14 +1,14 @@
 services:
-  ui:
-    build: ui
+  istsos4-gui:
+    container_name: istsos4-gui
+    # build: ui
+    image: ghcr.io/istsos/istsos4/gui:0.0.1
     restart: always
     ports:
       - 3000:3000
-    volumes:
-      - ./ui/:/home/node/app/
-    command: npm run dev
     environment:
-      - CHOKIDAR_USEPOLLING=true
+      NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_API_URL}
     networks:
      - istsos4_default
      

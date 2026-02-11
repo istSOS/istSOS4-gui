@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,109 +15,104 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
-"use client";
-import * as React from "react";
-import { siteConfig } from "../../config/site";
-import { useAuth } from "../../context/AuthContext";
-import { useEntities } from "../../context/EntitiesContext";
-import { useTranslation } from "react-i18next";
-import { EntityActions } from "../../components/entity/EntityActions";
-import { SplitPanel } from "../../components/layout/SplitPanel";
-import { EntityList } from "../../components/entity/EntityList";
-import { LoadingScreen } from "../../components/LoadingScreen";
-import { buildLocationFields } from "./utils";
-import { useLocationCRUDHandler } from "./LocationCRUDHandler";
-import LocationCreator from "./LocationCreator";
-import MapWrapper from "../../components/MapWrapper";
+import { LoadingScreen } from '@/components/LoadingScreen'
+import MapWrapper from '@/components/MapWrapper'
+import { EntityActions } from '@/components/entity/EntityActions'
+import { EntityList } from '@/components/entity/EntityList'
+import { SplitPanel } from '@/components/layout/SplitPanel'
 
-const item = siteConfig.items.find(i => i.label === "Locations");
+import { siteConfig } from '@/config/site'
+
+import { useAuth } from '@/context/AuthContext'
+import { useEntities } from '@/context/EntitiesContext'
+
+import { useLocationCRUDHandler } from './LocationCRUDHandler'
+import LocationCreator from './LocationCreator'
+import { buildLocationFields } from './utils'
+
+const item = siteConfig.items.find((i) => i.label === 'Locations')
 
 export default function Locations() {
-  const { t } = useTranslation();
-  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
-  const { token, loading: authLoading } = useAuth();
-
-
-  const [locations, setLocations] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [search, setSearch] = React.useState("");
-  const [showCreate, setShowCreate] = React.useState(false);
-  const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState<string | null>(null);
-  const [editLocation, setEditLocation] = React.useState<any | null>(null);
-  const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState<string | null>(null);
-  const [expanded, setExpanded] = React.useState<string | null>(null);
-  const [showMap, setShowMap] = React.useState(true);
-  const [split] = React.useState(0.55); 
-
-  
-  React.useEffect(() => {
-    setLocations(entities.locations || []);
-    setLoading(entitiesLoading || authLoading);
-    setError(entitiesError || null);
-  }, [entities, entitiesLoading, entitiesError, authLoading]);
-
-  
+  const { t } = useTranslation()
   const {
-    handleCreate,
-    handleEdit,
-    handleSaveEdit,
-    handleDelete
-  } = useLocationCRUDHandler({
-    item,
-    token,
-    setShowCreate,
-    setExpanded,
-    setEditLocation,
-    setCreateLoading,
-    setCreateError,
-    setEditLoading,
-    setEditError,
-    setLocations,
-    refetchAll
-  });
+    entities,
+    loading: entitiesLoading,
+    error: entitiesError,
+    refetchAll,
+  } = useEntities()
+  const { token, loading: authLoading } = useAuth()
 
-  
+  const [locations, setLocations] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [search, setSearch] = React.useState('')
+  const [showCreate, setShowCreate] = React.useState(false)
+  const [createLoading, setCreateLoading] = React.useState(false)
+  const [createError, setCreateError] = React.useState<string | null>(null)
+  const [editLocation, setEditLocation] = React.useState<any | null>(null)
+  const [editLoading, setEditLoading] = React.useState(false)
+  const [editError, setEditError] = React.useState<string | null>(null)
+  const [expanded, setExpanded] = React.useState<string | null>(null)
+  const [showMap, setShowMap] = React.useState(true)
+  const [split] = React.useState(0.55)
+
+  React.useEffect(() => {
+    setLocations(entities.locations || [])
+    setLoading(entitiesLoading || authLoading)
+    setError(entitiesError || null)
+  }, [entities, entitiesLoading, entitiesError, authLoading])
+
+  const { handleCreate, handleEdit, handleSaveEdit, handleDelete } =
+    useLocationCRUDHandler({
+      item,
+      token,
+      setShowCreate,
+      setExpanded,
+      setEditLocation,
+      setCreateLoading,
+      setCreateError,
+      setEditLoading,
+      setEditError,
+      setLocations,
+      refetchAll,
+    })
+
   const handleCreateFromCreator = React.useCallback(
     (payload: any) => {
       if (!payload?.location) {
-        setCreateError("Missing geometry");
-        return;
+        setCreateError('Missing geometry')
+        return
       }
-      if (payload.location.type !== "Point") {
-        setCreateError("Only Point geometries are supported for creation");
-        return;
+      if (payload.location.type !== 'Point') {
+        setCreateError('Only Point geometries are supported for creation')
+        return
       }
-      const [lon, lat] = payload.location.coordinates || [];
+      const [lon, lat] = payload.location.coordinates || []
       handleCreate({
         name: payload.name,
         description: payload.description,
         encodingType: payload.encodingType,
         longitude: lon,
-        latitude: lat
-      });
+        latitude: lat,
+      })
     },
     [handleCreate, setCreateError]
-  );
+  )
 
-  
-  const handleCancelCreate = () => setShowCreate(false);
-  const handleCancelEdit = () => setEditLocation(null);
+  const handleCancelCreate = () => setShowCreate(false)
+  const handleCancelEdit = () => setEditLocation(null)
 
-  
-  const locationFields = React.useMemo(() => buildLocationFields(t), [t]);
+  const locationFields = React.useMemo(() => buildLocationFields(t), [t])
 
-  
-  const filtered = locations.filter(loc =>
+  const filtered = locations.filter((loc) =>
     JSON.stringify(loc).toLowerCase().includes(search.toLowerCase())
-  );
+  )
 
-  if (loading) return <LoadingScreen />;
-  if (error) return <p className="p-4 text-red-500">{error}</p>;
-
+  if (loading) return <LoadingScreen />
+  if (error) return <p className="p-4 text-red-500">{error}</p>
 
   const listSection = (
     <div className="flex flex-col gap-4">
@@ -151,15 +148,15 @@ export default function Locations() {
         setSortOrder={() => {}}
       />
     </div>
-  );
+  )
 
   //Map just points
   const getCoordinates = (loc: any) =>
-    Array.isArray(loc.location?.coordinates) && loc.location.type === "Point"
+    Array.isArray(loc.location?.coordinates) && loc.location.type === 'Point'
       ? loc.location.coordinates
-      : null;
-  const getId = (loc: any) => String(loc["@iot.id"]);
-  const getLabel = (loc: any) => loc.name ?? "-";
+      : null
+  const getId = (loc: any) => String(loc['@iot.id'])
+  const getLabel = (loc: any) => loc.name ?? '-'
 
   const rightPanel = showMap ? (
     <MapWrapper
@@ -169,12 +166,12 @@ export default function Locations() {
       getLabel={getLabel}
       getGeoJSON={(loc: any) => loc.location ?? null}
       expandedId={expanded}
-      onMarkerClick={id => setExpanded(id)}
+      onMarkerClick={(id) => setExpanded(id)}
       showMap={showMap}
       split={split}
       setSplit={() => {}}
     />
-  ) : null;
+  ) : null
 
   return (
     <div className="min-h-screen p-4">
@@ -183,11 +180,11 @@ export default function Locations() {
         search={search}
         onSearchChange={setSearch}
         onCreatePress={() => {
-          setShowCreate(true);
-          setExpanded(null);
+          setShowCreate(true)
+          setExpanded(null)
         }}
         showMap={showMap}
-        onToggleMap={() => setShowMap(prev => !prev)}
+        onToggleMap={() => setShowMap((prev) => !prev)}
       />
       <SplitPanel
         leftPanel={listSection}
@@ -196,5 +193,5 @@ export default function Locations() {
         initialSplit={split}
       />
     </div>
-  );
+  )
 }
