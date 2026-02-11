@@ -8,10 +8,11 @@ services:
     ports:
       - 3000:3000
     volumes:
-      - ./ui/:/app
+      - ./ui/:/app:delegated
+      - /app/node_modules
     environment:
       NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
-      NEXT_PUBLIC_API_ROOT: ${NEXT_API_ROOT}
+      NEXT_PUBLIC_API_URL: ${NEXT_API_URL}
     command: ["npm", "run", "dev"]
     networks:
      - istsos4_default
