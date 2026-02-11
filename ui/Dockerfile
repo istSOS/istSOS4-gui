@@ -1,18 +1,18 @@
 # ---- INSTALL ----
-FROM node:20-bullseye AS installer
+FROM node:20.20-bullseye AS installer
 WORKDIR /home/node/app
 COPY package*.json ./
 RUN npm ci
 
 # ---- BUILD ----
-FROM node:20-bullseye AS builder
+FROM node:20.20-bullseye AS builder
 WORKDIR /home/node/app
 COPY --from=installer /home/node/app/node_modules ./node_modules
 COPY . .
 RUN npm run build
 
 # ---- RUNTIME ----
-FROM node:20-bullseye-slim
+FROM node:20.20-bullseye-slim
 
 ENV NODE_ENV=production
 

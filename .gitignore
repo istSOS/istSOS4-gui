@@ -1,5 +1,10 @@
 # dependencies
 /ui/node_modules
-
+    
 # next.js
 /ui/.next/
+
+# typescript
+/ui/next-env.d.ts
+
+/ui/package-lock.json

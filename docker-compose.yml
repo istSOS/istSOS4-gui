@@ -1,7 +1,6 @@
 services:
   istsos4-gui:
     container_name: istsos4-gui
-    # build: ui
     image: ghcr.io/istsos/istsos4/gui:0.0.1
     restart: always
     ports:
