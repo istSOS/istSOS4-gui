@@ -2,6 +2,7 @@
 FROM node:20.20-bullseye AS installer
 WORKDIR /home/node/app
 COPY package*.json ./
+RUN npm i --package-lock-only
 RUN npm ci
 
 # ---- BUILD ----
