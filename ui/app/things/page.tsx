@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,63 +15,73 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
-"use client";
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { siteConfig } from "../../config/site";
-import { useAuth } from "../../context/AuthContext";
-import { useEntities } from "../../context/EntitiesContext";
-import { EntityActions } from "../../components/entity/EntityActions";
-import { SplitPanel } from "../../components/layout/SplitPanel";
-import { EntityList } from "../../components/entity/EntityList";
-import { LoadingScreen } from "../../components/LoadingScreen";
-import { buildThingFields } from "./utils";
-import { useTranslation } from "react-i18next";
-import ThingCreator from "./ThingCreator";
-import { useThingCRUDHandler } from "./ThingCRUDHandler";
+import { useRouter } from 'next/navigation'
 
-const item = siteConfig.items.find(i => i.label === "Things");
+import { LoadingScreen } from '@/components/LoadingScreen'
+import { EntityActions } from '@/components/entity/EntityActions'
+import { EntityList } from '@/components/entity/EntityList'
+import { SplitPanel } from '@/components/layout/SplitPanel'
+
+import { siteConfig } from '@/config/site'
+
+import { useAuth } from '@/context/AuthContext'
+import { useEntities } from '@/context/EntitiesContext'
+
+import { useThingCRUDHandler } from './ThingCRUDHandler'
+import ThingCreator from './ThingCreator'
+import { buildThingFields } from './utils'
+
+const item = siteConfig.items.find((i) => i.label === 'Things')
 
 export default function Things() {
-  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
-  const { token } = useAuth();
-  const router = useRouter();
-  const { t } = useTranslation();
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
-  const [things, setThings] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [search, setSearch] = React.useState("");
-  const [showCreate, setShowCreate] = React.useState(false);
-  const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState<string | null>(null);
-  const [editThing, setEditThing] = React.useState<any | null>(null);
-  const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState<string | null>(null);
-  const [expanded, setExpanded] = React.useState<string | null>(null);
-  const [showMap, setShowMap] = React.useState(true);
-  const [split, setSplit] = React.useState(0.5);
+  const {
+    entities,
+    loading: entitiesLoading,
+    error: entitiesError,
+    refetchAll,
+  } = useEntities()
+  const { token } = useAuth()
+  const router = useRouter()
+  const { t } = useTranslation()
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<
+    Record<string, any>
+  >({})
+  const [things, setThings] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [search, setSearch] = React.useState('')
+  const [showCreate, setShowCreate] = React.useState(false)
+  const [createLoading, setCreateLoading] = React.useState(false)
+  const [createError, setCreateError] = React.useState<string | null>(null)
+  const [editThing, setEditThing] = React.useState<any | null>(null)
+  const [editLoading, setEditLoading] = React.useState(false)
+  const [editError, setEditError] = React.useState<string | null>(null)
+  const [expanded, setExpanded] = React.useState<string | null>(null)
+  const [showMap, setShowMap] = React.useState(true)
+  const [split, setSplit] = React.useState(0.5)
 
   React.useEffect(() => {
-    setThings(entities.things || []);
-    setLoading(entitiesLoading);
-    setError(entitiesError ? String(entitiesError) : null);
-  }, [entities, entitiesLoading, entitiesError]);
+    setThings(entities.things || [])
+    setLoading(entitiesLoading)
+    setError(entitiesError ? String(entitiesError) : null)
+  }, [entities, entitiesLoading, entitiesError])
 
-  const locationOptions = (entities?.locations || []).map(loc => ({
-    label: loc.name || `Location ${loc["@iot.id"]}`,
-    value: loc["@iot.id"]
-  }));
+  const locationOptions = (entities?.locations || []).map((loc) => ({
+    label: loc.name || `Location ${loc['@iot.id']}`,
+    value: loc['@iot.id'],
+  }))
 
   const thingFields = React.useMemo(
     () => buildThingFields({ t, locationOptions }),
     [t, locationOptions]
-  );
+  )
 
-  const filtered = things.filter(thing =>
+  const filtered = things.filter((thing) =>
     JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
-  );
+  )
 
   // Initialize CRUD handlers
   const {
@@ -93,18 +105,18 @@ export default function Things() {
     refetchAll,
     setNestedEntitiesMap,
     setThings,
-  });
+  })
 
   React.useEffect(() => {
     if (things.length > 0) {
-      things.forEach(t => {
-        fetchThingWithExpand(t["@iot.id"]);
-      });
+      things.forEach((t) => {
+        fetchThingWithExpand(t['@iot.id'])
+      })
     }
-  }, [things, token]);
+  }, [things, token])
 
-  if (loading) return <LoadingScreen />;
-  if (error) return <p>{error}</p>;
+  if (loading) return <LoadingScreen />
+  if (error) return <p>{error}</p>
 
   const entityListComponent = (
     <EntityList
@@ -130,7 +142,7 @@ export default function Things() {
       sortOrder=""
       setSortOrder={() => {}}
     />
-  );
+  )
 
   return (
     <div className="min-h-screen p-4">
@@ -139,11 +151,11 @@ export default function Things() {
         search={search}
         onSearchChange={setSearch}
         onCreatePress={() => {
-          setShowCreate(true);
-          setExpanded(null);
+          setShowCreate(true)
+          setExpanded(null)
         }}
         showMap={showMap}
-        onToggleMap={() => setShowMap(prev => !prev)}
+        onToggleMap={() => setShowMap((prev) => !prev)}
       />
       {showCreate && (
         <div className="mb-6">
@@ -152,12 +164,13 @@ export default function Things() {
             onCancel={handleCancelCreate}
             isLoading={createLoading}
             error={createError}
-            locationOptions={locationOptions} 
-            datastreamOptions={[]} 
-            observationTypeOptions={[]} 
-            unitOfMeasurementOptions={[]} 
-            sensorOptions={[]} 
-            observedPropertyOptions={[]}          />
+            locationOptions={locationOptions}
+            datastreamOptions={[]}
+            observationTypeOptions={[]}
+            unitOfMeasurementOptions={[]}
+            sensorOptions={[]}
+            observedPropertyOptions={[]}
+          />
         </div>
       )}
       <SplitPanel
@@ -167,5 +180,5 @@ export default function Things() {
         initialSplit={split}
       />
     </div>
-  );
+  )
 }

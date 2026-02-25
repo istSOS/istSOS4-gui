@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,56 +15,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import * as React from 'react'
 
-"use client";
+import { useRouter } from 'next/navigation'
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "../../context/AuthContext";
-import { siteConfig } from "../../config/site";
-import { SecNavbar } from "../../components/bars/secNavbar";
-import { fetchData } from "../../server/api";
+import { SecNavbar } from '@/components/bars/secNavbar'
+
+import { siteConfig } from '@/config/site'
+
+import { useAuth } from '@/context/AuthContext'
+
+import { fetchData } from '@/server/api'
 
 //export const mainColor = siteConfig.main_color;
 
 export default function Users() {
-  const { token, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [users, setUsers] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [search, setSearch] = React.useState("");
+  const { token, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const [users, setUsers] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [search, setSearch] = React.useState('')
 
   React.useEffect(() => {
-    if (!token || authLoading) return;
+    if (!token || authLoading) return
     async function getData() {
       try {
         //search for item in siteConfig
-        const item = siteConfig.items.find(i => i.label === "Users");
-        if (!item) throw new Error("Not found");
-        const data = await fetchData(item.root, token);
-        setUsers(data?.value || []);
+        const item = siteConfig.items.find((i) => i.label === 'Users')
+        if (!item) throw new Error('Not found')
+        const data = await fetchData(item.root, token)
+        setUsers(data?.value || [])
       } catch (err) {
-        console.error(err);
-        setError("Error during data loading.");
+        console.error(err)
+        setError('Error during data loading.')
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
-    getData();
-  }, [token, authLoading]);
+    getData()
+  }, [token, authLoading])
 
   const columns = React.useMemo(
     () => (users.length > 0 ? Object.keys(users[0]) : []),
     [users]
-  );
+  )
 
-  const filteredUsers = users.filter(sensor =>
+  const filteredUsers = users.filter((sensor) =>
     JSON.stringify(sensor).toLowerCase().includes(search.toLowerCase())
-  );
+  )
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>{error}</p>;
+  if (loading) return <p>Loading...</p>
+  if (error) return <p>{error}</p>
 
   return (
     <div className="p-4">
@@ -71,12 +75,15 @@ export default function Users() {
         <input
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={(e) => setSearch(e.target.value)}
           placeholder="Search users..."
           className="border rounded px-3 py-2 w-full"
         />
       </div>
-      <h1 className="text-2xl font-bold mb-4" style={{ color: siteConfig.main_color }}>
+      <h1
+        className="text-2xl font-bold mb-4"
+        style={{ color: siteConfig.main_color }}
+      >
         Sensors
       </h1>
       {users.length === 0 ? (
@@ -98,9 +105,9 @@ export default function Users() {
                 <tr key={index} className="hover:bg-gray-50">
                   {columns.map((col) => (
                     <td key={col} className="px-4 py-2 border">
-                      {typeof obs[col] === "object"
+                      {typeof obs[col] === 'object'
                         ? JSON.stringify(obs[col])
-                        : obs[col]?.toString() ?? "-"}
+                        : (obs[col]?.toString() ?? '-')}
                     </td>
                   ))}
                 </tr>
@@ -110,6 +117,5 @@ export default function Users() {
         </div>
       )}
     </div>
-  );
-
+  )
 }

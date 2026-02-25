@@ -13,34 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import React from 'react'
 
-import React from "react";
-import EntityAccordion from "../EntityAccordion";
-import { LoadingScreen } from "../../components/LoadingScreen";
+import EntityAccordion from '../EntityAccordion'
+import { LoadingScreen } from '../LoadingScreen'
 
 interface EntityListProps {
-  items: any[];
-  fields: any[];
-  expandedId: string | null;
-  onItemSelect: (id: string) => void;
-  entityType: string;
-  onEdit: (entity: any) => void;
-  onSaveEdit: (updatedEntity: any, originalEntity: any) => void;
-  onDelete: (id: string) => void;
-  onCreate: (newEntity: any) => void;
-  handleCancelCreate: () => void;
-  handleCancelEdit: () => void;
-  showCreateForm: boolean;
-  isCreating: boolean;
-  createError: string | null;
-  editEntity: any;
-  isEditing: boolean;
-  editError: string | null;
-  token: string;
-  nestedEntities: Record<string, any>;
-  sortOrder: string;
-  setSortOrder: (order: string) => void;
-  chipColorStrategy?: (entity: any) => string;
+  items: any[]
+  fields: any[]
+  expandedId: string | null
+  onItemSelect: (id: string) => void
+  entityType: string
+  onEdit: (entity: any) => void
+  onSaveEdit: (updatedEntity: any, originalEntity: any) => void
+  onDelete: (id: string) => void
+  onCreate: (newEntity: any) => void
+  handleCancelCreate: () => void
+  handleCancelEdit: () => void
+  showCreateForm: boolean
+  isCreating: boolean
+  createError: string | null
+  editEntity: any
+  isEditing: boolean
+  editError: string | null
+  token: string
+  nestedEntities: Record<string, any>
+  sortOrder: string
+  setSortOrder: (order: string) => void
+  chipColorStrategy?: (entity: any) => string
 }
 
 export const EntityList: React.FC<EntityListProps> = ({
@@ -65,11 +65,10 @@ export const EntityList: React.FC<EntityListProps> = ({
   nestedEntities,
   sortOrder,
   setSortOrder,
-  chipColorStrategy
-  
+  chipColorStrategy,
 }) => {
   if (items.length === 0 && !showCreateForm) {
-    return <LoadingScreen />;
+    return <LoadingScreen />
   }
 
   return (
@@ -97,5 +96,5 @@ export const EntityList: React.FC<EntityListProps> = ({
       setSortOrder={setSortOrder}
       chipColorStrategy={chipColorStrategy}
     />
-  );
-};
+  )
+}

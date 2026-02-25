@@ -13,26 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { setGlobalTimeShift } from "../components/hooks/formatDateWithTimezone";
+import React, { createContext, useContext, useState } from 'react'
 
 const TimezoneContext = createContext({
-  timezone: "UTC",
+  timezone: 'UTC',
   setTimezone: (_tz: string) => {},
   timeShiftHours: 0,
-  setTimeShiftHours: (_h: number) => {}
-});
+  setTimeShiftHours: (_h: number) => {},
+})
 
 export const TimezoneProvider = ({ children }) => {
-  const [timezone, setTimezone] = useState("UTC");
-  const [timeShiftHours, setTimeShiftHours] = useState<number>(0);
+  const [timezone, setTimezone] = useState('UTC')
+  const [timeShiftHours, setTimeShiftHours] = useState<number>(0)
 
   return (
-    <TimezoneContext.Provider value={{ timezone, setTimezone, timeShiftHours, setTimeShiftHours }}>
+    <TimezoneContext.Provider
+      value={{ timezone, setTimezone, timeShiftHours, setTimeShiftHours }}
+    >
       {children}
     </TimezoneContext.Provider>
-  );
-};
+  )
+}
 
-export const useTimezone = () => useContext(TimezoneContext);
+export const useTimezone = () => useContext(TimezoneContext)

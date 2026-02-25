@@ -13,37 +13,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Button } from '@heroui/button'
+import { Tooltip } from '@heroui/tooltip'
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
-import * as React from "react";
-import { Button, Tooltip } from "@heroui/react";
-import { EditIcon } from "../icons";
-import { useTranslation } from "react-i18next";
-
-
+import { EditIcon } from '../icons'
 
 type EditButtonProps = {
-    onEdit: () => void;
-    isLoading?: boolean;
-    disabled?: boolean;
-};
+  onEdit: () => void
+  isLoading?: boolean
+  disabled?: boolean
+}
 
-const EditButton: React.FC<EditButtonProps> = ({ onEdit, isLoading = false, disabled = false }) => {
-    const { t } = useTranslation();
+const EditButton: React.FC<EditButtonProps> = ({
+  onEdit,
+  isLoading = false,
+  disabled = false,
+}) => {
+  const { t } = useTranslation()
 
-    return (
-        <Tooltip content={t("general.edit")}>
-            <Button
-                radius="sm"
-                isIconOnly
-                color="warning"
-                variant="light"
-                onPress={onEdit}
-                disabled={isLoading || disabled}
-            >
-                {isLoading ? <span className="loader"></span> : <EditIcon />}
-            </Button>
-        </Tooltip>
-    );
-};
+  return (
+    <Tooltip content={t('general.edit')}>
+      <Button
+        radius="sm"
+        isIconOnly
+        color="warning"
+        variant="light"
+        onPress={onEdit}
+        disabled={isLoading || disabled}
+      >
+        {isLoading ? <span className="loader"></span> : <EditIcon />}
+      </Button>
+    </Tooltip>
+  )
+}
 
-export default EditButton;
+export default EditButton

@@ -1,5 +1,6 @@
 services:
-  ui:
+  istsos4-gui:
+    container_name: istsos4-gui
     build:
       context: ui
       dockerfile: Dockerfile.dev
@@ -11,7 +12,9 @@ services:
       - /home/node/app/node_modules
     command: npm run dev
     environment:
-      NEXT_PUBLIC_BASE_PATH:
+      NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_API_URL}
+    command: npm run dev
     networks:
      - istsos4_default
      

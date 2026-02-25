@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,33 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import React, { createContext, useContext, useEffect, useState } from 'react'
 
-"use client";
+import { siteConfig } from '@/config/site'
 
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { fetchData } from "../server/api";
-import { useAuth } from "./AuthContext";
-import { siteConfig } from "../config/site";
+import { fetchData } from '@/server/api'
+
+import { useAuth } from './AuthContext'
 
 type Entities = {
-  locations: any[];
-  things: any[];
-  sensors: any[];
-  datastreams: any[];
-  observations: any[];
-  featuresOfInterest: any[];
-  observedProperties: any[];
-  historicalLocations: any[];
-  network: any[];
-};
+  locations: any[]
+  things: any[]
+  sensors: any[]
+  datastreams: any[]
+  observations: any[]
+  featuresOfInterest: any[]
+  observedProperties: any[]
+  historicalLocations: any[]
+  network: any[]
+}
 
 type EntitiesContextType = {
-  entities: Entities;
-  setEntities: React.Dispatch<React.SetStateAction<Entities>>;
-  loading: boolean;
-  error: string | null;
-  refetchAll: () => Promise<void>;
-};
+  entities: Entities
+  setEntities: React.Dispatch<React.SetStateAction<Entities>>
+  loading: boolean
+  error: string | null
+  refetchAll: () => Promise<void>
+}
 
 const EntitiesContext = createContext<EntitiesContextType>({
   entities: {
@@ -53,14 +55,14 @@ const EntitiesContext = createContext<EntitiesContextType>({
     historicalLocations: [],
     network: [],
   },
-  setEntities: () => { },
+  setEntities: () => {},
   loading: true,
   error: null,
-  refetchAll: async () => { },
-});
+  refetchAll: async () => {},
+})
 
 export function EntitiesProvider({ children }: { children: React.ReactNode }) {
-  const { token, loading: authLoading } = useAuth();
+  const { token, loading: authLoading } = useAuth()
 
   const [entities, setEntities] = useState<Entities>({
     locations: [],
@@ -72,33 +74,33 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
     observedProperties: [],
     historicalLocations: [],
     network: [],
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   // Helper to find a siteConfig item root by label
   const getRoot = (label: string) =>
-    siteConfig.items.find(i => i.label === label)?.root || "";
+    siteConfig.items.find((i) => i.label === label)?.root || ''
 
   const buildDatastreamsUrl = () => {
-    const dsItem = siteConfig.items.find(i => i.label === "Datastreams");
-    if (!dsItem) return getRoot("Datastreams");
-    const base = dsItem.root || "";
-    const nested: string[] = Array.isArray(dsItem.nested) ? dsItem.nested : [];
-    if (!nested.length) return base;
-    const expandParam = nested.join(",");
+    const dsItem = siteConfig.items.find((i) => i.label === 'Datastreams')
+    if (!dsItem) return getRoot('Datastreams')
+    const base = dsItem.root || ''
+    const nested: string[] = Array.isArray(dsItem.nested) ? dsItem.nested : []
+    if (!nested.length) return base
+    const expandParam = nested.join(',')
     // Preserve existing query params if present
-    return base.includes("?")
+    return base.includes('?')
       ? `${base}&$expand=${expandParam}`
-      : `${base}?$expand=${expandParam}`;
-  };
+      : `${base}?$expand=${expandParam}`
+  }
 
   const refetchAll = async () => {
-    if (!token || authLoading) return;
-    setLoading(true);
-    setError(null);
+    if (!token || authLoading) return
+    setLoading(true)
+    setError(null)
     try {
-      const datastreamsUrl = buildDatastreamsUrl();
+      const datastreamsUrl = buildDatastreamsUrl()
 
       const [
         locations,
@@ -111,17 +113,23 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
         historicalLocations,
         network,
       ] = await Promise.all([
-        fetchData(getRoot("Locations"), token).then(d => d?.value || []),
-        fetchData(getRoot("Things"), token).then(d => d?.value || []),
-        fetchData(getRoot("Sensors"), token).then(d => d?.value || []),
+        fetchData(getRoot('Locations'), token).then((d) => d?.value || []),
+        fetchData(getRoot('Things'), token).then((d) => d?.value || []),
+        fetchData(getRoot('Sensors'), token).then((d) => d?.value || []),
         // Datastreams with $expand (if configured)
-        fetchData(datastreamsUrl, token).then(d => d?.value || []),
-        fetchData(getRoot("Observations"), token).then(d => d?.value || []),
-        fetchData(getRoot("FeaturesOfInterest"), token).then(d => d?.value || []),
-        fetchData(getRoot("ObservedProperties"), token).then(d => d?.value || []),
-        fetchData(getRoot("HistoricalLocations"), token).then(d => d?.value || []),
-        fetchData(getRoot("Networks"), token).then(d => d?.value || []),
-      ]);
+        fetchData(datastreamsUrl, token).then((d) => d?.value || []),
+        fetchData(getRoot('Observations'), token).then((d) => d?.value || []),
+        fetchData(getRoot('FeaturesOfInterest'), token).then(
+          (d) => d?.value || []
+        ),
+        fetchData(getRoot('ObservedProperties'), token).then(
+          (d) => d?.value || []
+        ),
+        fetchData(getRoot('HistoricalLocations'), token).then(
+          (d) => d?.value || []
+        ),
+        fetchData(getRoot('Networks'), token).then((d) => d?.value || []),
+      ])
 
       setEntities({
         locations,
@@ -133,18 +141,18 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
         observedProperties,
         historicalLocations,
         network,
-      });
+      })
     } catch (err: any) {
-      setError("Error during data loading: " + err.message);
+      setError('Error during data loading: ' + err.message)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    refetchAll();
+    refetchAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, authLoading]);
+  }, [token, authLoading])
 
   return (
     <EntitiesContext.Provider
@@ -152,9 +160,9 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
     </EntitiesContext.Provider>
-  );
+  )
 }
 
 export function useEntities() {
-  return useContext(EntitiesContext);
+  return useContext(EntitiesContext)
 }

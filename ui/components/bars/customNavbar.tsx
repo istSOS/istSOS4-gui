@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,53 +15,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Link } from '@heroui/link'
+import React from 'react'
 
-'use client';
+import { GithubIcon } from '@/components/icons'
 
-import React from "react";
-import {
-  Navbar as HeroUINavbar,
-  NavbarContent,
-  NavbarBrand,
-  NavbarItem,
-} from "@heroui/navbar";
-import { Link } from "@heroui/link";
-import { siteConfig } from "../../config/site";
-import { GithubIcon } from "../../components/icons";
+import { siteConfig } from '@/config/site'
 
-const secondaryColor = siteConfig.secondary_color;
+const secondaryColor = siteConfig.secondary_color
 
 export function CustomNavbar() {
   return (
     <div
       style={{
-        width: "100%",
+        width: '100%',
         background: secondaryColor,
-        padding: "6px 75px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
+        padding: '6px 75px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         minHeight: 35,
-        boxSizing: "border-box",
+        boxSizing: 'border-box',
       }}
     >
-      
-      <span className="text-white select-none" style={{ fontSize: '15px', fontWeight: 500 }}>
+      <span
+        className="text-white select-none"
+        style={{ fontSize: '15px', fontWeight: 500 }}
+      >
         Discussions
       </span>
-      
-      <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Link
           isExternal
           aria-label="Source Code"
           href={siteConfig.links.github}
           className="flex items-center justify-center h-full text-white font-light text-base select-none"
-          style={{ fontSize: '15px', textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}
+          style={{
+            fontSize: '15px',
+            textDecoration: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
         >
           Source Code
           <GithubIcon className="text-white" />
         </Link>
       </span>
     </div>
-  );
+  )
 }

@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,23 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Button } from '@heroui/button'
+import React from 'react'
 
-"use client";
-
-import React from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@heroui/react";
+import { useRouter } from 'next/navigation'
 
 export function SecNavbar({
-  title = "",
+  title = '',
   showBack = true,
   onBack,
 }: {
-  title?: string;
-  showBack?: boolean;
-  onBack?: () => void;
+  title?: string
+  showBack?: boolean
+  onBack?: () => void
 }) {
-  const router = useRouter();
+  const router = useRouter()
 
   return (
     <div className="flex items-center gap-4">
@@ -42,9 +42,9 @@ export function SecNavbar({
           ←
         </Button>
       )}
-      <h1 className="text-4xl font-bold" style={{ color: "white" }}>
+      <h1 className="text-4xl font-bold" style={{ color: 'white' }}>
         {title}
       </h1>
     </div>
-  );
+  )
 }

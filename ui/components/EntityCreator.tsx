@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,66 +15,59 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Button } from '@heroui/button'
+import { DatePicker } from '@heroui/date-picker'
+import { Input, Textarea } from '@heroui/input'
+import { Select, SelectItem } from '@heroui/select'
+import { getLocalTimeZone, parseDateTime } from '@internationalized/date'
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
-"use client";
-
-import * as React from "react";
-import {
-  Button,
-  Input,
-  Select,
-  SelectItem,
-  Textarea,
-  DatePicker,
-} from "@heroui/react";
-import { useTranslation } from "react-i18next";
-import FeatureOfInterestCreator from "../app/observations/FeatureOfInterestCreator";
-import LocationCreator from "../app/locations/LocationCreator";
-import { parseDateTime, getLocalTimeZone } from "@internationalized/date";
-import { unitOfMeasurementOptions } from "../app/datastreams/utils";
+import { unitOfMeasurementOptions } from '@/app/datastreams/utils'
+import FeatureOfInterestCreator from '@/app/observations/FeatureOfInterestCreator'
 
 interface FieldOption {
-  label: string;
-  value: string;
-  symbol?: string;
-  definition?: string;
+  label: string
+  value: string
+  symbol?: string
+  definition?: string
 }
 
 interface Field {
-  name: string;
-  label: string;
-  type?: string;
-  required?: boolean;
-  options?: FieldOption[];
+  name: string
+  label: string
+  type?: string
+  required?: boolean
+  options?: FieldOption[]
 }
 
 interface EntityCreatorProps {
-  fields: Field[];
-  onCreate: (entity: Record<string, any>) => Promise<void>;
-  onCancel: () => void;
-  isLoading: boolean;
-  error: string | null;
-  initialValues?: Record<string, any>;
+  fields: Field[]
+  onCreate: (entity: Record<string, any>) => Promise<void>
+  onCancel: () => void
+  isLoading: boolean
+  error: string | null
+  initialValues?: Record<string, any>
 }
 
 /**
  * Helper: normalize a single value (number/string) to a Set<string> for selectedKeys.
  */
 const toKeySet = (v: any) =>
-  v === undefined || v === null || v === ""
+  v === undefined || v === null || v === ''
     ? new Set<string>()
-    : new Set<string>([String(v)]);
+    : new Set<string>([String(v)])
 
 /**
  * Helper: extract first key from Selection object Heroui gives.
  */
 const firstFromSelection = (keys: any): string => {
-  if (!keys) return "";
-  if (typeof keys === "string") return keys;
-  if (Array.isArray(keys)) return keys[0] || "";
-  const arr = Array.from(keys as Set<string>);
-  return arr[0] || "";
-};
+  if (!keys) return ''
+  if (typeof keys === 'string') return keys
+  if (Array.isArray(keys)) return keys[0] || ''
+  const arr = Array.from(keys as Set<string>)
+  return arr[0] || ''
+}
 
 export const EntityCreator: React.FC<EntityCreatorProps> = ({
   fields,
@@ -82,128 +77,127 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
   error,
   initialValues,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
 
   // Form state initialization with fallback defaults
   const [values, setValues] = React.useState<Record<string, any>>(() => {
-    const vals: Record<string, any> = {};
+    const vals: Record<string, any> = {}
     fields.forEach((field) => {
       if (initialValues && initialValues[field.name] !== undefined) {
-        const iv = initialValues[field.name];
+        const iv = initialValues[field.name]
         // Normalize numbers to string for select consistency
-        vals[field.name] =
-            typeof iv === "number" ? String(iv) : iv;
-      } else if (field.type === "coordinates") {
+        vals[field.name] = typeof iv === 'number' ? String(iv) : iv
+      } else if (field.type === 'coordinates') {
         vals[field.name] = [
           [8.9606, 46.0211],
           [8.961, 46.0215],
-        ];
-      } else if (field.name === "properties") {
-        vals[field.name] = [];
+        ]
+      } else if (field.name === 'properties') {
+        vals[field.name] = []
       } else {
-        vals[field.name] = "";
+        vals[field.name] = ''
       }
-    });
-    return vals;
-  });
+    })
+    return vals
+  })
 
   // FeatureOfInterest inline creation
-  const [foiModalOpen, setFoiModalOpen] = React.useState(false);
-  const [newFoi, setNewFoi] = React.useState<any>(null);
+  const [foiModalOpen, setFoiModalOpen] = React.useState(false)
+  const [newFoi, setNewFoi] = React.useState<any>(null)
   const [foiOptions, setFoiOptions] = React.useState<FieldOption[]>(
-    fields.find((f) => f.name === "FeatureOfInterest")?.options || []
-  );
+    fields.find((f) => f.name === 'FeatureOfInterest')?.options || []
+  )
 
   React.useEffect(() => {
     setFoiOptions(
-      fields.find((f) => f.name === "FeatureOfInterest")?.options || []
-    );
-  }, [fields]);
+      fields.find((f) => f.name === 'FeatureOfInterest')?.options || []
+    )
+  }, [fields])
 
   const handleFoiCreate = (foi: any) => {
-    setNewFoi(foi);
-    setFoiModalOpen(false);
-    const foiId = foi["@iot.id"] || foi.id || foi.name || "";
-    const foiLabel = foi.name || foi["@iot.id"] || foi.id;
+    setNewFoi(foi)
+    setFoiModalOpen(false)
+    const foiId = foi['@iot.id'] || foi.id || foi.name || ''
+    const foiLabel = foi.name || foi['@iot.id'] || foi.id
     setFoiOptions((prev) => {
-      if (prev.some((opt) => opt.value === foiId)) return prev;
-      return [...prev, { label: foiLabel, value: foiId }];
-    });
-    setValues((prev) => ({ ...prev, FeatureOfInterest: foiId }));
-  };
+      if (prev.some((opt) => opt.value === foiId)) return prev
+      return [...prev, { label: foiLabel, value: foiId }]
+    })
+    setValues((prev) => ({ ...prev, FeatureOfInterest: foiId }))
+  }
 
   // Inline Sensor creation (for Datastream flow)
-  const [sensorModalOpen, setSensorModalOpen] = React.useState(false);
-  const [newSensor, setNewSensor] = React.useState<any>(null);
+  const [sensorModalOpen, setSensorModalOpen] = React.useState(false)
+  const [newSensor, setNewSensor] = React.useState<any>(null)
   const [sensorForm, setSensorForm] = React.useState({
-    name: "",
-    description: "",
-    encodingType: "application/pdf",
-    metadata: "",
-  });
+    name: '',
+    description: '',
+    encodingType: 'application/pdf',
+    metadata: '',
+  })
 
   const resetSensorForm = () =>
     setSensorForm({
-      name: "",
-      description: "",
-      encodingType: "application/pdf",
-      metadata: "",
-    });
+      name: '',
+      description: '',
+      encodingType: 'application/pdf',
+      metadata: '',
+    })
 
   const handleSaveNewSensor = () => {
     if (!sensorForm.name || !sensorForm.description || !sensorForm.encodingType)
-      return;
-    setNewSensor({ ...sensorForm });
-    setSensorModalOpen(false);
+      return
+    setNewSensor({ ...sensorForm })
+    setSensorModalOpen(false)
     // Clear selected sensorId to avoid ambiguity
-    setValues((v) => ({ ...v, sensorId: "" }));
-  };
+    setValues((v) => ({ ...v, sensorId: '' }))
+  }
 
   const handleRemoveNewSensor = () => {
-    setNewSensor(null);
-    resetSensorForm();
-  };
+    setNewSensor(null)
+    resetSensorForm()
+  }
 
   const handleChange = (name: string, value: any) => {
-    setValues((prev) => ({ ...prev, [name]: value }));
-  };
+    setValues((prev) => ({ ...prev, [name]: value }))
+  }
 
   // Submit: inject inline created entities into payload
   const handleSubmit = async () => {
-    const payload = { ...values };
+    const payload = { ...values }
     if (newFoi) {
-      payload.newFoi = newFoi;
-      payload.FeatureOfInterest = null;
+      payload.newFoi = newFoi
+      payload.FeatureOfInterest = null
     }
     if (newSensor) {
-      payload.newSensor = newSensor;
-      payload.sensorId = null;
+      payload.newSensor = newSensor
+      payload.sensorId = null
     }
     // Transform unitOfMeasurement string to object
     if (
-      typeof payload.unitOfMeasurement === "string" &&
+      typeof payload.unitOfMeasurement === 'string' &&
       payload.unitOfMeasurement
     ) {
       const match = unitOfMeasurementOptions.find(
         (u) => u.name === payload.unitOfMeasurement
-      );
+      )
       if (match) {
         payload.unitOfMeasurement = {
           name: match.name,
           symbol: match.symbol,
           definition: match.definition,
-        };
+        }
       }
     }
-    await onCreate(payload);
-    setNewFoi(null);
-    setNewSensor(null);
-  };
+    await onCreate(payload)
+    setNewFoi(null)
+    setNewSensor(null)
+  }
 
   // Render logic per field
   const renderField = (field: Field) => {
     // FeatureOfInterest special block
-    if (field.name === "FeatureOfInterest") {
+    if (field.name === 'FeatureOfInterest') {
       return (
         <div className="flex flex-col gap-2 w-full">
           {!foiModalOpen && (
@@ -231,13 +225,14 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             type="button"
             disabled={foiModalOpen}
           >
-            + {t("observations.create_new_feature_of_interest") ||
-              "Create new FeatureOfInterest"}
+            +{' '}
+            {t('observations.create_new_feature_of_interest') ||
+              'Create new FeatureOfInterest'}
           </Button>
           {newFoi && (
             <div className="text-green-700 text-xs">
-              {t("observations.new_feature_of_interest_ready") ||
-                "New FeatureOfInterest ready to be created!"}
+              {t('observations.new_feature_of_interest_ready') ||
+                'New FeatureOfInterest ready to be created!'}
             </div>
           )}
           {foiModalOpen && (
@@ -247,11 +242,11 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             />
           )}
         </div>
-      );
+      )
     }
 
     // Sensor block (inline creation)
-    if (field.name === "sensorId") {
+    if (field.name === 'sensorId') {
       return (
         <div className="flex flex-col gap-2 w-full">
           {!sensorModalOpen && (
@@ -263,11 +258,11 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
                 label={field.label}
                 selectedKeys={toKeySet(values.sensorId)}
                 onSelectionChange={(keys) => {
-                  const first = firstFromSelection(keys);
-                  handleChange(field.name, first);
+                  const first = firstFromSelection(keys)
+                  handleChange(field.name, first)
                   if (newSensor) {
-                    setNewSensor(null);
-                    resetSensorForm();
+                    setNewSensor(null)
+                    resetSensorForm()
                   }
                 }}
                 className="flex-1"
@@ -351,8 +346,8 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
                   size="sm"
                   variant="bordered"
                   onPress={() => {
-                    setSensorModalOpen(false);
-                    if (!newSensor) resetSensorForm();
+                    setSensorModalOpen(false)
+                    if (!newSensor) resetSensorForm()
                   }}
                 >
                   Cancel
@@ -364,8 +359,8 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           {newSensor && !sensorModalOpen && (
             <div className="flex items-center justify-between">
               <div className="text-green-700 text-xs">
-                {t("datastreams.new_sensor_ready") ||
-                  "New Sensor ready to be created with the Datastream!"}
+                {t('datastreams.new_sensor_ready') ||
+                  'New Sensor ready to be created with the Datastream!'}
               </div>
               <Button
                 radius="sm"
@@ -374,19 +369,19 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
                 color="danger"
                 onPress={handleRemoveNewSensor}
               >
-                {t("general.remove") || "Remove"}
+                {t('general.remove') || 'Remove'}
               </Button>
             </div>
           )}
         </div>
-      );
+      )
     }
 
     // Dynamic properties array
-    if (field.type === "properties") {
+    if (field.type === 'properties') {
       const properties = Array.isArray(values.properties)
         ? values.properties
-        : [];
+        : []
       return (
         <div className="flex flex-col gap-2 pl-2 w-full">
           {properties.map((prop: any, idx: number) => (
@@ -394,26 +389,26 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
               <Input
                 size="sm"
                 variant="bordered"
-                label={t("general.property_key") || "Key"}
-                placeholder={t("general.property_key") || "Key"}
-                value={prop.key || ""}
+                label={t('general.property_key') || 'Key'}
+                placeholder={t('general.property_key') || 'Key'}
+                value={prop.key || ''}
                 onChange={(e) => {
-                  const newProps = [...properties];
-                  newProps[idx] = { ...newProps[idx], key: e.target.value };
-                  setValues((v) => ({ ...v, properties: newProps }));
+                  const newProps = [...properties]
+                  newProps[idx] = { ...newProps[idx], key: e.target.value }
+                  setValues((v) => ({ ...v, properties: newProps }))
                 }}
                 className="flex-1"
               />
               <Input
                 size="sm"
                 variant="bordered"
-                label={t("general.property_value") || "Value"}
-                placeholder={t("general.property_value") || "Value"}
-                value={prop.value || ""}
+                label={t('general.property_value') || 'Value'}
+                placeholder={t('general.property_value') || 'Value'}
+                value={prop.value || ''}
                 onChange={(e) => {
-                  const newProps = [...properties];
-                  newProps[idx] = { ...newProps[idx], value: e.target.value };
-                  setValues((v) => ({ ...v, properties: newProps }));
+                  const newProps = [...properties]
+                  newProps[idx] = { ...newProps[idx], value: e.target.value }
+                  setValues((v) => ({ ...v, properties: newProps }))
                 }}
                 className="flex-1"
               />
@@ -441,38 +436,38 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             onPress={() =>
               setValues((v) => ({
                 ...v,
-                properties: [...(v.properties || []), { key: "", value: "" }],
+                properties: [...(v.properties || []), { key: '', value: '' }],
               }))
             }
           >
-            {t("general.add_property") || "Add property"}
+            {t('general.add_property') || 'Add property'}
           </Button>
         </div>
-      );
+      )
     }
 
     // Unit of Measurement select
-    if (field.name === "unitOfMeasurement") {
+    if (field.name === 'unitOfMeasurement') {
       return (
         <Select
           size="sm"
-            variant="bordered"
-            label={field.label}
-            selectedKeys={toKeySet(values.unitOfMeasurement)}
-            onSelectionChange={(keys) =>
-              handleChange("unitOfMeasurement", firstFromSelection(keys))
-            }
-            required={field.required}
+          variant="bordered"
+          label={field.label}
+          selectedKeys={toKeySet(values.unitOfMeasurement)}
+          onSelectionChange={(keys) =>
+            handleChange('unitOfMeasurement', firstFromSelection(keys))
+          }
+          required={field.required}
         >
           {unitOfMeasurementOptions.map((u) => (
             <SelectItem key={u.name}>{u.symbol}</SelectItem>
           ))}
         </Select>
-      );
+      )
     }
 
     // Generic select
-    if (field.type === "select") {
+    if (field.type === 'select') {
       return (
         <Select
           size="sm"
@@ -489,19 +484,19 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
             <SelectItem key={option.value}>{option.label}</SelectItem>
           ))}
         </Select>
-      );
+      )
     }
 
     // Date/time
-    if (field.type === "datetime-local") {
-      const raw: string | undefined = values[field.name];
-      let dateValue: any = undefined;
+    if (field.type === 'datetime-local') {
+      const raw: string | undefined = values[field.name]
+      let dateValue: any = undefined
       if (raw) {
         try {
-          const cleaned = raw.replace(/Z$/, "");
-          dateValue = parseDateTime(cleaned);
+          const cleaned = raw.replace(/Z$/, '')
+          dateValue = parseDateTime(cleaned)
         } catch {
-          dateValue = undefined;
+          dateValue = undefined
         }
       }
       return (
@@ -513,19 +508,19 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           value={dateValue}
           onChange={(val) => {
             if (!val) {
-              handleChange(field.name, "");
-              return;
+              handleChange(field.name, '')
+              return
             }
-            const jsDate = val.toDate(getLocalTimeZone());
-            handleChange(field.name, jsDate.toISOString());
+            const jsDate = val.toDate(getLocalTimeZone())
+            handleChange(field.name, jsDate.toISOString())
           }}
           className="flex-1"
         />
-      );
+      )
     }
 
     // Number
-    if (field.type === "number") {
+    if (field.type === 'number') {
       return (
         <Input
           size="sm"
@@ -537,7 +532,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           className="flex-1"
           required={field.required}
         />
-      );
+      )
     }
 
     // Default text
@@ -552,8 +547,8 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
         className="flex-1"
         required={field.required}
       />
-    );
-  };
+    )
+  }
 
   return (
     <div className="grid grid-cols-2 gap-2">
@@ -565,7 +560,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
       {error && (
         <div
           className="col-span-2"
-          style={{ color: "red", marginBottom: 8, marginTop: 4 }}
+          style={{ color: 'red', marginBottom: 8, marginTop: 4 }}
         >
           {error}
         </div>
@@ -578,7 +573,7 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           isLoading={isLoading}
           onPress={handleSubmit}
         >
-          {t("general.create")}
+          {t('general.create')}
         </Button>
         <Button
           radius="sm"
@@ -587,11 +582,11 @@ export const EntityCreator: React.FC<EntityCreatorProps> = ({
           onPress={onCancel}
           disabled={isLoading}
         >
-          {t("general.cancel")}
+          {t('general.cancel')}
         </Button>
       </div>
     </div>
-  );
-};
+  )
+}
 
-export default EntityCreator;
+export default EntityCreator

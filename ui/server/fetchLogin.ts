@@ -1,3 +1,5 @@
+'use server'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -14,38 +16,40 @@
  * limitations under the License.
  */
 
-'use server'
-const endpoint = "http://api:5000/istsos4/v1.1/Login";
+const endpoint =
+  process.env.NODE_ENV === 'development'
+    ? `${process.env.NEXT_PUBLIC_API_URL}/Login`
+    : '__NEXT_API_URL__/Login'
 
-const fetchLogin = async ( 
-    username: string, 
-    password: string) => {
-    const data = new URLSearchParams({
-        username,
-        password,
-        grant_type: 'password',
-    });
+const fetchLogin = async (username: string, password: string) => {
+  const data = new URLSearchParams({
+    username,
+    password,
+    grant_type: 'password',
+  })
 
-    //console.log("Invio login:", data.toString());
-    
-    const requestOptions: RequestInit = {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: data.toString(),
-    };
+  const requestOptions: RequestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: data.toString(),
+  }
 
-    try {
-        const response = await fetch(endpoint, requestOptions);
-        if (!response.ok) {
-            throw new Error(`Error fetching data: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        //console.log("Contenuto risposta login:", data); //debug only, to remove
-        return data; //access_token
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        return null;
+  try {
+    const response = await fetch(endpoint, requestOptions)
+
+    if (!response.ok) {
+      throw new Error(
+        `Error fetching data: ${response.status} ${response.statusText}`
+      )
     }
+
+    const data = await response.json()
+
+    return data
+  } catch (error) {
+    console.error('Error fetching data:', error)
+    return null
+  }
 }
 
 export default fetchLogin

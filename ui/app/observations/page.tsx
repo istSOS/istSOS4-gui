@@ -1,3 +1,5 @@
+'use client'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -13,149 +15,196 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import * as React from 'react'
+import { useTranslation } from 'react-i18next'
 
-"use client";
-import * as React from "react";
-import { useRouter } from "next/navigation";
-import { siteConfig } from "../../config/site";
-import { useAuth } from "../../context/AuthContext";
-import { useEntities } from "../../context/EntitiesContext";
-import { useTranslation } from "react-i18next";
-import { fetchData, deleteData, createData, updateData } from "../../server/api";
-import { EntityActions } from "../../components/entity/EntityActions";
-import { SplitPanel } from "../../components/layout/SplitPanel";
-import { EntityList } from "../../components/entity/EntityList";
-import MapWrapper from "../../components/MapWrapper";
-import FeatureOfInterestCreator from "./FeatureOfInterestCreator";
-import { LoadingScreen } from "../../components/LoadingScreen";
+import { useRouter } from 'next/navigation'
+
+import { LoadingScreen } from '@/components/LoadingScreen'
+import { EntityActions } from '@/components/entity/EntityActions'
+import { EntityList } from '@/components/entity/EntityList'
+import { SplitPanel } from '@/components/layout/SplitPanel'
+
+import { siteConfig } from '@/config/site'
+
+import { useAuth } from '@/context/AuthContext'
+import { useEntities } from '@/context/EntitiesContext'
+
+import { createData, deleteData, fetchData, updateData } from '@/server/api'
+
+import FeatureOfInterestCreator from './FeatureOfInterestCreator'
 
 //export const mainColor = siteConfig.main_color;
 
 // Find config items
-const item = siteConfig.items.find(i => i.label === "Observations");
-const foiItem = siteConfig.items.find(i => i.label === "FeaturesOfInterest");
+const item = siteConfig.items.find((i) => i.label === 'Observations')
+const foiItem = siteConfig.items.find((i) => i.label === 'FeaturesOfInterest')
 
 export default function Observations() {
-  const { t } = useTranslation();
-  const { entities, loading: entitiesLoading, error: entitiesError, refetchAll } = useEntities();
-  const { token, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const { t } = useTranslation()
+  const {
+    entities,
+    loading: entitiesLoading,
+    error: entitiesError,
+    refetchAll,
+  } = useEntities()
+  const { token, loading: authLoading } = useAuth()
+  const router = useRouter()
 
   // Data & UI state
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<Record<string, any>>({});
-  const [observations, setObservations] = React.useState<any[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [search, setSearch] = React.useState("");
-  const [showCreate, setShowCreate] = React.useState(false);
-  const [createLoading, setCreateLoading] = React.useState(false);
-  const [createError, setCreateError] = React.useState<string | null>(null);
-  const [editObservation, setEditObservation] = React.useState<any>(null);
-  const [editLoading, setEditLoading] = React.useState(false);
-  const [editError, setEditError] = React.useState<string | null>(null);
-  const [expanded, setExpanded] = React.useState<string | null>(null);
-  const [showMap, setShowMap] = React.useState(true);
-  const [split, setSplit] = React.useState(0.5);
+  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<
+    Record<string, any>
+  >({})
+  const [observations, setObservations] = React.useState<any[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [error, setError] = React.useState<string | null>(null)
+  const [search, setSearch] = React.useState('')
+  const [showCreate, setShowCreate] = React.useState(false)
+  const [createLoading, setCreateLoading] = React.useState(false)
+  const [createError, setCreateError] = React.useState<string | null>(null)
+  const [editObservation, setEditObservation] = React.useState<any>(null)
+  const [editLoading, setEditLoading] = React.useState(false)
+  const [editError, setEditError] = React.useState<string | null>(null)
+  const [expanded, setExpanded] = React.useState<string | null>(null)
+  const [showMap, setShowMap] = React.useState(true)
+  const [split, setSplit] = React.useState(0.5)
 
   // FeatureOfInterest modal
-  const [foiModalOpen, setFoiModalOpen] = React.useState(false);
-  const [pendingFoi, setPendingFoi] = React.useState<any>(null);
+  const [foiModalOpen, setFoiModalOpen] = React.useState(false)
+  const [pendingFoi, setPendingFoi] = React.useState<any>(null)
 
   // Grafana embed
-  const [showGrafana, setShowGrafana] = React.useState(false);
-  const grafanaBase = process.env.NEXT_PUBLIC_GRAFANA_BASE_URL;
-  const grafanaDashboardUid = process.env.NEXT_PUBLIC_GRAFANA_DASHBOARD_UID;
-  const grafanaPanelId = process.env.NEXT_PUBLIC_GRAFANA_PANEL_ID;
+  const [showGrafana, setShowGrafana] = React.useState(false)
+  const grafanaBase = process.env.NEXT_PUBLIC_GRAFANA_BASE_URL
+  const grafanaDashboardUid = process.env.NEXT_PUBLIC_GRAFANA_DASHBOARD_UID
+  const grafanaPanelId = process.env.NEXT_PUBLIC_GRAFANA_PANEL_ID
   const grafanaUrl = React.useMemo(() => {
-    if (!grafanaBase || !grafanaDashboardUid || !grafanaPanelId) return null;
+    if (!grafanaBase || !grafanaDashboardUid || !grafanaPanelId) return null
 
-    return `${grafanaBase}/d-solo/${grafanaDashboardUid}/?panelId=${grafanaPanelId}&theme=light&var-entity=observations`;
-  }, [grafanaBase, grafanaDashboardUid, grafanaPanelId]);
+    return `${grafanaBase}/d-solo/${grafanaDashboardUid}/?panelId=${grafanaPanelId}&theme=light&var-entity=observations`
+  }, [grafanaBase, grafanaDashboardUid, grafanaPanelId])
 
   // Default form values
-  const now = new Date();
-  const roundToMinute = new Date(Math.floor(now.getTime() / 60000) * 60000);
+  const now = new Date()
+  const roundToMinute = new Date(Math.floor(now.getTime() / 60000) * 60000)
   const defaultValues = {
     phenomenonTime: roundToMinute.toISOString(),
     resultTime: roundToMinute.toISOString(),
     result: 0,
-    resultQuality: "",
+    resultQuality: '',
     Datastream: null,
-    FeatureOfInterest: null
-  };
+    FeatureOfInterest: null,
+  }
 
   React.useEffect(() => {
-    setObservations(entities.observations || []);
-    setLoading(entitiesLoading);
-    setError(entitiesError as any);
-  }, [entities, entitiesLoading, entitiesError]);
+    setObservations(entities.observations || [])
+    setLoading(entitiesLoading)
+    setError(entitiesError as any)
+  }, [entities, entitiesLoading, entitiesError])
 
   // Filters
   const [filters, setFilters] = React.useState({
-    datastream: "",
-    featureOfInterest: ""
-  });
+    datastream: '',
+    featureOfInterest: '',
+  })
   const handleFilterChange = (key: string, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
+    setFilters((prev) => ({ ...prev, [key]: value }))
+  }
 
   // Filtered observations
-  const filtered = observations.filter(o => {
-    const id = o["@iot.id"];
-    const nested = nestedEntitiesMap[id] || {};
-    const datastream = nested.Datastream || o.Datastream;
-    const featureOfInterest = nested.FeatureOfInterest || o.FeatureOfInterest;
+  const filtered = observations.filter((o) => {
+    const id = o['@iot.id']
+    const nested = nestedEntitiesMap[id] || {}
+    const datastream = nested.Datastream || o.Datastream
+    const featureOfInterest = nested.FeatureOfInterest || o.FeatureOfInterest
 
-    const datastreamId = datastream && datastream["@iot.id"] ? String(datastream["@iot.id"]) : "";
-    const featureOfInterestId = featureOfInterest && featureOfInterest["@iot.id"] ? String(featureOfInterest["@iot.id"]) : "";
+    const datastreamId =
+      datastream && datastream['@iot.id'] ? String(datastream['@iot.id']) : ''
+    const featureOfInterestId =
+      featureOfInterest && featureOfInterest['@iot.id']
+        ? String(featureOfInterest['@iot.id'])
+        : ''
 
-    const matchesSearch = JSON.stringify(o).toLowerCase().includes(search.toLowerCase());
-    const matchesDatastream = !filters.datastream || datastreamId === String(filters.datastream);
-    const matchesFeatureOfInterest = !filters.featureOfInterest || featureOfInterestId === String(filters.featureOfInterest);
+    const matchesSearch = JSON.stringify(o)
+      .toLowerCase()
+      .includes(search.toLowerCase())
+    const matchesDatastream =
+      !filters.datastream || datastreamId === String(filters.datastream)
+    const matchesFeatureOfInterest =
+      !filters.featureOfInterest ||
+      featureOfInterestId === String(filters.featureOfInterest)
 
-    return matchesSearch && matchesDatastream && matchesFeatureOfInterest;
-  });
+    return matchesSearch && matchesDatastream && matchesFeatureOfInterest
+  })
 
   // Options
   const datastreamOptions = (entities?.datastreams || []).map((ds: any) => ({
-    label: ds.name || `Datastream ${ds["@iot.id"]}`,
-    value: ds["@iot.id"]
-  }));
-  const featureOfInterestOptions = (entities?.featuresOfInterest || []).map((foi: any) => ({
-    label: foi.name || `Feature of Interest ${foi["@iot.id"]}`,
-    value: foi["@iot.id"]
-  }));
+    label: ds.name || `Datastream ${ds['@iot.id']}`,
+    value: ds['@iot.id'],
+  }))
+  const featureOfInterestOptions = (entities?.featuresOfInterest || []).map(
+    (foi: any) => ({
+      label: foi.name || `Feature of Interest ${foi['@iot.id']}`,
+      value: foi['@iot.id'],
+    })
+  )
 
   // Form fields
   const observationFields = [
-    { name: "phenomenonTime", label: "Phenomenon Time", required: true, defaultValue: defaultValues.phenomenonTime, type: "datetime-local" },
-    { name: "resultTime", label: "Result Time", required: false, defaultValue: defaultValues.resultTime, type: "datetime-local" },
-    { name: "result", label: "Result", required: true, defaultValue: defaultValues.result, type: "number" },
-    { name: "resultQuality", label: "Result Quality", required: false, defaultValue: defaultValues.resultQuality, type: "text" },
     {
-      name: "Datastream",
-      label: "Datastream",
+      name: 'phenomenonTime',
+      label: 'Phenomenon Time',
       required: true,
-      defaultValue: defaultValues.Datastream,
-      type: "select",
-      options: datastreamOptions
+      defaultValue: defaultValues.phenomenonTime,
+      type: 'datetime-local',
     },
     {
-      name: "FeatureOfInterest",
-      label: "Feature Of Interest",
+      name: 'resultTime',
+      label: 'Result Time',
+      required: false,
+      defaultValue: defaultValues.resultTime,
+      type: 'datetime-local',
+    },
+    {
+      name: 'result',
+      label: 'Result',
+      required: true,
+      defaultValue: defaultValues.result,
+      type: 'number',
+    },
+    {
+      name: 'resultQuality',
+      label: 'Result Quality',
+      required: false,
+      defaultValue: defaultValues.resultQuality,
+      type: 'text',
+    },
+    {
+      name: 'Datastream',
+      label: 'Datastream',
+      required: true,
+      defaultValue: defaultValues.Datastream,
+      type: 'select',
+      options: datastreamOptions,
+    },
+    {
+      name: 'FeatureOfInterest',
+      label: 'Feature Of Interest',
       required: false,
       defaultValue: defaultValues.FeatureOfInterest,
-      type: "select",
+      type: 'select',
       options: featureOfInterestOptions,
       render: ({ value, onChange }) => (
         <div className="flex flex-col gap-2">
           <select
-            value={value || ""}
-            onChange={e => onChange(e.target.value)}
+            value={value || ''}
+            onChange={(e) => onChange(e.target.value)}
           >
             <option value="">Select Feature Of Interest</option>
-            {featureOfInterestOptions.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            {featureOfInterestOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
             ))}
           </select>
           <button
@@ -171,127 +220,143 @@ export default function Observations() {
             </span>
           )}
         </div>
-      )
-    }
-  ];
+      ),
+    },
+  ]
 
   // Cancel create
   const handleCancelCreate = () => {
-    setShowCreate(false);
-    setPendingFoi(null);
-  };
-  const handleCancelEdit = () => setEditObservation(null);
+    setShowCreate(false)
+    setPendingFoi(null)
+  }
+  const handleCancelEdit = () => setEditObservation(null)
 
   // Create
   const handleCreate = async (newObservation: any) => {
-    setCreateLoading(true);
-    setCreateError(null);
+    setCreateLoading(true)
+    setCreateError(null)
     try {
-      let foiId = newObservation.FeatureOfInterest;
+      let foiId = newObservation.FeatureOfInterest
       if (pendingFoi) {
-        const foiRes = await createData(foiItem!.root, token, pendingFoi);
-        foiId = foiRes["@iot.id"];
-        setPendingFoi(null);
+        const foiRes = await createData(foiItem!.root, token, pendingFoi)
+        foiId = foiRes['@iot.id']
+        setPendingFoi(null)
       }
       const payload: any = {
         phenomenonTime: newObservation.phenomenonTime,
         resultTime: newObservation.resultTime,
         result: newObservation.result,
         resultQuality: newObservation.resultQuality,
-        Datastream: { "@iot.id": Number(newObservation.Datastream) },
-        FeatureOfInterest: foiId ? { "@iot.id": Number(foiId) } : null
-      };
-      await createData(item!.root, token, payload);
-      setShowCreate(false);
-      setExpanded(null);
-      const data = await fetchData(item!.root, token);
-      setObservations(data?.value || []);
+        Datastream: { '@iot.id': Number(newObservation.Datastream) },
+        FeatureOfInterest: foiId ? { '@iot.id': Number(foiId) } : null,
+      }
+      await createData(item!.root, token, payload)
+      setShowCreate(false)
+      setExpanded(null)
+      const data = await fetchData(item!.root, token)
+      setObservations(data?.value || [])
       if (data?.value?.length) {
-        const newId = data.value[data.value.length - 1]["@iot.id"];
-        setExpanded(String(newId));
-        fetchObservationWithExpand(newId);
+        const newId = data.value[data.value.length - 1]['@iot.id']
+        setExpanded(String(newId))
+        fetchObservationWithExpand(newId)
       }
     } catch (err: any) {
-      setCreateError(err?.message || "Error creating observation");
+      setCreateError(err?.message || 'Error creating observation')
     } finally {
-      setCreateLoading(false);
+      setCreateLoading(false)
     }
-  };
+  }
 
   // Edit
-  const handleEdit = (entity: any) => setEditObservation(entity);
+  const handleEdit = (entity: any) => setEditObservation(entity)
 
-  const handleSaveEdit = async (updatedObservation: any, originalObservation: any) => {
-    setEditLoading(true);
-    setEditError(null);
+  const handleSaveEdit = async (
+    updatedObservation: any,
+    originalObservation: any
+  ) => {
+    setEditLoading(true)
+    setEditError(null)
     try {
       const payload: any = {
         phenomenonTime: updatedObservation.phenomenonTime,
         resultTime: updatedObservation.resultTime,
         result: updatedObservation.result,
-        resultQuality: updatedObservation.resultQuality != null ? String(updatedObservation.resultQuality) : ""
-      };
+        resultQuality:
+          updatedObservation.resultQuality != null
+            ? String(updatedObservation.resultQuality)
+            : '',
+      }
       if (updatedObservation.Datastream) {
-        payload.Datastream = { "@iot.id": Number(updatedObservation.Datastream) };
+        payload.Datastream = {
+          '@iot.id': Number(updatedObservation.Datastream),
+        }
       }
       if (updatedObservation.FeatureOfInterest) {
-        payload.FeatureOfInterest = { "@iot.id": Number(updatedObservation.FeatureOfInterest) };
+        payload.FeatureOfInterest = {
+          '@iot.id': Number(updatedObservation.FeatureOfInterest),
+        }
       }
-      await updateData(`${item!.root}(${originalObservation["@iot.id"]})`, token, payload);
-      const data = await fetchData(item!.root, token);
-      setObservations(data?.value || []);
-      setExpanded(String(originalObservation["@iot.id"]));
-      setEditObservation(null);
-      await fetchObservationWithExpand(originalObservation["@iot.id"]);
+      await updateData(
+        `${item!.root}(${originalObservation['@iot.id']})`,
+        token,
+        payload
+      )
+      const data = await fetchData(item!.root, token)
+      setObservations(data?.value || [])
+      setExpanded(String(originalObservation['@iot.id']))
+      setEditObservation(null)
+      await fetchObservationWithExpand(originalObservation['@iot.id'])
     } catch (err: any) {
-      setEditError(err?.message || "Error updating observation");
+      setEditError(err?.message || 'Error updating observation')
     } finally {
-      setEditLoading(false);
+      setEditLoading(false)
     }
-  };
+  }
 
   // Delete
   const handleDelete = (id: string) => {
     // Convert id to number and call async delete logic
-    (async () => {
+    ;(async () => {
       try {
-        await deleteData(`${item!.root}(${Number(id)})`, token);
-        const data = await fetchData(item!.root, token);
-        setObservations(data?.value || []);
+        await deleteData(`${item!.root}(${Number(id)})`, token)
+        const data = await fetchData(item!.root, token)
+        setObservations(data?.value || [])
       } catch (err) {
-        console.error("Error deleting observation:", err);
+        console.error('Error deleting observation:', err)
       }
-    })();
-  };
+    })()
+  }
 
   // Expand nested
   const fetchObservationWithExpand = async (observationId: number) => {
-    const nested = siteConfig.items.find(i => i.label === "Observations")!.nested;
-    const nestedData: Record<string, any> = {};
+    const nested = siteConfig.items.find(
+      (i) => i.label === 'Observations'
+    )!.nested
+    const nestedData: Record<string, any> = {}
     await Promise.all(
       nested.map(async (nestedKey: string) => {
-        const url = `${item!.root}(${observationId})?$expand=${nestedKey}`;
-        const data = await fetchData(url, token);
+        const url = `${item!.root}(${observationId})?$expand=${nestedKey}`
+        const data = await fetchData(url, token)
         if (data && data[nestedKey]) {
-          nestedData[nestedKey] = data[nestedKey];
+          nestedData[nestedKey] = data[nestedKey]
         }
       })
-    );
-    setNestedEntitiesMap(prev => ({ ...prev, [observationId]: nestedData }));
-  };
+    )
+    setNestedEntitiesMap((prev) => ({ ...prev, [observationId]: nestedData }))
+  }
 
   React.useEffect(() => {
     if (observations.length > 0) {
-      observations.forEach(o => {
-        fetchObservationWithExpand(o["@iot.id"]);
-      });
+      observations.forEach((o) => {
+        fetchObservationWithExpand(o['@iot.id'])
+      })
     }
-    setLoading(entitiesLoading);
-    setError(entitiesError as any);
-  }, [entitiesLoading, entitiesError, token, observations]);
+    setLoading(entitiesLoading)
+    setError(entitiesError as any)
+  }, [entitiesLoading, entitiesError, token, observations])
 
-  if (loading) return <LoadingScreen />;
-  if (error) return <p>{error}</p>;
+  if (loading) return <LoadingScreen />
+  if (error) return <p>{error}</p>
 
   const entityListComponent = (
     <EntityList
@@ -315,9 +380,9 @@ export default function Observations() {
       token={token}
       nestedEntities={nestedEntitiesMap}
       sortOrder=""
-      setSortOrder={() => { }}
+      setSortOrder={() => {}}
     />
-  );
+  )
 
   return (
     <div className="min-h-screen p-4 flex flex-col gap-4">
@@ -326,28 +391,37 @@ export default function Observations() {
         search={search}
         onSearchChange={setSearch}
         onCreatePress={() => {
-          setShowCreate(true);
-          setExpanded("new-entity");
+          setShowCreate(true)
+          setExpanded('new-entity')
         }}
         showMap={showMap}
-        onToggleMap={() => setShowMap(prev => !prev)}
+        onToggleMap={() => setShowMap((prev) => !prev)}
         filters={{
-          datastream: { label: "Datastream", options: datastreamOptions, value: filters.datastream },
-          featureOfInterest: { label: "Feature Of Interest", options: featureOfInterestOptions, value: filters.featureOfInterest }
+          datastream: {
+            label: 'Datastream',
+            options: datastreamOptions,
+            value: filters.datastream,
+          },
+          featureOfInterest: {
+            label: 'Feature Of Interest',
+            options: featureOfInterestOptions,
+            value: filters.featureOfInterest,
+          },
         }}
         onFilterChange={handleFilterChange}
       />
 
       <div className="flex items-center gap-2">
         <button
-          onClick={() => setShowGrafana(s => !s)}
+          onClick={() => setShowGrafana((s) => !s)}
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
         >
-          {showGrafana ? "Hide Grafana panel" : "Show Grafana panel"}
+          {showGrafana ? 'Hide Grafana panel' : 'Show Grafana panel'}
         </button>
         {showGrafana && !grafanaUrl && (
           <span className="text-xs text-red-600">
-            Missing Grafana env vars (NEXT_PUBLIC_GRAFANA_BASE_URL, UID, PANEL_ID).
+            Missing Grafana env vars (NEXT_PUBLIC_GRAFANA_BASE_URL, UID,
+            PANEL_ID).
           </span>
         )}
       </div>
@@ -379,13 +453,13 @@ export default function Observations() {
 
       {foiModalOpen && (
         <FeatureOfInterestCreator
-          onCreate={foi => {
-            setPendingFoi(foi);
-            setFoiModalOpen(false);
+          onCreate={(foi) => {
+            setPendingFoi(foi)
+            setFoiModalOpen(false)
           }}
           onCancel={() => setFoiModalOpen(false)}
         />
       )}
     </div>
-  );
+  )
 }

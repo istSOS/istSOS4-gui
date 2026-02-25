@@ -1,3 +1,5 @@
+'use server'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -14,24 +16,26 @@
  * limitations under the License.
  */
 
-'use server';
-const endpoint = "http://api:5000/istsos4/v1.1/Refresh";
+const endpoint =
+  process.env.NODE_ENV === 'development'
+    ? `${process.env.NEXT_PUBLIC_API_URL}/Refresh`
+    : '__NEXT_API_URL__/Refresh'
 
 const fetchRefresh = async (token: string) => {
   try {
     const response = await fetch(endpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    });
-    if (!response.ok) throw new Error("Refresh failed");
-    const data = await response.json();
-    return data.access_token;
+    })
+    if (!response.ok) throw new Error('Refresh failed')
+    const data = await response.json()
+    return data.access_token
   } catch (e) {
-    console.error(e);
-    return null;
+    console.error(e)
+    return null
   }
-};
+}
 
-export default fetchRefresh;
+export default fetchRefresh

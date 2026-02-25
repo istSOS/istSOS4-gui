@@ -1,3 +1,5 @@
+'use server'
+
 /*
  * Copyright 2025 SUPSI
  *
@@ -14,23 +16,25 @@
  * limitations under the License.
  */
 
-'use server';
-const endpoint = "http://api:5000/istsos4/v1.1/Logout";
+const endpoint =
+  process.env.NODE_ENV === 'development'
+    ? `${process.env.NEXT_PUBLIC_API_URL}/Logout`
+    : '__NEXT_API_URL__/Logout'
 
 const fetchLogout = async (token: string) => {
   try {
     const response = await fetch(endpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
       },
-    });
-    if (!response.ok) throw new Error("Logout failed");
-    return true;
+    })
+    if (!response.ok) throw new Error('Logout failed')
+    return true
   } catch (e) {
-    console.error(e);
-    return false;
+    console.error(e)
+    return false
   }
-};
+}
 
-export default fetchLogout;
+export default fetchLogout
