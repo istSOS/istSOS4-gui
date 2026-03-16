@@ -22,7 +22,7 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { logout } from '@/server/login/create'
+import { logout } from '@/services/auth'
 
 export function Navbar() {
   const { token, setToken } = useAuth()

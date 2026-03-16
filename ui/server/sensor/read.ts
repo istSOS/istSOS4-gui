@@ -2,7 +2,7 @@
 
 import { siteConfig } from '@/config/site'
 
-import { fetchData } from '@/server/utils/fetch'
+import { fetchData } from '@/services/fetch'
 
 export async function getSensorsCount(token: string) {
   const [sensorData] = await Promise.all([

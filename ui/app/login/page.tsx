@@ -1,6 +1,6 @@
 'use client'
 
-import LoginModal from '@/components/modal/login'
+import LoginModal from '@/features/auth/components/LoginModal'
 
 export default function LoginPage() {
   return <LoginModal open={true} onClose={() => {}} />

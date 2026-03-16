@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 
 import Home from '@/app/Home'
 
-import { getThings } from '@/server/thing/read'
+import { getThings } from '@/services/things'
 
 export default async function Page() {
   const cookieStore = await cookies()

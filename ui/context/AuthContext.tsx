@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
-import { refresh } from '@/server/login/create'
+import { refresh } from '@/services/auth'
 
 type AuthContextType = {
   token: string | null

@@ -8,10 +8,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { BASEMAPS } from '@/config/site'
 
-import LayersControl, { ToggleItem } from './layersControl'
-import { createClusterGroup } from './leafletCluster'
-import { drawNetworkLayers } from './leafletDraw'
-import MapMenu from './mapMenu'
+import LayersControl, { ToggleItem } from './LayersControl'
+import { createClusterGroup } from '../lib/leafletCluster'
+import { drawNetworkLayers } from '../lib/leafletDraw'
+import MapMenu from './MapMenu'
 
 export default function LeafletMap({
   things,

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { Navbar } from '@/components/bar/navbar'
+import { Navbar } from '@/components/layout/Navbar'
 
 import { AuthProvider } from '@/context/AuthContext'
 

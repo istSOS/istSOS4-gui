@@ -18,7 +18,7 @@ import {
   EditIcon,
   PlusIcon,
 } from '@/components/icons'
-import { TableComponent } from '@/components/table/table'
+import { TableComponent } from '@/components/ui/TableComponent'
 
 dayjs.extend(duration)
 dayjs.extend(utc)

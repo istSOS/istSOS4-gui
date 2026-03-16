@@ -5,13 +5,13 @@ import { Tab, Tabs } from '@heroui/tabs'
 import dayjs from 'dayjs'
 import { useMemo, useRef, useState } from 'react'
 
-import MainGraph from '@/components/graph/MainGraph'
-import LeafletMap from '@/components/map/leafletMap'
-import MainTable from '@/components/table/MainTable'
+import MainGraph from '@/features/observations/components/MainGraph'
+import LeafletMap from '@/features/map/components/LeafletMap'
+import MainTable from '@/features/things/components/MainTable'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { getObservationsByDatastream } from '@/server/observation/read'
+import { getObservationsByDatastream } from '@/services/observations'
 
 type BottomTabKey = 'table' | 'chart'
 

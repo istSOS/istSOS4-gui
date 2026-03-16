@@ -29,9 +29,9 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { login } from '@/server/login/create'
+import { login } from '@/services/auth'
 
-import { LogoIstSOS, LogoOSGeo } from '../icons'
+import { LogoIstSOS, LogoOSGeo } from '@/components/icons'
 
 type LoginModalProps = {
   open: boolean
