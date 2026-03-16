@@ -1,8 +1,7 @@
 {
     "general": {
         "select_network": "Seleziona una rete",
-        "cheer": "Ciao, ",
-        "logout": "Esci",
+        "details": "Dettagli",
         "edit": "Modifica",
         "delete": "Elimina",
         "yes": "Sì",
@@ -28,8 +27,16 @@
         "start_date": "Data di inizio",
         "end_date": "Data di fine",
         "date": "Data",
+        "actions": "Azioni",
+        "total": "Totale",
+        "rows": "Righe per pagina",
+        "previous": "Precedente",
+        "next": "Successivo",
+        "new": "Aggiungi nuovo",
+        "columns": "Colonne",
 
-
+        "back": "Indietro",
+        "no_data": "Nessun dato disponibile.",
 
         "datastreams_info": "Una raccolta di Osservazioni; le Osservazioni in un Datastream misurano la stessa Proprietà Osservata e sono prodotte dallo stesso Sensore.",
         "things_info": "Un oggetto del mondo fisico (cose fisiche) o del mondo informativo (cose virtuali) che può essere identificato e integrato nelle reti di comunicazione.",
@@ -51,6 +58,7 @@
         "thing_id": "ID Thing",
         "sensor_id": "ID Sensore",
         "observed_property_id": "ID Proprietà Osservata",
+        "observed_property": "Proprietà Osservata",
         "observation_type": "Tipo di Osservazione",
         "phenomenon_time": "Tempo del Fenomeno",
         "properties": "Proprietà",
@@ -137,5 +145,19 @@
         "result_quality": "Qualità del Risultato",
         "datastream": "Datastream",
         "feature_of_interest": "Feature of Interest"
+    },
+
+    "login": {
+        "cheer": "Ciao, ",
+        "logout": "Esci",
+        "username": "Nome utente",
+        "username_error": "Il nome utente è obbligatorio",
+        "username_placeholder": "Inserisci il nome utente",
+        "password": "Password",
+        "password_error": "La password è obbligatoria",
+        "password_placeholder": "Inserisci la password",
+        "login_error": "Credenziali non valide",
+        "login": "Accedi",
+        "reset": "Reset"
     }
 }

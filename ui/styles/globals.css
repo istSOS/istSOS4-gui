@@ -9,4 +9,48 @@
 @theme {
     --font-sans: "font", sans-serif;
     --font-mono: "monospace", monospace;
+    --color-primary: #008374;
+}
+
+.marker-cluster-net {
+    background: transparent !important;
+}
+
+.marker-cluster-net .marker-cluster-net-inner {
+    background: inherit;
+}
+
+.leaflet-tooltip.thing-tooltip {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+.leaflet-tooltip.thing-tooltip::before {
+    display: none !important;
+}
+
+.thing-value-icon {
+    background: transparent !important;
+    border: none !important;
+}
+
+.thing-value-wrap {
+    transform: translate(-50%, -50%);
+    will-change: transform;
+}
+
+.thing-value-text {
+    display: inline-block;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1;
+    color: #ff0000;
+    white-space: nowrap;
 }

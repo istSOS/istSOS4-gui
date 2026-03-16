@@ -1,8 +1,7 @@
 {
     "general": {
         "select_network": "Select a Network",
-        "cheer": "Hi, ",
-        "logout": "Logout",
+        "details": "Details",
         "edit": "Edit",
         "delete": "Delete",
         "yes": "Yes",
@@ -28,8 +27,16 @@
         "start_date": "Start Date",
         "end_date": "End Date",
         "date": "Date",
-
-
+        "actions": "Actions",
+        "total": "Total",
+        "rows": "Rows per page",
+        "previous": "Previous",
+        "next": "Next",
+        "new": "Add New",
+        "columns": "Columns",
+        "back": "Back",
+        "no_data": "No data available.",
+        
 
         "datastreams_info": "A collection of Observations and the Observations in a Datastream measure the same ObservedProperty and are produced by the same Sensor.",
         "things_info": "An object of the physical world (physical things) or the information world (virtual things) that is capable of being identified and integrated into communication networks.",
@@ -51,6 +58,7 @@
         "thing_id": "Thing ID",
         "sensor_id": "Sensor ID",
         "observed_property_id": "Observed Property ID",
+        "observed_property": "Observed Property",
         "observation_type": "Observation Type",
         "phenomenon_time": "Phenomenon Time",
         "properties": "Properties",
@@ -137,5 +145,19 @@
         "result_quality": "Result Quality",
         "datastream": "Datastream",
         "feature_of_interest": "Feature of Interest"
+    },
+
+    "login":{
+        "cheer": "Hi, ",
+        "logout": "Logout",
+        "username": "Username",
+        "username_error": "Username is required",
+        "username_placeholder": "Enter your username",
+        "password": "Password",
+        "password_error": "Password is required",
+        "password_placeholder": "Enter your password",
+        "login_error": "Invalid credentials",
+        "login": "Login",
+        "reset": "Reset"
     }
 }
