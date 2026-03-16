@@ -12,24 +12,35 @@ export async function getObservationsByDatastream(
 ) {
   const values: any[] = []
 
+  const filters: string[] = []
+  if (end) filters.push(`phenomenonTime le ${end}`)
+  if (start) filters.push(`phenomenonTime ge ${start}`)
+
   let url =
-    `${siteConfig.api_root}` +
-    `/Datastreams(${datastreamId})/Observations` +
+    `${siteConfig.api_root}/Datastreams(${datastreamId})/Observations` +
     '?$orderby=phenomenonTime desc' +
-    `&$filter=phenomenonTime le ${end} and phenomenonTime ge ${start}`
+    (filters.length ? `&$filter=${filters.join(' and ')}` : '')
+
+  const apiBase = new URL(siteConfig.api_root)
 
   while (url) {
     const data = await fetchData(url, token)
     values.push(...(data?.value ?? []))
 
     const nextLink: string | undefined = data?.['@iot.nextLink']
-    url = nextLink
-      ? nextLink.startsWith('http')
-        ? `${siteConfig.api_root}/${nextLink.split('/').at(-1)}`
-        : nextLink
-      : undefined
+
+    if (!nextLink) {
+      url = undefined
+      continue
+    }
+
+    if (nextLink.startsWith('http')) {
+      const parsed = new URL(nextLink)
+      url = `${apiBase.origin}${parsed.pathname}${parsed.search}`
+    } else {
+      url = new URL(nextLink, siteConfig.api_root).toString()
+    }
   }
-  console.log('Fetched observations:', values)
 
   return { observationData: values }
 }

@@ -3,7 +3,6 @@
 import { Card } from '@heroui/card'
 import { Tab, Tabs } from '@heroui/tabs'
 import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
 import { useMemo, useRef, useState } from 'react'
 
 import MainGraph from '@/components/graph/MainGraph'
