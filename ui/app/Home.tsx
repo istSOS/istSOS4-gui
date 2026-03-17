@@ -1,17 +1,17 @@
 'use client'
 
+import LeafletMap from '@/features/map/components/LeafletMap'
+import MainGraph from '@/features/observations/components/MainGraph'
+import MainTable from '@/features/things/components/MainTable'
+import { getObservationsByDatastream } from '@/services/observations'
 import { Card } from '@heroui/card'
 import { Tab, Tabs } from '@heroui/tabs'
 import dayjs from 'dayjs'
 import { useMemo, useRef, useState } from 'react'
 
-import MainGraph from '@/features/observations/components/MainGraph'
-import LeafletMap from '@/features/map/components/LeafletMap'
-import MainTable from '@/features/things/components/MainTable'
+import FormModal from '@/components/form/FormModal'
 
 import { useAuth } from '@/context/AuthContext'
-
-import { getObservationsByDatastream } from '@/services/observations'
 
 type BottomTabKey = 'table' | 'chart'
 
@@ -23,10 +23,15 @@ export default function Home({
   selectedNetwork?: string
 }) {
   const { token } = useAuth()
+  const [localThings, setLocalThings] = useState<any[]>(things)
 
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
   const [activeBottomTab, setActiveBottomTab] = useState<BottomTabKey>('table')
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
+  const [createPoint, setCreatePoint] = useState<{
+    latitude: number
+    longitude: number
+  } | null>(null)
 
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
@@ -36,8 +41,12 @@ export default function Home({
 
   const selectedThing = useMemo(() => {
     if (!selectedThingId) return null
-    return things.find((t) => t?.['@iot.id'] === selectedThingId) ?? null
-  }, [things, selectedThingId])
+    return (
+      localThings.find(
+        (t) => String(t?.['@iot.id'] ?? t?.id ?? '') === selectedThingId
+      ) ?? null
+    )
+  }, [localThings, selectedThingId])
 
   const isPanelOpen = !!selectedThing
 
@@ -106,17 +115,30 @@ export default function Home({
   return (
     <div className="relative h-[95vh] w-full overflow-hidden">
       <LeafletMap
-        things={things}
+        things={localThings}
         selectedNetwork={selectedNetwork}
         onThingSelect={(thing) => {
-          setSelectedThingId(thing?.['@iot.id'] ?? null)
+          setSelectedThingId(String(thing?.['@iot.id'] ?? thing?.id ?? ''))
           setSelectedDatastream(null)
           setObservations([])
           setObsError(null)
           setActiveBottomTab('table')
         }}
+        onCreateThingAt={(point) => {
+          setCreatePoint(point)
+        }}
       />
-
+      {createPoint ? (
+        <FormModal
+          operation="create"
+          latitude={createPoint.latitude}
+          longitude={createPoint.longitude}
+          isOpen={!!createPoint}
+          onClose={() => {
+            setCreatePoint(null)
+          }}
+        />
+      ) : null}
       {isPanelOpen && (
         <div className="fixed inset-x-0 bottom-0 z-[4000] pb-[env(safe-area-inset-bottom)]">
           <Card

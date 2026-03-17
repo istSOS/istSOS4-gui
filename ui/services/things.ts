@@ -1,8 +1,8 @@
 'use server'
 
-import { siteConfig } from '@/config/site'
-
 import { fetchData } from '@/services/fetch'
+
+import { siteConfig } from '@/config/site'
 
 export async function getThings(token: string) {
   const expand = `

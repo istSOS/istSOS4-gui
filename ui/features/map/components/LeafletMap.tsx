@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { BASEMAPS } from '@/config/site'
 
 import LayersControl, { ToggleItem } from './LayersControl'
+import MapContextMenu from './MapContextMenu'
 import { createClusterGroup } from '../lib/leafletCluster'
 import { drawNetworkLayers } from '../lib/leafletDraw'
 import MapMenu from './MapMenu'
@@ -17,10 +18,12 @@ export default function LeafletMap({
   things,
   selectedNetwork,
   onThingSelect,
+  onCreateThingAt,
 }: {
   things: any[] | { value: any[] }
   selectedNetwork?: string
   onThingSelect?: (thing: any) => void
+  onCreateThingAt?: (point: { latitude: number; longitude: number }) => void
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null)
 
@@ -46,6 +49,12 @@ export default function LeafletMap({
 
   const [observedPropsMeta, setObservedPropsMeta] = useState<ToggleItem[]>([])
   const observedEnabledRef = useRef<Map<string, boolean>>(new Map())
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+    latitude: number
+    longitude: number
+  } | null>(null)
 
   const thingsArr = useMemo(() => {
     if (Array.isArray(things)) return things
@@ -192,6 +201,19 @@ export default function LeafletMap({
       observedOverlayRef.current.addLayer(observedClusterRef.current)
 
       mapRef.current = map
+
+      map.on('contextmenu', (e: any) => {
+        const point = map.mouseEventToContainerPoint(e.originalEvent)
+        setContextMenu({
+          x: point.x,
+          y: point.y,
+          latitude: e.latlng.lat,
+          longitude: e.latlng.lng,
+        })
+      })
+
+      map.on('click', () => setContextMenu(null))
+      map.on('movestart', () => setContextMenu(null))
 
       redraw()
       applyModeLayers()
@@ -340,6 +362,35 @@ export default function LeafletMap({
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
+
+      {contextMenu ? (
+        <MapContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onCenterHere={() => {
+            mapRef.current?.setView(
+              [contextMenu.latitude, contextMenu.longitude],
+              mapRef.current?.getZoom?.() ?? 9
+            )
+            setContextMenu(null)
+          }}
+          onCreateThing={() => {
+            onCreateThingAt?.({
+              latitude: contextMenu.latitude,
+              longitude: contextMenu.longitude,
+            })
+            setContextMenu(null)
+          }}
+          onZoomIn={() => {
+            mapRef.current?.zoomIn?.()
+            setContextMenu(null)
+          }}
+          onZoomOut={() => {
+            mapRef.current?.zoomOut?.()
+            setContextMenu(null)
+          }}
+        />
+      ) : null}
 
       <LayersControl
         networks={networksForUI}

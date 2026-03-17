@@ -21,6 +21,7 @@
         "show_all": "Mostra tutto",
         "nested_entities": "Entità nidificate",
         "cursor_coordinates": "Coordinate del cursore",
+        "center_map_here": "Centra la mappa qui",
 
         "last": "Ultimo",
         "last_value": "Ultimo valore",

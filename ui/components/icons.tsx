@@ -397,3 +397,145 @@ export const ChartIcon = ({
     </svg>
   )
 }
+
+export const CrosshairIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      {...props}
+    >
+      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
+      <path d="M7 7h10v10H7z" />
+    </svg>
+  )
+}
+
+export const MarkerIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      {...props}
+    >
+      <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  )
+}
+
+export const ZoomInIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      {...props}
+    >
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-4.2-4.2M11 8.5v5M8.5 11h5" />
+    </svg>
+  )
+}
+
+export const ZoomOutIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      {...props}
+    >
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="M20 20l-4.2-4.2M8.5 11h5" />
+    </svg>
+  )
+}
+
+export const DescriptionIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M15 3H5A2 2 0 0 0 3 5V19A2 2 0 0 0 5 21H19A2 2 0 0 0 21 19V9L15 3M19 19H5V5H14V10H19M17 14H7V12H17M14 17H7V15H14" />
+    </svg>
+  )
+}
+
+export const LocationIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      width={w}
+      height={h}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M12,2C15.31,2 18,4.66 18,7.95C18,12.41 12,19 12,19C12,19 6,12.41 6,7.95C6,4.66 8.69,2 12,2M12,6A2,2 0 0,0 10,8A2,2 0 0,0 12,10A2,2 0 0,0 14,8A2,2 0 0,0 12,6M20,19C20,21.21 16.42,23 12,23C7.58,23 4,21.21 4,19C4,17.71 5.22,16.56 7.11,15.83L7.75,16.74C6.67,17.19 6,17.81 6,18.5C6,19.88 8.69,21 12,21C15.31,21 18,19.88 18,18.5C18,17.81 17.33,17.19 16.25,16.74L16.89,15.83C18.78,16.56 20,17.71 20,19Z" />
+    </svg>
+  )
+}
