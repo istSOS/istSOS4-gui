@@ -50,7 +50,7 @@ type TableProps = {
   totalLabel?: (total: number) => ReactNode
 }
 
-export function TableComponent({
+export default function TableComponent({
   items,
   columns,
   rowKey,

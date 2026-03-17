@@ -1,6 +1,7 @@
 'use client'
 
 import i18n from '@/i18n'
+import { logout } from '@/services/auth'
 import { Avatar } from '@heroui/avatar'
 import { Button } from '@heroui/button'
 import {
@@ -22,9 +23,7 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { logout } from '@/services/auth'
-
-export function Navbar() {
+export default function Navbar() {
   const { token, setToken } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()

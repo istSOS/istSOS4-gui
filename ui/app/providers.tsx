@@ -11,7 +11,7 @@ export interface ProvidersProps {
   themeProps?: ThemeProviderProps
 }
 
-export function Providers({ children, themeProps }: ProvidersProps) {
+export default function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <HeroUIProvider>
       <ThemeProvider {...themeProps}>{children}</ThemeProvider>

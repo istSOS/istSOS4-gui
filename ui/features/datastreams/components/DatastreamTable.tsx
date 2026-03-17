@@ -18,7 +18,7 @@ import {
   EditIcon,
   PlusIcon,
 } from '@/components/icons'
-import { TableComponent } from '@/components/table/TableComponent'
+import TableComponent from '@/components/table/Table'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -82,7 +82,11 @@ type Props = {
   onOpenDetails?: (datastream: any) => void
 }
 
-export default function MainTable({ thing, onClose, onOpenDetails }: Props) {
+export default function DatastreamTable({
+  thing,
+  onClose,
+  onOpenDetails,
+}: Props) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? i18n.language
 

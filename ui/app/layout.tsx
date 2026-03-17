@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 
-import { Navbar } from '@/components/layout/Navbar'
+import Navbar from '@/components/layout/Navbar'
 
 import { AuthProvider } from '@/context/AuthContext'
 
 import '@/styles/globals.css'
 
-import { Providers } from './providers'
+import Providers from './providers'
 
 export const dynamic = 'force-dynamic'
 

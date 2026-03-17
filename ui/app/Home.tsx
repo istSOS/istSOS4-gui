@@ -1,9 +1,9 @@
 'use client'
 
+import DatastreamTable from '@/features/datastreams/components/DatastreamTable'
 import FormModal from '@/features/forms/components/Form'
 import LeafletMap from '@/features/map/components/LeafletMap'
 import ObservationGraph from '@/features/observations/components/ObservationGraph'
-import MainTable from '@/features/things/components/MainTable'
 import { getObservationsByDatastream } from '@/services/observations'
 import { Card } from '@heroui/card'
 import { Tab, Tabs } from '@heroui/tabs'
@@ -170,7 +170,7 @@ export default function Home({
               >
                 <Tab key="table" title="Table">
                   <div className="max-h-[32vh] overflow-auto pb-2">
-                    <MainTable
+                    <DatastreamTable
                       thing={selectedThing}
                       onClose={closePanel}
                       onOpenDetails={openChartForDatastream}
