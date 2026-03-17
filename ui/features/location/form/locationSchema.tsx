@@ -1,4 +1,4 @@
-// Copyright 2025 SUPSI
+// Copyright 2026 SUPSI
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,10 +13,9 @@
 // limitations under the License.
 import { RJSFSchema } from '@rjsf/utils'
 
-export const locationSchema: RJSFSchema = {
+export const LocationSchema: RJSFSchema = {
   type: 'object',
   properties: {
-    __header: { title: 'Location', type: 'object' },
     name: {
       type: 'string',
     },

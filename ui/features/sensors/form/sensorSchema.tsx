@@ -1,5 +1,3 @@
-'use client'
-
 // Copyright 2026 SUPSI
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,25 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import i18n from 'i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
-import { initReactI18next } from 'react-i18next'
+import { RJSFSchema } from '@rjsf/utils'
 
-i18n
-  .use(LanguageDetector)
-  .use(initReactI18next)
-  .init({
-    fallbackLng: 'en',
-    supportedLngs: ['en', 'it'],
-    detection: {
-      order: ['localStorage'],
-      caches: ['localStorage'],
+export const SensorSchema: RJSFSchema = {
+  type: 'object',
+  properties: {
+    name: {
+      type: 'string',
     },
-    resources: {
-      en: { translation: require('./locales/en/translation.json') },
-      it: { translation: require('./locales/it/translation.json') },
+    description: {
+      type: 'string',
     },
-    interpolation: { escapeValue: false },
-  })
-
-export default i18n
+    encodingType: {
+      type: 'string',
+    },
+    metadata: {
+      type: 'string',
+    },
+    properties: {
+      type: 'object',
+    },
+  },
+}

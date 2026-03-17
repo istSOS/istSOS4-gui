@@ -1,11 +1,25 @@
 'use client'
 
-import { thingSchema } from '@/features/things/form/thingSchema'
-import { thingUiSchema } from '@/features/things/form/thingUiSchema'
+// Copyright 2026 SUPSI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+import { ThingSchema } from '@/features/things/form/thingSchema'
+import { ThingUiSchema } from '@/features/things/form/thingUiSchema'
 import { Button } from '@heroui/button'
 import Form from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface ThingFormProps {
   operation: 'create' | 'edit'
@@ -15,14 +29,15 @@ interface ThingFormProps {
 export default function ThingForm({ operation, onSuccess }: ThingFormProps) {
   const [schema, setSchema] = useState<any>(null)
   const [formData, setFormData] = useState<any>({})
+  const { t } = useTranslation()
 
   useEffect(() => {
     setSchema({
       schema: {
-        ...thingSchema,
-        properties: { ...thingSchema.properties },
+        ...ThingSchema,
+        properties: { ...ThingSchema.properties },
       },
-      uiSchema: { ...thingUiSchema },
+      uiSchema: { ...ThingUiSchema(t) },
     })
     setFormData({})
   }, [])

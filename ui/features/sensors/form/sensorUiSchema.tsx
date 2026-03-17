@@ -14,16 +14,16 @@
 import { UiSchema } from '@rjsf/utils'
 import { TFunction } from 'i18next'
 
-import { DescriptionIcon, LocationIcon, MarkerIcon } from '@/components/icons'
+import { DescriptionIcon } from '@/components/icons'
 
 import {
   DescriptionWidget,
   EncodingTypeWidget,
-  LocationWidget,
+  MetadataWidget,
   NameWidget,
-} from './locationWidget'
+} from './sensorWidget'
 
-export const LocationUiSchema = (t: TFunction): UiSchema => ({
+export const SensorUiSchema = (t: TFunction): UiSchema => ({
   'ui:field': 'LayoutGridField',
   'ui:layoutGrid': {
     'ui:row': {
@@ -33,10 +33,7 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
           'ui:row': {
             spacing: 2,
             size: 12,
-            children: [
-              { 'ui:col': { size: 6, children: ['name'] } },
-              { 'ui:col': { size: 6, children: ['location'] } },
-            ],
+            children: [{ 'ui:col': { size: 12, children: ['name'] } }],
           },
         },
         {
@@ -47,8 +44,18 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
         },
         {
           'ui:row': {
+            spacing: 2,
             size: 12,
-            children: [{ 'ui:col': { size: 12, children: ['encodingType'] } }],
+            children: [
+              { 'ui:col': { size: 6, children: ['encodingType'] } },
+              { 'ui:col': { size: 6, children: ['metadata'] } },
+            ],
+          },
+        },
+        {
+          'ui:row': {
+            size: 12,
+            children: [{ 'ui:col': { size: 12, children: ['properties'] } }],
           },
         },
       ],
@@ -57,42 +64,41 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
   name: {
     'ui:widget': NameWidget,
     'ui:options': {
-      icon: <LocationIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.name'),
-      placeholder: t('locations.namePlaceholder', 'Nome della Location'),
+      fieldLabel: t('sensors.name'),
+      placeholder: t('sensors.namePlaceholder', 'Nome del sensore'),
     },
   },
   description: {
     'ui:widget': DescriptionWidget,
     'ui:options': {
-      icon: <DescriptionIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.description'),
+      icon: <DescriptionIcon className="h-5 w-5" />,
+      fieldLabel: t('sensors.description'),
       placeholder: t(
-        'locations.descriptionPlaceholder',
-        'Descrizione della Location'
+        'sensors.descriptionPlaceholder',
+        'Descrizione del sensore'
       ),
     },
   },
   encodingType: {
     'ui:widget': EncodingTypeWidget,
     'ui:options': {
-      icon: <DescriptionIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.encodingType'),
+      fieldLabel: t('sensors.encodingType'),
       placeholder: t(
-        'locations.encodingTypePlaceholder',
-        "Tipo di codifica della posizione (es. 'application/vnd.geo+json')"
+        'sensors.encodingTypePlaceholder',
+        'Tipo di codifica del sensore'
       ),
     },
   },
-  location: {
-    'ui:widget': LocationWidget,
+  metadata: {
+    'ui:widget': MetadataWidget,
     'ui:options': {
-      icon: <MarkerIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.location'),
-      placeholder: t(
-        'locations.locationPlaceholder',
-        'Posizione della Location'
-      ),
+      fieldLabel: t('sensors.metadata'),
+      placeholder: t('sensors.metadataPlaceholder', 'Metadata del sensore'),
+    },
+  },
+  properties: {
+    'ui:options': {
+      fieldLabel: t('sensors.properties'),
     },
   },
 })

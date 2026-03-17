@@ -1,4 +1,4 @@
-// Copyright 2025 SUPSI
+// Copyright 2026 SUPSI
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,25 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { UiSchema } from '@rjsf/utils'
+import { TFunction } from 'i18next'
 
-import {
-  DescriptionWidget,
-  NameWidget,
-} from '@/features/things/form/thingWidget'
-import { DescriptionIcon } from '@/components/icons'
+import { DescriptionIcon, NameIcon } from '@/components/icons'
 
-export const thingUiSchema: UiSchema = {
+import { DescriptionWidget, NameWidget } from './thingWidget'
+
+export const ThingUiSchema = (t: TFunction): UiSchema => ({
   'ui:field': 'LayoutGridField',
   'ui:layoutGrid': {
     'ui:row': {
       spacing: 2,
       children: [
-        {
-          'ui:row': {
-            size: 12,
-            children: [{ 'ui:col': { size: 12, children: ['__header'] } }],
-          },
-        },
         {
           'ui:row': {
             spacing: 2,
@@ -50,16 +43,20 @@ export const thingUiSchema: UiSchema = {
   name: {
     'ui:widget': NameWidget,
     'ui:options': {
-      fieldLabel: 'Nome',
-      placeholder: 'Nome del sensore',
+      icon: <NameIcon className="h-5 w-5" />,
+      fieldLabel: t('things.name'),
+      placeholder: t('things.namePlaceholder', 'Nome della thing'),
     },
   },
   description: {
     'ui:widget': DescriptionWidget,
     'ui:options': {
       icon: <DescriptionIcon className="h-5 w-5" />,
-      fieldLabel: 'Descrizione',
-      placeholder: 'Descrizione del sensore',
+      fieldLabel: t('things.description'),
+      placeholder: t(
+        'things.descriptionPlaceholder',
+        'Descrizione della thing'
+      ),
     },
   },
-}
+})

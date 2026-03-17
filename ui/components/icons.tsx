@@ -1,3 +1,16 @@
+// Copyright 2026 SUPSI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 import { IconSvgProps, LogoProps } from '@/types'
 
 export const LogoIstSOS = ({
@@ -408,16 +421,15 @@ export const CrosshairIcon = ({
 
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
       viewBox="0 0 24 24"
       width={w}
       height={h}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
       {...props}
     >
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4" />
-      <path d="M7 7h10v10H7z" />
+      <path d="M17 12C17 7.55 11.62 5.31 8.46 8.46C5.31 11.61 7.55 17 12 17C14.76 17 17 14.76 17 12M12 15C9.33 15 8 11.77 9.88 9.88C11.77 8 15 9.33 15 12C15 13.66 13.66 15 12 15M5 15H3V19C3 20.1 3.9 21 5 21H9V19H5M5 5H9V3H5C3.9 3 3 3.9 3 5V9H5M19 3H15V5H19V9H21V5C21 3.9 20.1 3 19 3M19 19H15V21H19C20.1 21 21 20.1 21 19V15H19" />
     </svg>
   )
 }
@@ -432,16 +444,15 @@ export const MarkerIcon = ({
 
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
       viewBox="0 0 24 24"
       width={w}
       height={h}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
       {...props}
     >
-      <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" />
-      <circle cx="12" cy="10" r="2.5" />
+      <path d="M12 4C14.2 4 16 5.8 16 8C16 10.1 13.9 13.5 12 15.9C10.1 13.4 8 10.1 8 8C8 5.8 9.8 4 12 4M12 2C8.7 2 6 4.7 6 8C6 12.5 12 19 12 19S18 12.4 18 8C18 4.7 15.3 2 12 2M12 6C10.9 6 10 6.9 10 8S10.9 10 12 10 14 9.1 14 8 13.1 6 12 6M20 19C20 21.2 16.4 23 12 23S4 21.2 4 19C4 17.7 5.2 16.6 7.1 15.8L7.7 16.7C6.7 17.2 6 17.8 6 18.5C6 19.9 8.7 21 12 21S18 19.9 18 18.5C18 17.8 17.3 17.2 16.2 16.7L16.8 15.8C18.8 16.6 20 17.7 20 19Z" />
     </svg>
   )
 }
@@ -456,16 +467,15 @@ export const ZoomInIcon = ({
 
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
       viewBox="0 0 24 24"
       width={w}
       height={h}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
       {...props}
     >
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="M20 20l-4.2-4.2M11 8.5v5M8.5 11h5" />
+      <path d="M15.5,14L20.5,19L19,20.5L14,15.5V14.71L13.73,14.43C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.43,13.73L14.71,14H15.5M9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14M12,10H10V12H9V10H7V9H9V7H10V9H12V10Z" />
     </svg>
   )
 }
@@ -480,21 +490,20 @@ export const ZoomOutIcon = ({
 
   return (
     <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
       viewBox="0 0 24 24"
       width={w}
       height={h}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
       {...props}
     >
-      <circle cx="11" cy="11" r="6.5" />
-      <path d="M20 20l-4.2-4.2M8.5 11h5" />
+      <path d="M15.5,14H14.71L14.43,13.73C15.41,12.59 16,11.11 16,9.5A6.5,6.5 0 0,0 9.5,3A6.5,6.5 0 0,0 3,9.5A6.5,6.5 0 0,0 9.5,16C11.11,16 12.59,15.41 13.73,14.43L14,14.71V15.5L19,20.5L20.5,19L15.5,14M9.5,14C7,14 5,12 5,9.5C5,7 7,5 9.5,5C12,5 14,7 14,9.5C14,12 12,14 9.5,14M7,9H12V10H7V9Z" />
     </svg>
   )
 }
 
-export const DescriptionIcon = ({
+export const ThingIcon = ({
   size = 24,
   width,
   height,
@@ -506,13 +515,12 @@ export const DescriptionIcon = ({
       aria-hidden="true"
       focusable="false"
       role="presentation"
+      viewBox="0 0 24 24"
       width={w}
       height={h}
-      viewBox="0 0 24 24"
-      fill="currentColor"
       {...props}
     >
-      <path d="M15 3H5A2 2 0 0 0 3 5V19A2 2 0 0 0 5 21H19A2 2 0 0 0 21 19V9L15 3M19 19H5V5H14V10H19M17 14H7V12H17M14 17H7V15H14" />
+      <path d="M21,16.5C21,16.88 20.79,17.21 20.47,17.38L12.57,21.82C12.41,21.94 12.21,22 12,22C11.79,22 11.59,21.94 11.43,21.82L3.53,17.38C3.21,17.21 3,16.88 3,16.5V7.5C3,7.12 3.21,6.79 3.53,6.62L11.43,2.18C11.59,2.06 11.79,2 12,2C12.21,2 12.41,2.06 12.57,2.18L20.47,6.62C20.79,6.79 21,7.12 21,7.5V16.5M12,4.15L6.04,7.5L12,10.85L17.96,7.5L12,4.15M5,15.91L11,19.29V12.58L5,9.21V15.91M19,15.91V9.21L13,12.58V19.29L19,15.91Z" />
     </svg>
   )
 }
@@ -529,13 +537,78 @@ export const LocationIcon = ({
       aria-hidden="true"
       focusable="false"
       role="presentation"
+      viewBox="0 0 24 24"
       width={w}
       height={h}
-      viewBox="0 0 24 24"
-      fill="currentColor"
       {...props}
     >
-      <path d="M12,2C15.31,2 18,4.66 18,7.95C18,12.41 12,19 12,19C12,19 6,12.41 6,7.95C6,4.66 8.69,2 12,2M12,6A2,2 0 0,0 10,8A2,2 0 0,0 12,10A2,2 0 0,0 14,8A2,2 0 0,0 12,6M20,19C20,21.21 16.42,23 12,23C7.58,23 4,21.21 4,19C4,17.71 5.22,16.56 7.11,15.83L7.75,16.74C6.67,17.19 6,17.81 6,18.5C6,19.88 8.69,21 12,21C15.31,21 18,19.88 18,18.5C18,17.81 17.33,17.19 16.25,16.74L16.89,15.83C18.78,16.56 20,17.71 20,19Z" />
+      <path d="M12,6.5A2.5,2.5 0 0,1 14.5,9A2.5,2.5 0 0,1 12,11.5A2.5,2.5 0 0,1 9.5,9A2.5,2.5 0 0,1 12,6.5M12,2A7,7 0 0,1 19,9C19,14.25 12,22 12,22C12,22 5,14.25 5,9A7,7 0 0,1 12,2M12,4A5,5 0 0,0 7,9C7,10 7,12 12,18.71C17,12 17,10 17,9A5,5 0 0,0 12,4Z" />
+    </svg>
+  )
+}
+
+export const SensorIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      {...props}
+    >
+      <path d="M4.93,4.93C3.12,6.74 2,9.24 2,12C2,14.76 3.12,17.26 4.93,19.07L6.34,17.66C4.89,16.22 4,14.22 4,12C4,9.79 4.89,7.78 6.34,6.34L4.93,4.93M19.07,4.93L17.66,6.34C19.11,7.78 20,9.79 20,12C20,14.22 19.11,16.22 17.66,17.66L19.07,19.07C20.88,17.26 22,14.76 22,12C22,9.24 20.88,6.74 19.07,4.93M7.76,7.76C6.67,8.85 6,10.35 6,12C6,13.65 6.67,15.15 7.76,16.24L9.17,14.83C8.45,14.11 8,13.11 8,12C8,10.89 8.45,9.89 9.17,9.17L7.76,7.76M16.24,7.76L14.83,9.17C15.55,9.89 16,10.89 16,12C16,13.11 15.55,14.11 14.83,14.83L16.24,16.24C17.33,15.15 18,13.65 18,12C18,10.35 17.33,8.85 16.24,7.76M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10Z" />
+    </svg>
+  )
+}
+
+export const NameIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      {...props}
+    >
+      <path d="M21.41 11.58L12.41 2.58A2 2 0 0 0 11 2H4A2 2 0 0 0 2 4V11A2 2 0 0 0 2.59 12.42L11.59 21.42A2 2 0 0 0 13 22A2 2 0 0 0 14.41 21.41L21.41 14.41A2 2 0 0 0 22 13A2 2 0 0 0 21.41 11.58M13 20L4 11V4H11L20 13M6.5 5A1.5 1.5 0 1 1 5 6.5A1.5 1.5 0 0 1 6.5 5Z" />
+    </svg>
+  )
+}
+
+export const DescriptionIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      {...props}
+    >
+      <path d="M5,3C3.89,3 3,3.89 3,5V19C3,20.11 3.89,21 5,21H19C20.11,21 21,20.11 21,19V5C21,3.89 20.11,3 19,3H5M5,5H19V19H5V5M7,7V9H17V7H7M7,11V13H17V11H7M7,15V17H14V15H7Z" />
     </svg>
   )
 }
