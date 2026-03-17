@@ -1,23 +1,20 @@
 'use client'
 
-/*
- * Copyright 2025 SUPSI
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2026 SUPSI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+import { refresh } from '@/services/auth'
 import React, { createContext, useContext, useEffect, useState } from 'react'
-
-import fetchRefresh from '@/server/fetchRefresh'
 
 type AuthContextType = {
   token: string | null
@@ -34,7 +31,7 @@ const AuthContext = createContext<AuthContextType>({
 //create the auth provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   //function to decode jwt token
   const decodeToken = (jwt: string) => {
@@ -59,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     //if the token is about to expire in less than 2 minutes, refresh it
     if (timeLeft < 120) {
-      fetchRefresh(token).then((newToken) => {
+      refresh(token).then((newToken) => {
         //if the refresh was successful, set the new token
         if (newToken) setToken(newToken)
         //if the refresh failed, clear the token

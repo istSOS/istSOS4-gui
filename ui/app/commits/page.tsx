@@ -24,8 +24,6 @@ import * as React from 'react'
 
 import { useRouter } from 'next/navigation'
 
-import { SecNavbar } from '@/components/bars/secNavbar'
-
 import { useTemporal } from '@/context/TemporalContext'
 
 import { CommitItem } from '@/types/temporal'
@@ -62,9 +60,7 @@ export default function CommitsPage() {
 
   return (
     <div className="min-h-screen p-4">
-      <div className="mb-4">
-        <SecNavbar title="Commits" />
-      </div>
+      <h1 className="mb-4 text-3xl font-bold text-white">Commits</h1>
       <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
         <Select
           radius="sm"

@@ -15,193 +15,72 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import { Card } from '@heroui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from '@heroui/table'
 import * as React from 'react'
-import { useTranslation } from 'react-i18next'
 
-import { useRouter } from 'next/navigation'
-
-import { LoadingScreen } from '@/components/LoadingScreen'
 import TemporalConflictWarning from '@/components/TemporalConflictWarning'
 import TemporalModeSwitch from '@/components/TemporalModeSwitch'
-import { EntityActions } from '@/components/entity/EntityActions'
-import { EntityList } from '@/components/entity/EntityList'
-import { SplitPanel } from '@/components/layout/SplitPanel'
+import { useTemporalQuery } from '@/components/hooks/useTemporalQuery'
 
-import { siteConfig } from '@/config/site'
-
-import { useAuth } from '@/context/AuthContext'
-import { useEntities } from '@/context/EntitiesContext'
 import { useTemporal } from '@/context/TemporalContext'
 
-import { appendTemporalParams } from '@/server/temporal'
+type Thing = {
+  '@iot.id': number
+  name: string
+  description: string
+  systemTimeValidity?: string
+}
 
-import { useThingCRUDHandler } from './ThingCRUDHandler'
-import ThingCreator from './ThingCreator'
-import { buildThingFields } from './utils'
-
-const item = siteConfig.items.find((i) => i.label === 'Things')
-
-export default function Things() {
-  const {
-    entities,
-    loading: entitiesLoading,
-    error: entitiesError,
-    refetchAll,
-  } = useEntities()
-  const { token } = useAuth()
-  const { mode, asOf, fromTo } = useTemporal()
-  const router = useRouter()
-  const { t } = useTranslation()
-  const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<
-    Record<string, any>
-  >({})
-  const [things, setThings] = React.useState<any[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [search, setSearch] = React.useState('')
-  const [showCreate, setShowCreate] = React.useState(false)
-  const [createLoading, setCreateLoading] = React.useState(false)
-  const [createError, setCreateError] = React.useState<string | null>(null)
-  const [editThing, setEditThing] = React.useState<any | null>(null)
-  const [editLoading, setEditLoading] = React.useState(false)
-  const [editError, setEditError] = React.useState<string | null>(null)
-  const [expanded, setExpanded] = React.useState<string | null>(null)
-  const [showMap, setShowMap] = React.useState(true)
-  const [split, setSplit] = React.useState(0.5)
-
-  React.useEffect(() => {
-    setThings(entities.things || [])
-    setLoading(entitiesLoading)
-    setError(entitiesError ? String(entitiesError) : null)
-  }, [entities, entitiesLoading, entitiesError])
-
-  const locationOptions = (entities?.locations || []).map((loc) => ({
-    label: loc.name || `Location ${loc['@iot.id']}`,
-    value: loc['@iot.id'],
-  }))
-
-  const thingFields = React.useMemo(
-    () => buildThingFields({ t, locationOptions }),
-    [t, locationOptions]
+export default function ThingsPage() {
+  const { mode, asOf } = useTemporal()
+  const { data, loading, error, activeUrl } = useTemporalQuery<{ value: Thing[] }>(
+    '/api/things'
   )
 
-  const filtered = things.filter((thing) =>
-    JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
-  )
-
-  const apiPreview = React.useMemo(
-    () =>
-      appendTemporalParams(item?.root || '/Things', {
-        mode,
-        asOf,
-        fromTo,
-      }),
-    [mode, asOf, fromTo]
-  )
-
-  // Initialize CRUD handlers
-  const {
-    handleCancelCreate,
-    handleCancelEdit,
-    handleCreate,
-    handleEdit,
-    handleSaveEdit,
-    handleDelete,
-    fetchThingWithExpand,
-  } = useThingCRUDHandler({
-    item,
-    token,
-    setShowCreate,
-    setExpanded,
-    setEditThing,
-    setCreateLoading,
-    setCreateError,
-    setEditLoading,
-    setEditError,
-    refetchAll,
-    setNestedEntitiesMap,
-    setThings,
-  })
-
-  React.useEffect(() => {
-    if (things.length > 0) {
-      things.forEach((t) => {
-        fetchThingWithExpand(t['@iot.id'])
-      })
-    }
-  }, [things, token])
-
-  if (loading) return <LoadingScreen />
-  if (error) return <p>{error}</p>
-
-  const entityListComponent = (
-    <EntityList
-      items={filtered}
-      fields={thingFields}
-      expandedId={expanded}
-      onItemSelect={setExpanded}
-      entityType="things"
-      onEdit={handleEdit}
-      onSaveEdit={handleSaveEdit}
-      onDelete={handleDelete}
-      onCreate={handleCreate}
-      handleCancelCreate={handleCancelCreate}
-      handleCancelEdit={handleCancelEdit}
-      showCreateForm={false}
-      isCreating={createLoading}
-      createError={createError}
-      editEntity={editThing}
-      isEditing={editLoading}
-      editError={editError}
-      token={token}
-      nestedEntities={nestedEntitiesMap}
-      sortOrder=""
-      setSortOrder={() => {}}
-    />
-  )
+  const items = data?.value || []
 
   return (
-    <div className="min-h-screen p-4">
-      <EntityActions
-        title="Things"
-        search={search}
-        onSearchChange={setSearch}
-        onCreatePress={() => {
-          setShowCreate(true)
-          setExpanded(null)
-        }}
-        showMap={showMap}
-        onToggleMap={() => setShowMap((prev) => !prev)}
-      />
+    <div className="min-h-screen p-4 space-y-3">
+      <h1 className="text-3xl font-bold text-white">Things</h1>
       <TemporalModeSwitch />
-      <div className="mb-3 p-2 rounded bg-white/10 text-white/80 text-xs font-mono overflow-auto">
-        GET {apiPreview}
-      </div>
-      {mode !== 'current' && filtered.length === 0 && (
+
+      <Card className="p-2 bg-white/10 text-white/80 text-xs font-mono overflow-auto">
+        GET {activeUrl}
+      </Card>
+
+      {mode !== 'current' && items.length === 0 && (
         <TemporalConflictWarning asOf={mode === 'as_of' ? asOf : null} />
       )}
-      {showCreate && (
-        <div className="mb-6">
-          <ThingCreator
-            onCreate={handleCreate}
-            onCancel={handleCancelCreate}
-            isLoading={createLoading}
-            error={createError}
-            locationOptions={locationOptions}
-            datastreamOptions={[]}
-            observationTypeOptions={[]}
-            unitOfMeasurementOptions={[]}
-            sensorOptions={[]}
-            observedPropertyOptions={[]}
-          />
-        </div>
-      )}
-      <SplitPanel
-        leftPanel={entityListComponent}
-        rightPanel={null}
-        showRightPanel={null}
-        initialSplit={split}
-      />
+
+      {loading && <p className="text-white">Loading...</p>}
+      {error && <p className="text-danger">{error.message}</p>}
+
+      <Table aria-label="Things table" removeWrapper>
+        <TableHeader>
+          <TableColumn>ID</TableColumn>
+          <TableColumn>Name</TableColumn>
+          <TableColumn>Description</TableColumn>
+          <TableColumn>System validity</TableColumn>
+        </TableHeader>
+        <TableBody emptyContent="No things found" items={items}>
+          {(item) => (
+            <TableRow key={item['@iot.id']}>
+              <TableCell>{item['@iot.id']}</TableCell>
+              <TableCell>{item.name}</TableCell>
+              <TableCell>{item.description}</TableCell>
+              <TableCell>{item.systemTimeValidity || '-'}</TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
     </div>
   )
 }

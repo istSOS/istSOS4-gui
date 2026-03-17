@@ -1,0 +1,41 @@
+// Copyright 2026 SUPSI
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// Parse ISO 8601 durations like PT10M, PT1H30M, PT45S -> ms
+export function isoDurationToMs(d?: string): number | null {
+  if (!d || typeof d !== 'string') return null
+
+  const m =
+    /^P(?:\d+Y)?(?:\d+M)?(?:\d+D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/i.exec(
+      d.trim()
+    )
+  if (!m) return null
+
+  const hours = m[1] ? Number(m[1]) : 0
+  const mins = m[2] ? Number(m[2]) : 0
+  const secs = m[3] ? Number(m[3]) : 0
+
+  if (![hours, mins, secs].every((x) => Number.isFinite(x))) return null
+  return (hours * 3600 + mins * 60 + secs) * 1000
+}
+
+// SensorThings phenomenonTime can be instant OR "start/end" interval.
+// We use the END of the interval.
+export function parsePhenomenonTimeMs(t?: string): number | null {
+  if (!t || typeof t !== 'string') return null
+  const s = t.includes('/') ? t.split('/')[1]?.trim() : t.trim()
+  if (!s) return null
+  const ms = Date.parse(s)
+  return Number.isFinite(ms) ? ms : null
+}
