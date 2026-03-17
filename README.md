@@ -21,13 +21,13 @@ npm install
 ### Start the development services:
 
 ```bash
-docker compose -f docker-compose_dev.yml up -d
+docker-compose -f dev-docker-compose.yaml up -d
 ```
 
 ### Stop the development services:
 
 ```bash
-docker compose -f docker-compose_dev.yml down
+docker-compose -f dev-docker-compose.yaml down
 ```
 
 ## 4. Access the Application

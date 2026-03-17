@@ -12,10 +12,10 @@ services:
     environment:
       NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
       NEXT_PUBLIC_API_URL: ${NEXT_API_URL}
-    command: npm run dev
+    command: sh -c "npm install && npm run dev"
     networks:
-     - istsos4_default
-     
+      - istsos4_default
+
 networks:
   istsos4_default:
     external: true
