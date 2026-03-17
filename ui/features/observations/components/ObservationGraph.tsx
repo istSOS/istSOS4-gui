@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 
 dayjs.extend(utc)
 
-type Props = {
+type ObservationGraphProps = {
   thing?: any | null
   datastream?: any | null
   observations?: any[]
@@ -34,7 +34,7 @@ function extractTimestamp(obs: any): number | null {
   return Number.isFinite(ts) ? ts : null
 }
 
-export default function MainGraph({
+export default function ObservationGraph({
   thing = null,
   datastream = null,
   observations = [],
@@ -42,7 +42,7 @@ export default function MainGraph({
   error = null,
   className = '',
   height = '100%',
-}: Props) {
+}: ObservationGraphProps) {
   const { t } = useTranslation()
 
   const containerRef = useRef<HTMLDivElement | null>(null)

@@ -1,12 +1,12 @@
 'use client'
 
-import LocationFormTab from '@/features/location/components/LocationFormTab'
-import ThingFormTab from '@/features/things/components/ThingFormTab'
+import LocationForm from '@/features/location/components/LocationForm'
+import ThingForm from '@/features/things/components/ThingForm'
 import { Modal, ModalBody, ModalContent } from '@heroui/modal'
 import { Tab, Tabs } from '@heroui/tabs'
 import { useState } from 'react'
 
-interface FormModalProps {
+interface FormProps {
   operation: 'create' | 'edit'
   latitude?: number
   longitude?: number
@@ -16,13 +16,13 @@ interface FormModalProps {
 
 type FormTabKey = string
 
-export default function FormModal({
+export default function Form({
   operation,
   latitude,
   longitude,
   isOpen,
   onClose,
-}: FormModalProps) {
+}: FormProps) {
   const [selectedTab, setSelectedTab] = useState<FormTabKey>('thing')
 
   return (
@@ -50,11 +50,11 @@ export default function FormModal({
             variant="underlined"
           >
             <Tab key="thing" title="Thing">
-              <ThingFormTab operation={operation} onSuccess={onClose} />
+              <ThingForm operation={operation} onSuccess={onClose} />
             </Tab>
 
             <Tab key="location" title="Location">
-              <LocationFormTab
+              <LocationForm
                 operation={operation}
                 latitude={latitude}
                 longitude={longitude}

@@ -1,15 +1,14 @@
 'use client'
 
+import FormModal from '@/features/forms/components/Form'
 import LeafletMap from '@/features/map/components/LeafletMap'
-import MainGraph from '@/features/observations/components/MainGraph'
+import ObservationGraph from '@/features/observations/components/ObservationGraph'
 import MainTable from '@/features/things/components/MainTable'
 import { getObservationsByDatastream } from '@/services/observations'
 import { Card } from '@heroui/card'
 import { Tab, Tabs } from '@heroui/tabs'
 import dayjs from 'dayjs'
 import { useMemo, useRef, useState } from 'react'
-
-import FormModal from '@/components/form/FormModal'
 
 import { useAuth } from '@/context/AuthContext'
 
@@ -181,7 +180,7 @@ export default function Home({
 
                 <Tab key="chart" title="Chart">
                   <div className="h-[32vh] p-3">
-                    <MainGraph
+                    <ObservationGraph
                       thing={selectedThing}
                       datastream={selectedDatastream}
                       observations={observations}

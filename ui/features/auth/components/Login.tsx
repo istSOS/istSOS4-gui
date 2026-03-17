@@ -1,6 +1,7 @@
 'use client'
 
 import i18n from '@/i18n'
+import { login } from '@/services/auth'
 import { Button } from '@heroui/button'
 import {
   Dropdown,
@@ -25,20 +26,18 @@ import { useTranslation } from 'react-i18next'
 
 import { useRouter } from 'next/navigation'
 
+import { LogoIstSOS, LogoOSGeo } from '@/components/icons'
+
 import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
-
-import { login } from '@/services/auth'
-
-import { LogoIstSOS, LogoOSGeo } from '@/components/icons'
 
 type LoginModalProps = {
   open: boolean
   onClose: () => void
 }
 
-export default function LoginModal({ open, onClose }: LoginModalProps) {
+export default function Login({ open, onClose }: LoginModalProps) {
   const { setToken } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()

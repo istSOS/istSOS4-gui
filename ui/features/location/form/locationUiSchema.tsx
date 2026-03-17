@@ -15,11 +15,13 @@ import { UiSchema } from '@rjsf/utils'
 
 import {
   DescriptionWidget,
+  EncodingTypeWidget,
+  LocationWidget,
   NameWidget,
-} from '@/components/form/thing/thingWidget'
-import { DescriptionIcon } from '@/components/icons'
+} from '@/features/location/form/locationWidget'
+import { DescriptionIcon, LocationIcon, MarkerIcon } from '@/components/icons'
 
-export const thingUiSchema: UiSchema = {
+export const locationUiSchema: UiSchema = {
   'ui:field': 'LayoutGridField',
   'ui:layoutGrid': {
     'ui:row': {
@@ -35,7 +37,10 @@ export const thingUiSchema: UiSchema = {
           'ui:row': {
             spacing: 2,
             size: 12,
-            children: [{ 'ui:col': { size: 12, children: ['name'] } }],
+            children: [
+              { 'ui:col': { size: 6, children: ['name'] } },
+              { 'ui:col': { size: 6, children: ['location'] } },
+            ],
           },
         },
         {
@@ -44,22 +49,46 @@ export const thingUiSchema: UiSchema = {
             children: [{ 'ui:col': { size: 12, children: ['description'] } }],
           },
         },
+        {
+          'ui:row': {
+            size: 12,
+            children: [{ 'ui:col': { size: 12, children: ['encodingType'] } }],
+          },
+        },
       ],
     },
   },
   name: {
     'ui:widget': NameWidget,
     'ui:options': {
+      icon: <LocationIcon className="w-5 h-5" />,
       fieldLabel: 'Nome',
-      placeholder: 'Nome del sensore',
+      placeholder: 'Nome della Location',
     },
   },
   description: {
     'ui:widget': DescriptionWidget,
     'ui:options': {
-      icon: <DescriptionIcon className="h-5 w-5" />,
+      icon: <DescriptionIcon className="w-5 h-5" />,
       fieldLabel: 'Descrizione',
-      placeholder: 'Descrizione del sensore',
+      placeholder: 'Descrizione della Location',
+    },
+  },
+  encodingType: {
+    'ui:widget': EncodingTypeWidget,
+    'ui:options': {
+      icon: <DescriptionIcon className="w-5 h-5" />,
+      fieldLabel: 'Tipo di codifica',
+      placeholder:
+        "Tipo di codifica della posizione (es. 'application/vnd.geo+json')",
+    },
+  },
+  location: {
+    'ui:widget': LocationWidget,
+    'ui:options': {
+      icon: <MarkerIcon className="w-5 h-5" />,
+      fieldLabel: 'Posizione',
+      placeholder: 'Posizione della Location',
     },
   },
 }

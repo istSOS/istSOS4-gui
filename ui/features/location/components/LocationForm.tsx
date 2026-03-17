@@ -1,34 +1,52 @@
 'use client'
 
+import { locationSchema } from '@/features/location/form/locationSchema'
+import { locationUiSchema } from '@/features/location/form/locationUiSchema'
+import MapComponent from '@/features/map/components/LeafletMiniMap'
 import { Button } from '@heroui/button'
 import Form from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { getSchemaAndUiSchema } from '@/server/utils/schemaHelper'
-
-interface ThingFormTabProps {
+interface LocationFormProps {
   operation: 'create' | 'edit'
+  latitude?: number
+  longitude?: number
   onSuccess: () => void
 }
 
-export default function ThingFormTab({
+export default function LocationForm({
   operation,
+  latitude,
+  longitude,
   onSuccess,
-}: ThingFormTabProps) {
+}: LocationFormProps) {
   const [schema, setSchema] = useState<any>(null)
   const [formData, setFormData] = useState<any>({})
+  const mapRef = useRef(null)
 
   useEffect(() => {
-    const loadSchema = async () => {
-      const schemaData = await getSchemaAndUiSchema('thing')
-
-      setSchema(schemaData)
-      setFormData({})
+    const initialData: any = {}
+    if (latitude !== undefined && longitude !== undefined) {
+      initialData.location = `${latitude}, ${longitude}`
     }
 
-    loadSchema()
-  }, [])
+    setSchema({
+      schema: {
+        ...locationSchema,
+        properties: { ...locationSchema.properties },
+      },
+      uiSchema: { ...locationUiSchema },
+    })
+    setFormData(initialData)
+  }, [latitude, longitude])
+
+  const handleMapMove = (coords: { lat: number; lng: number }) => {
+    setFormData((prev) => ({
+      ...prev,
+      location: `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`,
+    }))
+  }
 
   const handleSubmit = async ({ formData }: any) => {
     try {
@@ -50,6 +68,12 @@ export default function ThingFormTab({
       onSubmit={handleSubmit}
       validator={validator}
     >
+      <br />
+      <MapComponent
+        ref={mapRef}
+        onCenterChange={handleMapMove}
+        coordinates={formData?.location}
+      />
       <div className="flex justify-end gap-2 mt-4">
         {operation === 'edit' ? (
           <Button type="submit" variant="solid">
