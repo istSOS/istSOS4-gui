@@ -21,6 +21,8 @@ import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/navigation'
 
 import { LoadingScreen } from '@/components/LoadingScreen'
+import TemporalConflictWarning from '@/components/TemporalConflictWarning'
+import TemporalModeSwitch from '@/components/TemporalModeSwitch'
 import { EntityActions } from '@/components/entity/EntityActions'
 import { EntityList } from '@/components/entity/EntityList'
 import { SplitPanel } from '@/components/layout/SplitPanel'
@@ -29,6 +31,9 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 import { useEntities } from '@/context/EntitiesContext'
+import { useTemporal } from '@/context/TemporalContext'
+
+import { appendTemporalParams } from '@/server/temporal'
 
 import { useThingCRUDHandler } from './ThingCRUDHandler'
 import ThingCreator from './ThingCreator'
@@ -44,6 +49,7 @@ export default function Things() {
     refetchAll,
   } = useEntities()
   const { token } = useAuth()
+  const { mode, asOf, fromTo } = useTemporal()
   const router = useRouter()
   const { t } = useTranslation()
   const [nestedEntitiesMap, setNestedEntitiesMap] = React.useState<
@@ -81,6 +87,16 @@ export default function Things() {
 
   const filtered = things.filter((thing) =>
     JSON.stringify(thing).toLowerCase().includes(search.toLowerCase())
+  )
+
+  const apiPreview = React.useMemo(
+    () =>
+      appendTemporalParams(item?.root || '/Things', {
+        mode,
+        asOf,
+        fromTo,
+      }),
+    [mode, asOf, fromTo]
   )
 
   // Initialize CRUD handlers
@@ -157,6 +173,13 @@ export default function Things() {
         showMap={showMap}
         onToggleMap={() => setShowMap((prev) => !prev)}
       />
+      <TemporalModeSwitch />
+      <div className="mb-3 p-2 rounded bg-white/10 text-white/80 text-xs font-mono overflow-auto">
+        GET {apiPreview}
+      </div>
+      {mode !== 'current' && filtered.length === 0 && (
+        <TemporalConflictWarning asOf={mode === 'as_of' ? asOf : null} />
+      )}
       {showCreate && (
         <div className="mb-6">
           <ThingCreator

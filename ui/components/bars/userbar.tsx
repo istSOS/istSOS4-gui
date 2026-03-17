@@ -36,6 +36,7 @@ import { useTimezone } from '@/context/TimezoneContext'
 
 import fetchLogout from '@/server/fetchLogout'
 
+import TemporalBadge from '../TemporalBadge'
 import { LogoIstSOS } from '../icons'
 
 const mainColor = siteConfig.main_color
@@ -251,6 +252,8 @@ export default function UserBar({
           </div>
         )}
       </div>
+
+      <TemporalBadge />
 
       {/* User + Language controls */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

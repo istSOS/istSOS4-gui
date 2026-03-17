@@ -27,6 +27,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 import { LoadingScreen } from '@/components/LoadingScreen'
 import MapWrapper from '@/components/MapWrapper'
+import PhantomEditWarning from '@/components/PhantomEditWarning'
+import TemporalConflictWarning from '@/components/TemporalConflictWarning'
+import TemporalModeSwitch from '@/components/TemporalModeSwitch'
 import { EntityActions } from '@/components/entity/EntityActions'
 import { EntityList } from '@/components/entity/EntityList'
 import { useEnrichedDatastreams } from '@/components/hooks/useEnrichedDatastreams'
@@ -37,7 +40,10 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 import { useEntities } from '@/context/EntitiesContext'
+import { useTemporal } from '@/context/TemporalContext'
 import { useTimezone } from '@/context/TimezoneContext'
+
+import { appendTemporalParams } from '@/server/temporal'
 
 import { useDatastreamCRUDHandler } from './DatastreamCRUDHandler'
 import DatastreamCreator from './DatastreamCreator'
@@ -73,6 +79,7 @@ export default function Datastreams() {
   const [showMap, setShowMap] = React.useState(true)
   const [split, setSplit] = React.useState(0.5)
   const { timezone } = useTimezone()
+  const { mode, asOf, fromTo } = useTemporal()
   // Date range state
   const [customStart, setCustomStart] = React.useState<DateValue | null>(null)
   const [customEnd, setCustomEnd] = React.useState<DateValue | null>(null)
@@ -353,6 +360,12 @@ export default function Datastreams() {
   if (loading) return <LoadingScreen />
   if (entitiesError) return <p>{entitiesError}</p>
 
+  const apiPreview = appendTemporalParams(item?.root || '/Datastreams', {
+    mode,
+    asOf,
+    fromTo,
+  })
+
   const entityListComponent = (
     <EntityList
       items={filtered}
@@ -446,6 +459,14 @@ export default function Datastreams() {
         }}
         onFilterChange={handleFilterChange}
       />
+      <TemporalModeSwitch />
+      <div className="mb-3 p-2 rounded bg-white/10 text-white/80 text-xs font-mono overflow-auto">
+        GET {apiPreview}
+      </div>
+      {mode !== 'current' && <PhantomEditWarning />}
+      {mode !== 'current' && filtered.length === 0 && (
+        <TemporalConflictWarning asOf={mode === 'as_of' ? asOf : null} />
+      )}
       <div className="flex flex-row items-end gap-2 mb-2">
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Select

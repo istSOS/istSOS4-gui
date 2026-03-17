@@ -30,6 +30,7 @@ import { siteConfig } from '@/config/site'
 
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { EntitiesProvider } from '@/context/EntitiesContext'
+import { TemporalProvider } from '@/context/TemporalContext'
 import { TimezoneProvider } from '@/context/TimezoneContext'
 
 import '@/styles/globals.css'
@@ -83,11 +84,15 @@ export default function RootLayout({
     <html lang="en">
       <body style={{ backgroundColor: mainColor }} className="min-h-screen">
         <AuthProvider>
-          <EntitiesProvider>
-            <TimezoneProvider>
-              <LayoutContent>{children}</LayoutContent>
-            </TimezoneProvider>
-          </EntitiesProvider>
+          <React.Suspense fallback={null}>
+            <TemporalProvider>
+              <EntitiesProvider>
+                <TimezoneProvider>
+                  <LayoutContent>{children}</LayoutContent>
+                </TimezoneProvider>
+              </EntitiesProvider>
+            </TemporalProvider>
+          </React.Suspense>
         </AuthProvider>
       </body>
     </html>

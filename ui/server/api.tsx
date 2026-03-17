@@ -16,9 +16,18 @@
  * limitations under the License.
  */
 
-export const fetchData = async (endpoint: string, token: string) => {
+import { TemporalState } from '@/types/temporal'
+
+import { appendTemporalParams } from './temporal'
+
+export const fetchData = async (
+  endpoint: string,
+  token: string,
+  temporal?: TemporalState
+) => {
   try {
-    const response = await fetch(endpoint, {
+    const temporalEndpoint = appendTemporalParams(endpoint, temporal)
+    const response = await fetch(temporalEndpoint, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,

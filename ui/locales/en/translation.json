@@ -38,7 +38,8 @@
         "sensors_info": "A Sensor is an instrument that observes a property or phenomenon with the goal of producing an estimate of the value of the property.",
         "observedproperties_info": "An ObservedProperty specifies the phenomenon of an Observation.",
         "observations_info": "An Observation is the act of measuring or otherwise determining the value of a property.",
-        "featuresofinterest_info": "An Observation assigns a value to a phenomenon, which is a property of the FeatureOfInterest (FOI). In IoT, the FOI is often the Location of the Thing (e.g., a thermostat’s location is the living room). In remote sensing, the FOI can be the geographic area or volume being observed."
+        "featuresofinterest_info": "An Observation assigns a value to a phenomenon, which is a property of the FeatureOfInterest (FOI). In IoT, the FOI is often the Location of the Thing (e.g., a thermostat’s location is the living room). In remote sensing, the FOI can be the geographic area or volume being observed.",
+        "commits_info": "A timeline of create, update, and delete operations with author, message, and affected entities."
     },
     "datastreams": {
         "create": "Create Datastream",

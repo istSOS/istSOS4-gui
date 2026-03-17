@@ -38,7 +38,8 @@
         "sensors_info": "Un Sensore è uno strumento che osserva una proprietà o un fenomeno con l'obiettivo di produrre una stima del valore della proprietà.",
         "observedproperties_info": "Una Proprietà Osservata specifica il fenomeno di un'Osservazione.",
         "observations_info": "Un'Osservazione è l'atto di misurare o determinare il valore di una proprietà.",
-        "featuresofinterest_info": "Un'Osservazione assegna un valore a un fenomeno, che è una proprietà della FeatureOfInterest (FOI). Nell'IoT, la FOI è spesso la posizione della Thing (es. la posizione di un termostato è il soggiorno). Nel telerilevamento, la FOI può essere l'area geografica o il volume osservato."
+        "featuresofinterest_info": "Un'Osservazione assegna un valore a un fenomeno, che è una proprietà della FeatureOfInterest (FOI). Nell'IoT, la FOI è spesso la posizione della Thing (es. la posizione di un termostato è il soggiorno). Nel telerilevamento, la FOI può essere l'area geografica o il volume osservato.",
+        "commits_info": "Una timeline delle operazioni di creazione, aggiornamento ed eliminazione con autore, messaggio ed entità coinvolte."
     },
     "datastreams": {
         "create": "Crea Datastream",

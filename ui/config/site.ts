@@ -60,6 +60,13 @@ export const siteConfig = {
     },
 
     {
+      label: 'Commits',
+      href: '/commits',
+      root: '/api/commits',
+      weight: 1,
+    },
+
+    {
       label: 'Things',
       href: '/things',
       root: API_ROOT + '/Things',

@@ -22,6 +22,7 @@ import { siteConfig } from '@/config/site'
 import { fetchData } from '@/server/api'
 
 import { useAuth } from './AuthContext'
+import { useTemporal } from './TemporalContext'
 
 type Entities = {
   locations: any[]
@@ -63,6 +64,7 @@ const EntitiesContext = createContext<EntitiesContextType>({
 
 export function EntitiesProvider({ children }: { children: React.ReactNode }) {
   const { token, loading: authLoading } = useAuth()
+  const { mode, asOf, fromTo } = useTemporal()
 
   const [entities, setEntities] = useState<Entities>({
     locations: [],
@@ -97,6 +99,13 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
 
   const refetchAll = async () => {
     if (!token || authLoading) return
+
+    const temporal = {
+      mode,
+      asOf,
+      fromTo,
+    }
+
     setLoading(true)
     setError(null)
     try {
@@ -113,22 +122,28 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
         historicalLocations,
         network,
       ] = await Promise.all([
-        fetchData(getRoot('Locations'), token).then((d) => d?.value || []),
-        fetchData(getRoot('Things'), token).then((d) => d?.value || []),
-        fetchData(getRoot('Sensors'), token).then((d) => d?.value || []),
+        fetchData(getRoot('Locations'), token, temporal).then(
+          (d) => d?.value || []
+        ),
+        fetchData(getRoot('Things'), token, temporal).then((d) => d?.value || []),
+        fetchData(getRoot('Sensors'), token, temporal).then((d) => d?.value || []),
         // Datastreams with $expand (if configured)
-        fetchData(datastreamsUrl, token).then((d) => d?.value || []),
-        fetchData(getRoot('Observations'), token).then((d) => d?.value || []),
-        fetchData(getRoot('FeaturesOfInterest'), token).then(
+        fetchData(datastreamsUrl, token, temporal).then((d) => d?.value || []),
+        fetchData(getRoot('Observations'), token, temporal).then(
           (d) => d?.value || []
         ),
-        fetchData(getRoot('ObservedProperties'), token).then(
+        fetchData(getRoot('FeaturesOfInterest'), token, temporal).then(
           (d) => d?.value || []
         ),
-        fetchData(getRoot('HistoricalLocations'), token).then(
+        fetchData(getRoot('ObservedProperties'), token, temporal).then(
           (d) => d?.value || []
         ),
-        fetchData(getRoot('Networks'), token).then((d) => d?.value || []),
+        fetchData(getRoot('HistoricalLocations'), token, temporal).then(
+          (d) => d?.value || []
+        ),
+        fetchData(getRoot('Networks'), token, temporal).then(
+          (d) => d?.value || []
+        ),
       ])
 
       setEntities({
@@ -152,7 +167,7 @@ export function EntitiesProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refetchAll()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, authLoading])
+  }, [token, authLoading, mode, asOf, fromTo])
 
   return (
     <EntitiesContext.Provider
