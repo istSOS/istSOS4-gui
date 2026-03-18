@@ -59,6 +59,7 @@ export default function Login({ open, onClose }: LoginModalProps) {
   const [password, setPassword] = useState<string>('')
   const [error, setError] = useState<string>('')
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [submitted, setSubmitted] = useState<boolean>(false)
 
   const languages = [
     { code: 'en', label: 'EN', flag: 'fi fi-gb fis w-12 h-8' },
@@ -76,12 +77,24 @@ export default function Login({ open, onClose }: LoginModalProps) {
 
   if (!open) return null
 
+  const usernameError =
+    submitted && !username.trim() ? t('login.username_error') : ''
+
+  const passwordError =
+    submitted && !password.trim() ? t('login.password_error') : ''
+
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     if (isLoading) return
 
+    setSubmitted(true)
     setError('')
+
+    if (!username.trim() || !password.trim()) {
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -91,7 +104,7 @@ export default function Login({ open, onClose }: LoginModalProps) {
         setToken(result.access_token)
 
         setCookie('token', result.access_token, {
-          httpOnly: false, // consider moving to httpOnly server cookie later
+          httpOnly: false,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           maxAge: 60 * 60 * 24,
@@ -124,6 +137,7 @@ export default function Login({ open, onClose }: LoginModalProps) {
           setUsername('')
           setPassword('')
           setError('')
+          setSubmitted(false)
         }}
         className="w-full max-w-xs flex flex-col gap-4"
       >
@@ -183,16 +197,20 @@ export default function Login({ open, onClose }: LoginModalProps) {
               <ModalBody>
                 <Input
                   isRequired
+                  name="username"
                   label={t('login.username')}
                   labelPlacement="outside"
                   placeholder={t('login.username_placeholder')}
                   variant="flat"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  isInvalid={!!usernameError}
+                  errorMessage={usernameError}
                 />
 
                 <Input
                   isRequired
+                  name="password"
                   label={t('login.password')}
                   labelPlacement="outside"
                   placeholder={t('login.password_placeholder')}
@@ -200,6 +218,8 @@ export default function Login({ open, onClose }: LoginModalProps) {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  isInvalid={!!passwordError}
+                  errorMessage={passwordError}
                 />
               </ModalBody>
 

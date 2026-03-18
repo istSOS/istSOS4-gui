@@ -92,12 +92,14 @@ function ageLabel(endRaw?: string) {
 type Props = {
   thing: any | null
   onClose: () => void
+  onCreateDatastream?: () => void
   onOpenDetails?: (datastream: any) => void
 }
 
 export default function DatastreamTable({
   thing,
   onClose,
+  onCreateDatastream,
   onOpenDetails,
 }: Props) {
   const { t, i18n } = useTranslation()
@@ -337,6 +339,7 @@ export default function DatastreamTable({
                 endContent={<PlusIcon size={18} />}
                 size="sm"
                 color="primary"
+                onPress={onCreateDatastream}
               >
                 {t('general.new')}
               </Button>
