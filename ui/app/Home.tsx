@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import DatastreamTable from '@/features/datastreams/components/DatastreamTable'
-import FormModal from '@/features/forms/components/Form'
+import FormModal from '@/features/forms/components/FormModal'
 import LeafletMap from '@/features/map/components/LeafletMap'
 import ObservationGraph from '@/features/observations/components/ObservationGraph'
 import { getObservationsByDatastream } from '@/services/observations'
@@ -26,6 +26,18 @@ import { useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 
 type BottomTabKey = 'table' | 'chart'
+type FormTabKey =
+  | 'thing'
+  | 'location'
+  | 'sensor'
+  | 'observedProperty'
+  | 'datastream'
+
+type CreateFormState = {
+  latitude?: number
+  longitude?: number
+  initialTab?: FormTabKey
+}
 
 export default function Home({
   things,
@@ -40,10 +52,8 @@ export default function Home({
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
   const [activeBottomTab, setActiveBottomTab] = useState<BottomTabKey>('table')
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
-  const [createPoint, setCreatePoint] = useState<{
-    latitude: number
-    longitude: number
-  } | null>(null)
+  const [createFormState, setCreateFormState] =
+    useState<CreateFormState | null>(null)
 
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
@@ -137,17 +147,23 @@ export default function Home({
           setActiveBottomTab('table')
         }}
         onCreateThingAt={(point) => {
-          setCreatePoint(point)
+          setCreateFormState({
+            latitude: point.latitude,
+            longitude: point.longitude,
+            initialTab: 'thing',
+          })
         }}
       />
-      {createPoint ? (
+      {createFormState ? (
         <FormModal
           operation="create"
-          latitude={createPoint.latitude}
-          longitude={createPoint.longitude}
-          isOpen={!!createPoint}
+          latitude={createFormState.latitude}
+          longitude={createFormState.longitude}
+          initialTab={createFormState.initialTab}
+          things={localThings}
+          isOpen={!!createFormState}
           onClose={() => {
-            setCreatePoint(null)
+            setCreateFormState(null)
           }}
         />
       ) : null}
@@ -185,6 +201,11 @@ export default function Home({
                     <DatastreamTable
                       thing={selectedThing}
                       onClose={closePanel}
+                      onCreateDatastream={() => {
+                        setCreateFormState({
+                          initialTab: 'datastream',
+                        })
+                      }}
                       onOpenDetails={openChartForDatastream}
                     />
                   </div>
