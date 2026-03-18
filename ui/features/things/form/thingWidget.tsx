@@ -21,3 +21,7 @@ export const NameWidget = (props: WidgetProps) => <InputWidget {...props} />
 export const DescriptionWidget = (props: WidgetProps) => (
   <TextareaWidget {...props} />
 )
+
+export const KeyWidget = (props: WidgetProps) => <InputWidget {...props} />
+
+export const ValueWidget = (props: WidgetProps) => <InputWidget {...props} />

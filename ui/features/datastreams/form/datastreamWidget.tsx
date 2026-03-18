@@ -22,11 +22,15 @@ export const DescriptionWidget = (props: WidgetProps) => (
   <TextareaWidget {...props} />
 )
 
-export const EncodingTypeWidget = (props: WidgetProps) => (
+export const ObservationTypeWidget = (props: WidgetProps) => (
   <InputWidget {...props} />
 )
 
-export const MetadataWidget = (props: WidgetProps) => <InputWidget {...props} />
+export const SymbolWidget = (props: WidgetProps) => <InputWidget {...props} />
+
+export const DefinitionWidget = (props: WidgetProps) => (
+  <InputWidget {...props} />
+)
 
 export const KeyWidget = (props: WidgetProps) => <InputWidget {...props} />
 

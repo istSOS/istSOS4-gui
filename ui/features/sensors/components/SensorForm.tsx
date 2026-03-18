@@ -65,15 +65,15 @@ export default function SensorForm({ operation, onSuccess }: SensorFormProps) {
       <div className="flex justify-end gap-2 mt-4">
         {operation === 'edit' ? (
           <Button type="submit" variant="solid">
-            Aggiorna
+            {t('general.save')}
           </Button>
         ) : (
           <Button type="submit" variant="solid">
-            Crea
+            {t('general.create')}
           </Button>
         )}
         <Button variant="light" onPress={onSuccess}>
-          Annulla
+          {t('general.cancel')}
         </Button>
       </div>
     </Form>

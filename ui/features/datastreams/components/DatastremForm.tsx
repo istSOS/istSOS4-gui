@@ -13,8 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { ThingSchema } from '@/features/things/form/thingSchema'
-import { ThingUiSchema } from '@/features/things/form/thingUiSchema'
+import { DatastreamSchema } from '@/features/datastreams/form/datastreamSchema'
+import { DatastreamUiSchema } from '@/features/datastreams/form/datastreamUiSchema'
 import { Button } from '@heroui/button'
 import Form from '@rjsf/mui'
 import validator from '@rjsf/validator-ajv8'
@@ -26,7 +26,10 @@ interface ThingFormProps {
   onSuccess: () => void
 }
 
-export default function ThingForm({ operation, onSuccess }: ThingFormProps) {
+export default function DatastreamForm({
+  operation,
+  onSuccess,
+}: ThingFormProps) {
   const [schema, setSchema] = useState<any>(null)
   const [formData, setFormData] = useState<any>({})
   const { t } = useTranslation()
@@ -34,17 +37,17 @@ export default function ThingForm({ operation, onSuccess }: ThingFormProps) {
   useEffect(() => {
     setSchema({
       schema: {
-        ...ThingSchema,
-        properties: { ...ThingSchema.properties },
+        ...DatastreamSchema,
+        properties: { ...DatastreamSchema.properties },
       },
-      uiSchema: { ...ThingUiSchema(t) },
+      uiSchema: { ...DatastreamUiSchema(t) },
     })
     setFormData({})
   }, [])
 
   const handleSubmit = async ({ formData }: any) => {
     try {
-      console.log('submit thing', formData)
+      console.log('submit datastream', formData)
       onSuccess()
     } catch (error) {
       console.error(error)
@@ -65,7 +68,7 @@ export default function ThingForm({ operation, onSuccess }: ThingFormProps) {
       <div className="flex justify-end gap-2 mt-4">
         {operation === 'edit' ? (
           <Button type="submit" variant="solid">
-            {t('general.edit')}
+            {t('general.save')}
           </Button>
         ) : (
           <Button type="submit" variant="solid">

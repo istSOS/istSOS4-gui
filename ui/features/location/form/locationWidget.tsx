@@ -27,3 +27,7 @@ export const EncodingTypeWidget = (props: WidgetProps) => (
 )
 
 export const LocationWidget = (props: WidgetProps) => <InputWidget {...props} />
+
+export const KeyWidget = (props: WidgetProps) => <InputWidget {...props} />
+
+export const ValueWidget = (props: WidgetProps) => <InputWidget {...props} />

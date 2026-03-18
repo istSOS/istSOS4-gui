@@ -14,13 +14,21 @@
 import { UiSchema } from '@rjsf/utils'
 import { TFunction } from 'i18next'
 
-import { DescriptionIcon } from '@/components/icons'
+import {
+  DescriptionIcon,
+  EncodingTypeIcon,
+  KeyIcon,
+  MetadataIcon,
+  NameIcon,
+} from '@/components/icons'
 
 import {
   DescriptionWidget,
   EncodingTypeWidget,
+  KeyWidget,
   MetadataWidget,
   NameWidget,
+  ValueWidget,
 } from './sensorWidget'
 
 export const SensorUiSchema = (t: TFunction): UiSchema => ({
@@ -64,8 +72,9 @@ export const SensorUiSchema = (t: TFunction): UiSchema => ({
   name: {
     'ui:widget': NameWidget,
     'ui:options': {
+      icon: <NameIcon className="w-5 h-5" />,
       fieldLabel: t('sensors.name'),
-      placeholder: t('sensors.namePlaceholder', 'Nome del sensore'),
+      placeholder: t('sensors.name_placeholder'),
     },
   },
   description: {
@@ -73,32 +82,61 @@ export const SensorUiSchema = (t: TFunction): UiSchema => ({
     'ui:options': {
       icon: <DescriptionIcon className="h-5 w-5" />,
       fieldLabel: t('sensors.description'),
-      placeholder: t(
-        'sensors.descriptionPlaceholder',
-        'Descrizione del sensore'
-      ),
+      placeholder: t('sensors.description_placeholder'),
     },
   },
   encodingType: {
     'ui:widget': EncodingTypeWidget,
     'ui:options': {
-      fieldLabel: t('sensors.encodingType'),
-      placeholder: t(
-        'sensors.encodingTypePlaceholder',
-        'Tipo di codifica del sensore'
-      ),
+      icon: <EncodingTypeIcon className="h-5 w-5" />,
+      fieldLabel: t('sensors.encoding_type'),
+      placeholder: t('sensors.encoding_type_placeholder'),
     },
   },
   metadata: {
     'ui:widget': MetadataWidget,
     'ui:options': {
+      icon: <MetadataIcon className="h-5 w-5" />,
       fieldLabel: t('sensors.metadata'),
-      placeholder: t('sensors.metadataPlaceholder', 'Metadata del sensore'),
+      placeholder: t('sensors.metadata_placeholder'),
     },
   },
   properties: {
-    'ui:options': {
-      fieldLabel: t('sensors.properties'),
+    items: {
+      'ui:field': 'LayoutGridField',
+      'ui:layoutGrid': {
+        'ui:row': {
+          spacing: 2,
+          children: [
+            {
+              'ui:row': {
+                spacing: 2,
+                size: 12,
+                children: [
+                  { 'ui:col': { size: 6, children: ['key'] } },
+                  { 'ui:col': { size: 6, children: ['value'] } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      key: {
+        'ui:widget': KeyWidget,
+        'ui:options': {
+          icon: <KeyIcon className="h-5 w-5" />,
+          fieldLabel: t('sensors.propertiesKey'),
+          placeholder: t('sensors.propertiesKey_placeholder'),
+        },
+      },
+      value: {
+        'ui:widget': ValueWidget,
+        'ui:options': {
+          icon: <NameIcon className="h-5 w-5" />,
+          fieldLabel: t('sensors.propertiesValue'),
+          placeholder: t('sensors.propertiesValue_placeholder'),
+        },
+      },
     },
   },
 })

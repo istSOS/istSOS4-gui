@@ -13,13 +13,24 @@
 // limitations under the License.
 import { RJSFSchema } from '@rjsf/utils'
 
-export const ThingSchema: RJSFSchema = {
+export const DatastreamSchema: RJSFSchema = {
   type: 'object',
   properties: {
     name: {
       type: 'string',
     },
     description: {
+      type: 'string',
+    },
+    unitOfMeasurement: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        symbol: { type: 'string' },
+        definition: { type: 'string' },
+      },
+    },
+    observationType: {
       type: 'string',
     },
     properties: {

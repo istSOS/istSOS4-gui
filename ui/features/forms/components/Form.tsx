@@ -13,14 +13,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import DatastreamForm from '@/features/datastreams/components/DatastremForm'
 import LocationForm from '@/features/location/components/LocationForm'
+import ObservedPropertyForm from '@/features/observedProperty/components/ObservedPropertyForm'
 import SensorForm from '@/features/sensors/components/SensorForm'
 import ThingForm from '@/features/things/components/ThingForm'
 import { Modal, ModalBody, ModalContent } from '@heroui/modal'
 import { Tab, Tabs } from '@heroui/tabs'
 import { useState } from 'react'
 
-import { LocationIcon, SensorIcon, ThingIcon } from '@/components/icons'
+import {
+  DatastreamIcon,
+  LocationIcon,
+  ObservedPropertyIcon,
+  SensorIcon,
+  ThingIcon,
+} from '@/components/icons'
 
 interface FormProps {
   operation: 'create' | 'edit'
@@ -62,7 +70,6 @@ export default function Form({
           <Tabs
             selectedKey={selectedTab}
             onSelectionChange={(key) => setSelectedTab(key as FormTabKey)}
-            aria-label="Form tabs"
             variant="underlined"
           >
             <Tab
@@ -104,6 +111,30 @@ export default function Form({
               }
             >
               <SensorForm operation={operation} onSuccess={onClose} />
+            </Tab>
+
+            <Tab
+              key="observedProperty"
+              title={
+                <div className="flex items-center space-x-2">
+                  <ObservedPropertyIcon />
+                  <span>Observed Property</span>
+                </div>
+              }
+            >
+              <ObservedPropertyForm operation={operation} onSuccess={onClose} />
+            </Tab>
+
+            <Tab
+              key="datastream"
+              title={
+                <div className="flex items-center space-x-2">
+                  <DatastreamIcon />
+                  <span>Datastream</span>
+                </div>
+              }
+            >
+              <DatastreamForm operation={operation} onSuccess={onClose} />
             </Tab>
           </Tabs>
         </ModalBody>

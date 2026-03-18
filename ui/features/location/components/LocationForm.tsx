@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 // Copyright 2026 SUPSI
 //
@@ -13,18 +13,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { LocationSchema } from '@/features/location/form/locationSchema';
-import { LocationUiSchema } from '@/features/location/form/locationUiSchema';
-import MapComponent from '@/features/map/components/LeafletMiniMap';
-import { Button } from '@heroui/button';
-import Form from '@rjsf/mui';
-import validator from '@rjsf/validator-ajv8';
-import { useEffect, useRef, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-
-
-
-
+import { LocationSchema } from '@/features/location/form/locationSchema'
+import { LocationUiSchema } from '@/features/location/form/locationUiSchema'
+import MapComponent from '@/features/map/components/LeafletMiniMap'
+import { Button } from '@heroui/button'
+import Form from '@rjsf/mui'
+import validator from '@rjsf/validator-ajv8'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface LocationFormProps {
   operation: 'create' | 'edit'
@@ -69,7 +65,7 @@ export default function LocationForm({
 
   const handleSubmit = async ({ formData }: any) => {
     try {
-      console.log('submit thing', formData)
+      console.log('submit location', formData)
       onSuccess()
     } catch (error) {
       console.error(error)
@@ -96,15 +92,15 @@ export default function LocationForm({
       <div className="flex justify-end gap-2 mt-4">
         {operation === 'edit' ? (
           <Button type="submit" variant="solid">
-            Aggiorna
+            {t('general.save')}
           </Button>
         ) : (
           <Button type="submit" variant="solid">
-            Crea
+            {t('general.create')}
           </Button>
         )}
         <Button variant="light" onPress={onSuccess}>
-          Annulla
+          {t('general.cancel')}
         </Button>
       </div>
     </Form>

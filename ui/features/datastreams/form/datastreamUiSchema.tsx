@@ -16,22 +16,22 @@ import { TFunction } from 'i18next'
 
 import {
   DescriptionIcon,
-  EncodingTypeIcon,
   KeyIcon,
-  LocationIcon,
   NameIcon,
+  ObservationTypeIcon,
 } from '@/components/icons'
 
 import {
+  DefinitionWidget,
   DescriptionWidget,
-  EncodingTypeWidget,
   KeyWidget,
-  LocationWidget,
   NameWidget,
+  ObservationTypeWidget,
+  SymbolWidget,
   ValueWidget,
-} from './locationWidget'
+} from './datastreamWidget'
 
-export const LocationUiSchema = (t: TFunction): UiSchema => ({
+export const DatastreamUiSchema = (t: TFunction): UiSchema => ({
   'ui:field': 'LayoutGridField',
   'ui:layoutGrid': {
     'ui:row': {
@@ -43,7 +43,7 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
             size: 12,
             children: [
               { 'ui:col': { size: 6, children: ['name'] } },
-              { 'ui:col': { size: 6, children: ['location'] } },
+              { 'ui:col': { size: 6, children: ['observationType'] } },
             ],
           },
         },
@@ -56,7 +56,9 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
         {
           'ui:row': {
             size: 12,
-            children: [{ 'ui:col': { size: 12, children: ['encodingType'] } }],
+            children: [
+              { 'ui:col': { size: 12, children: ['unitOfMeasurement'] } },
+            ],
           },
         },
         {
@@ -72,32 +74,71 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
     'ui:widget': NameWidget,
     'ui:options': {
       icon: <NameIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.name'),
-      placeholder: t('locations.name_placeholder'),
+      fieldLabel: t('datastreams.name'),
+      placeholder: t('datastreams.name_placeholder'),
     },
   },
   description: {
     'ui:widget': DescriptionWidget,
     'ui:options': {
       icon: <DescriptionIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.description'),
-      placeholder: t('locations.description_placeholder'),
+      fieldLabel: t('datastreams.description'),
+      placeholder: t('datastreams.description_placeholder'),
     },
   },
-  encodingType: {
-    'ui:widget': EncodingTypeWidget,
-    'ui:options': {
-      icon: <EncodingTypeIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.encoding_type'),
-      placeholder: t('locations.encoding_type_placeholder'),
+  unitOfMeasurement: {
+    'ui:field': 'LayoutGridField',
+    'ui:layoutGrid': {
+      'ui:row': {
+        spacing: 2,
+        children: [
+          {
+            'ui:row': {
+              spacing: 2,
+              size: 12,
+              children: [
+                { 'ui:col': { size: 4, children: ['name'] } },
+                { 'ui:col': { size: 4, children: ['symbol'] } },
+                { 'ui:col': { size: 4, children: ['definition'] } },
+              ],
+            },
+          },
+        ],
+      },
+    },
+    name: {
+      'ui:widget': NameWidget,
+      'ui:options': {
+        icon: <NameIcon className="w-5 h-5" />,
+        fieldLabel: t('datastreams.unit_of_measurement_name'),
+        placeholder: t('datastreams.unit_of_measurement_name_placeholder'),
+      },
+    },
+    symbol: {
+      'ui:widget': SymbolWidget,
+      'ui:options': {
+        icon: <NameIcon className="w-5 h-5" />,
+        fieldLabel: t('datastreams.unit_of_measurement_symbol'),
+        placeholder: t('datastreams.unit_of_measurement_symbol_placeholder'),
+      },
+    },
+    definition: {
+      'ui:widget': DefinitionWidget,
+      'ui:options': {
+        icon: <NameIcon className="w-5 h-5" />,
+        fieldLabel: t('datastreams.unit_of_measurement_definition'),
+        placeholder: t(
+          'datastreams.unit_of_measurement_definition_placeholder'
+        ),
+      },
     },
   },
-  location: {
-    'ui:widget': LocationWidget,
+  observationType: {
+    'ui:widget': ObservationTypeWidget,
     'ui:options': {
-      icon: <LocationIcon className="w-5 h-5" />,
-      fieldLabel: t('locations.coordinates'),
-      placeholder: t('locations.coordinates_placeholder'),
+      icon: <ObservationTypeIcon className="w-5 h-5" />,
+      fieldLabel: t('datastreams.observation_type'),
+      placeholder: t('datastreams.observation_type_placeholder'),
     },
   },
   properties: {
@@ -124,16 +165,16 @@ export const LocationUiSchema = (t: TFunction): UiSchema => ({
         'ui:widget': KeyWidget,
         'ui:options': {
           icon: <KeyIcon className="h-5 w-5" />,
-          fieldLabel: t('locations.propertiesKey'),
-          placeholder: t('locations.propertiesKey_placeholder'),
+          fieldLabel: t('datastreams.propertiesKey'),
+          placeholder: t('datastreams.propertiesKey_placeholder'),
         },
       },
       value: {
         'ui:widget': ValueWidget,
         'ui:options': {
           icon: <NameIcon className="h-5 w-5" />,
-          fieldLabel: t('locations.propertiesValue'),
-          placeholder: t('locations.propertiesValue_placeholder'),
+          fieldLabel: t('datastreams.propertiesValue'),
+          placeholder: t('datastreams.propertiesValue_placeholder'),
         },
       },
     },

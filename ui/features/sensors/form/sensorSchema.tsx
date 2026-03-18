@@ -29,7 +29,20 @@ export const SensorSchema: RJSFSchema = {
       type: 'string',
     },
     properties: {
-      type: 'object',
+      type: 'array',
+      title: 'Properties',
+      items: {
+        type: 'object',
+        title: '',
+        properties: {
+          key: {
+            type: 'string',
+          },
+          value: {
+            type: 'string',
+          },
+        },
+      },
     },
   },
 }

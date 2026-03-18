@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 
 import {
   CrosshairIcon,
-  MarkerIcon,
+  LocationIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from '@/components/icons'
@@ -78,7 +78,7 @@ export default function MapContextMenu({
           onClick={onCenterHere}
         />
         <MenuRow
-          icon={<MarkerIcon />}
+          icon={<LocationIcon />}
           label={t('general.new')}
           onClick={onCreateThing}
         />

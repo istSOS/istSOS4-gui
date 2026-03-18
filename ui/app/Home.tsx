@@ -160,7 +160,6 @@ export default function Home({
           >
             <div className="px-3 pt-2">
               <Tabs
-                aria-label="Thing panel"
                 selectedKey={activeBottomTab}
                 onSelectionChange={async (key) => {
                   const next = key as BottomTabKey

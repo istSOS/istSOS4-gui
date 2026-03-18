@@ -14,9 +14,14 @@
 import { UiSchema } from '@rjsf/utils'
 import { TFunction } from 'i18next'
 
-import { DescriptionIcon, NameIcon } from '@/components/icons'
+import { DescriptionIcon, KeyIcon, NameIcon } from '@/components/icons'
 
-import { DescriptionWidget, NameWidget } from './thingWidget'
+import {
+  DescriptionWidget,
+  KeyWidget,
+  NameWidget,
+  ValueWidget,
+} from './thingWidget'
 
 export const ThingUiSchema = (t: TFunction): UiSchema => ({
   'ui:field': 'LayoutGridField',
@@ -37,6 +42,12 @@ export const ThingUiSchema = (t: TFunction): UiSchema => ({
             children: [{ 'ui:col': { size: 12, children: ['description'] } }],
           },
         },
+        {
+          'ui:row': {
+            size: 12,
+            children: [{ 'ui:col': { size: 12, children: ['properties'] } }],
+          },
+        },
       ],
     },
   },
@@ -45,7 +56,7 @@ export const ThingUiSchema = (t: TFunction): UiSchema => ({
     'ui:options': {
       icon: <NameIcon className="h-5 w-5" />,
       fieldLabel: t('things.name'),
-      placeholder: t('things.namePlaceholder', 'Nome della thing'),
+      placeholder: t('things.name_placeholder'),
     },
   },
   description: {
@@ -53,10 +64,45 @@ export const ThingUiSchema = (t: TFunction): UiSchema => ({
     'ui:options': {
       icon: <DescriptionIcon className="h-5 w-5" />,
       fieldLabel: t('things.description'),
-      placeholder: t(
-        'things.descriptionPlaceholder',
-        'Descrizione della thing'
-      ),
+      placeholder: t('things.description_placeholder'),
+    },
+  },
+  properties: {
+    items: {
+      'ui:field': 'LayoutGridField',
+      'ui:layoutGrid': {
+        'ui:row': {
+          spacing: 2,
+          children: [
+            {
+              'ui:row': {
+                spacing: 2,
+                size: 12,
+                children: [
+                  { 'ui:col': { size: 6, children: ['key'] } },
+                  { 'ui:col': { size: 6, children: ['value'] } },
+                ],
+              },
+            },
+          ],
+        },
+      },
+      key: {
+        'ui:widget': KeyWidget,
+        'ui:options': {
+          icon: <KeyIcon className="h-5 w-5" />,
+          fieldLabel: t('things.propertiesKey'),
+          placeholder: t('things.propertiesKey_placeholder'),
+        },
+      },
+      value: {
+        'ui:widget': ValueWidget,
+        'ui:options': {
+          icon: <NameIcon className="h-5 w-5" />,
+          fieldLabel: t('things.propertiesValue'),
+          placeholder: t('things.propertiesValue_placeholder'),
+        },
+      },
     },
   },
 })
