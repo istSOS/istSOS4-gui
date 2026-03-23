@@ -1,6 +1,6 @@
 'use server'
 
-import { fetchData } from '@/services/fetch'
+import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
@@ -10,10 +10,10 @@ export type CreateSensorPayload = {
   encodingType: string
   metadata: string
   properties?: Record<string, string>
-  commitMessage: string
+  commitMessage?: string
 }
 
-export async function getSensors(token: string) {
+export async function getSensors(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url = `${siteConfig.api_root}/Sensors?$select=id,name,description`
@@ -40,17 +40,23 @@ export async function getSensors(token: string) {
   return { sensorData: values }
 }
 
-export async function createSensor(payload: CreateSensorPayload, token: string) {
+export async function createSensor(
+  payload: CreateSensorPayload,
+  token?: string | null
+) {
   try {
     const { commitMessage, ...sensorPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
 
     const response = await fetch(`${siteConfig.api_root}/Sensors`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'commit-message': commitMessage,
-      },
+      headers,
       body: JSON.stringify(sensorPayload),
     })
 

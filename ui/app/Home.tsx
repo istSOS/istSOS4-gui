@@ -22,6 +22,8 @@ import { Card } from '@heroui/card'
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { siteConfig } from '@/config/site'
+
 import { useAuth } from '@/context/AuthContext'
 
 type FormTabKey =
@@ -100,7 +102,7 @@ export default function Home({
     phenomenonTime?: string,
     range?: { start?: string | null; end?: string | null }
   ) => {
-    if (!token) {
+    if (siteConfig.authorizationEnabled && !token) {
       setObsError('Missing token')
       return
     }
@@ -130,7 +132,7 @@ export default function Home({
     setObsError(null)
     try {
       const { observationData } = await getObservationsByDatastream(
-        token,
+        token ?? undefined,
         datastreamId,
         startIso ?? undefined,
         endIso ?? undefined
@@ -175,7 +177,7 @@ export default function Home({
   }
 
   return (
-    <div className="relative h-[95vh] w-full overflow-hidden">
+    <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden">
       <LeafletMap
         things={localThings}
         selectedNetwork={selectedNetwork}
@@ -237,9 +239,7 @@ export default function Home({
       />
       {isPanelOpen && (
         <div className="fixed inset-x-0 bottom-0 z-[4000] pb-[env(safe-area-inset-bottom)]">
-          <Card
-            className="max-h-[38vh] overflow-hidden rounded-none"
-          >
+          <Card className="max-h-[38vh] overflow-hidden rounded-none">
             <div className="max-h-[32vh] overflow-auto pb-2">
               <DatastreamTable
                 thing={selectedThing}

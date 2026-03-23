@@ -24,6 +24,7 @@ import {
   SensorIcon,
   ThingIcon,
 } from '@/components/icons'
+import { siteConfig } from '@/config/site'
 
 import { formatLv95FromWgs84 } from './coordinates'
 import {
@@ -581,7 +582,11 @@ export function EntityFields({
             </div>
           </div>
           {showSingleAssociations ? (
-            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+            <div
+              className={`grid gap-4 lg:grid-cols-2 ${
+                siteConfig.networkEnabled ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
+              }`}
+            >
               <ExistingEntitySelect
                 entity="thing"
                 label={t('datastreams.thing')}
@@ -630,22 +635,24 @@ export function EntityFields({
                   'No entities are available yet for this type in the current dataset.'
                 )}
               />
-              <ExistingEntitySelect
-                entity="network"
-                label={t('datastreams.network')}
-                placeholder={t(
-                  'datastreams.network_placeholder',
-                  'Select an existing Network'
-                )}
-                value={currentDatastream?.networkId ?? ''}
-                options={existingOptions?.network ?? []}
-                onChange={(value) => updateField('networkId', value)}
-                required
-                emptyText={t(
-                  'wizard.no_existing_entities',
-                  'No entities are available yet for this type in the current dataset.'
-                )}
-              />
+              {siteConfig.networkEnabled ? (
+                <ExistingEntitySelect
+                  entity="network"
+                  label={t('datastreams.network')}
+                  placeholder={t(
+                    'datastreams.network_placeholder',
+                    'Select an existing Network'
+                  )}
+                  value={currentDatastream?.networkId ?? ''}
+                  options={existingOptions?.network ?? []}
+                  onChange={(value) => updateField('networkId', value)}
+                  required
+                  emptyText={t(
+                    'wizard.no_existing_entities',
+                    'No entities are available yet for this type in the current dataset.'
+                  )}
+                />
+              ) : null}
             </div>
           ) : null}
         </>

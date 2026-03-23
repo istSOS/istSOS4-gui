@@ -48,6 +48,7 @@ import {
 } from '@/components/icons'
 
 import { useAuth } from '@/context/AuthContext'
+import { siteConfig } from '@/config/site'
 
 import { EntityFields, ExistingEntitySelect } from './wizard/fields'
 import { ModeCard, SectionTitle, StepCard } from './wizard/primitives'
@@ -176,6 +177,7 @@ export default function FormModal({
   const [commitMessage, setCommitMessage] = useState('')
 
   const requiresCommitMessage =
+    siteConfig.authorizationEnabled &&
     wizardMode === 'single' &&
     (singleEntity === 'thing' ||
       singleEntity === 'location' ||
@@ -213,7 +215,7 @@ export default function FormModal({
 
     setSubmitError(null)
 
-    if (!token) {
+    if (siteConfig.authorizationEnabled && !token) {
       setSubmitError('Missing token')
       return
     }
@@ -230,58 +232,40 @@ export default function FormModal({
 
       if (singleEntity === 'thing') {
         result = await createThing(
-          {
-            ...(normalizeEntityPayload('thing', singleDraft.thing) as Omit<
-              CreateThingPayload,
-              'commitMessage'
-            >),
-            commitMessage: commitMessage.trim(),
-          },
-          token
+          normalizeEntityPayload('thing', singleDraft.thing) as CreateThingPayload,
+          token ?? undefined
         )
       } else if (singleEntity === 'location') {
         result = await createLocation(
-          {
-            ...(normalizeEntityPayload(
-              'location',
-              singleDraft.location
-            ) as Omit<CreateLocationPayload, 'commitMessage'>),
-            commitMessage: commitMessage.trim(),
-          },
-          token
+          normalizeEntityPayload(
+            'location',
+            singleDraft.location
+          ) as CreateLocationPayload,
+          token ?? undefined
         )
       } else if (singleEntity === 'sensor') {
         result = await createSensor(
-          {
-            ...(normalizeEntityPayload('sensor', singleDraft.sensor) as Omit<
-              CreateSensorPayload,
-              'commitMessage'
-            >),
-            commitMessage: commitMessage.trim(),
-          },
-          token
+          normalizeEntityPayload(
+            'sensor',
+            singleDraft.sensor
+          ) as CreateSensorPayload,
+          token ?? undefined
         )
       } else if (singleEntity === 'datastream') {
         result = await createDatastream(
-          {
-            ...(normalizeEntityPayload(
-              'datastream',
-              singleDraft.datastream
-            ) as Omit<CreateDatastreamPayload, 'commitMessage'>),
-            commitMessage: commitMessage.trim(),
-          },
-          token
+          normalizeEntityPayload(
+            'datastream',
+            singleDraft.datastream
+          ) as CreateDatastreamPayload,
+          token ?? undefined
         )
       } else {
         result = await createObservedProperty(
-          {
-            ...(normalizeEntityPayload(
-              'observedProperty',
-              singleDraft.observedProperty
-            ) as Omit<CreateObservedPropertyPayload, 'commitMessage'>),
-            commitMessage: commitMessage.trim(),
-          },
-          token
+          normalizeEntityPayload(
+            'observedProperty',
+            singleDraft.observedProperty
+          ) as CreateObservedPropertyPayload,
+          token ?? undefined
         )
       }
 

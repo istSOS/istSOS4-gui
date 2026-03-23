@@ -3,6 +3,7 @@ export type TokenPayload = {
   user_id?: number | string
   id?: number | string
   uid?: number | string
+  exp?: number
   [key: string]: unknown
 }
 
@@ -14,6 +15,14 @@ export function decodeTokenPayload(token: string | null | undefined): TokenPaylo
   } catch {
     return null
   }
+}
+
+export function isTokenExpired(token: string | null | undefined) {
+  const payload = decodeTokenPayload(token)
+  if (!payload?.exp) return true
+
+  const now = Math.floor(Date.now() / 1000)
+  return payload.exp <= now
 }
 
 export function getTokenUsername(token: string | null | undefined) {

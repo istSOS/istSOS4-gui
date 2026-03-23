@@ -24,12 +24,16 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import Home from '@/app/Home'
+import { siteConfig } from '@/config/site'
+import { isTokenExpired } from '@/lib/auth'
 
 export default async function Page() {
   const cookieStore = await cookies()
-  const token = cookieStore.get('token')?.value
+  const token = siteConfig.authorizationEnabled
+    ? (cookieStore.get('token')?.value ?? null)
+    : null
 
-  if (!token) {
+  if (siteConfig.authorizationEnabled && (!token || isTokenExpired(token))) {
     redirect('/login')
   }
 
@@ -41,7 +45,9 @@ export default async function Page() {
         getSensors(token),
         getObservedProperties(token),
         getDatastreams(token),
-        getNetworks(token),
+        siteConfig.networkEnabled
+          ? getNetworks(token)
+          : Promise.resolve({ networkData: [] }),
       ])
 
     return (
@@ -55,6 +61,10 @@ export default async function Page() {
       />
     )
   } catch (error) {
-    redirect('/login')
+    if (siteConfig.authorizationEnabled) {
+      redirect('/login')
+    }
+
+    throw error
   }
 }

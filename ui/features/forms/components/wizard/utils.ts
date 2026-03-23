@@ -13,6 +13,8 @@ import type {
 } from './types'
 import { parseLv95String } from './coordinates'
 
+import { siteConfig } from '@/config/site'
+
 export type ExistingEntities = {
   things: any[]
   locations: any[]
@@ -238,7 +240,9 @@ export function normalizeEntityPayload(
         ...(observedPropertyId
           ? { ObservedProperty: { '@iot.id': observedPropertyId } }
           : {}),
-        ...(networkId ? { Network: { '@iot.id': networkId } } : {}),
+        ...(siteConfig.networkEnabled && networkId
+          ? { Network: { '@iot.id': networkId } }
+          : {}),
         unitOfMeasurement,
         observationType: current.observationType,
         properties,

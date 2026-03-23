@@ -87,7 +87,9 @@
     "time_range": "Intervallo temporale"
   },
   "map": {
-    "unspecified_network": "Non specificata"
+    "unspecified_network": "Non specificata",
+    "things_count_one": "{{count}} thing",
+    "things_count_other": "{{count}} things"
   },
   "things": {
     "name": "Nome",

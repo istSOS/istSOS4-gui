@@ -18,7 +18,7 @@ import { fetchData } from '@/services/fetch'
 import { siteConfig } from '@/config/site'
 
 export async function getObservationsByDatastream(
-  token: string,
+  token: string | null | undefined,
   datastreamId: string,
   start?: string,
   end?: string

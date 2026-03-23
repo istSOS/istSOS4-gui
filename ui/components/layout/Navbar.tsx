@@ -74,6 +74,7 @@ export default function Navbar() {
   }
 
   const username = useMemo(() => {
+    if (!siteConfig.authorizationEnabled) return null
     if (!token) return null
     return getTokenUsername(token)
   }, [token])
@@ -91,7 +92,7 @@ export default function Navbar() {
       if (token) await logout(token)
     } finally {
       setToken(null)
-      router.push('/login')
+      router.push(siteConfig.authorizationEnabled ? '/login' : '/')
     }
   }
 

@@ -28,13 +28,22 @@ type ChartModalProps = {
   onResetRange?: () => void
 }
 
+type PickerDateLike = {
+  toDate: (timeZone?: string) => Date
+}
+
+type PickerRangeLike = {
+  start: PickerDateLike
+  end: PickerDateLike
+} | null
+
 function toRangeValue(start?: string | null, end?: string | null) {
   if (!start || !end) return null
 
   return {
     start: parseAbsoluteToLocal(start),
     end: parseAbsoluteToLocal(end),
-  }
+  } as unknown as PickerRangeLike
 }
 
 export default function ChartModal({
@@ -52,11 +61,13 @@ export default function ChartModal({
 }: ChartModalProps) {
   const { t } = useTranslation()
   const rangeValue = toRangeValue(start, end)
+  const timeZone = getLocalTimeZone()
 
   return (
     <Modal
       isOpen={isOpen}
       onOpenChange={(open) => !open && onClose()}
+      hideCloseButton
       placement="center"
       scrollBehavior="inside"
       size="5xl"
@@ -80,7 +91,9 @@ export default function ChartModal({
           <Button
             isIconOnly
             size="sm"
-            variant="ghost"
+            className="h-6 w-6 min-w-6"
+            radius="none"
+            variant="light"
             aria-label={t('general.close')}
             onPress={onClose}
           >
@@ -93,22 +106,25 @@ export default function ChartModal({
               <span className="text-sm font-medium">
                 {t('chart.time_range', 'Time range')}
               </span>
-              <DateRangePicker
-                value={rangeValue}
+              <DateRangePicker<any>
+                aria-label={t('chart.time_range', 'Time range')}
+                value={rangeValue as any}
                 onChange={(value) => {
-                  if (!value) {
+                  const nextValue = value as PickerRangeLike
+
+                  if (!nextValue) {
                     onResetRange?.()
                     return
                   }
 
-                  if (value.start && value.end) {
+                  if (nextValue.start && nextValue.end) {
                     onApplyRange?.(
-                      value.start.toDate().toISOString(),
-                      value.end.toDate().toISOString()
+                      nextValue.start.toDate(timeZone).toISOString(),
+                      nextValue.end.toDate(timeZone).toISOString()
                     )
                   }
                 }}
-                maxValue={now(getLocalTimeZone())}
+                maxValue={now(timeZone) as any}
                 granularity="minute"
               />
             </label>

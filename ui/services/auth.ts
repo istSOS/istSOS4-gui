@@ -13,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { withAuthHeaders } from '@/services/fetch'
+
 import { siteConfig } from '@/config/site'
 
 export async function login(username: string, password: string) {
@@ -36,12 +38,12 @@ export async function login(username: string, password: string) {
 }
 
 export async function refresh(token: string) {
+  if (!siteConfig.authorizationEnabled) return null
+
   try {
     const response = await fetch(`${siteConfig.api_root}/Refresh`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: withAuthHeaders(token),
     })
     if (!response.ok) throw new Error('Refresh failed')
     const data = await response.json()
@@ -53,12 +55,12 @@ export async function refresh(token: string) {
 }
 
 export async function logout(token: string) {
+  if (!siteConfig.authorizationEnabled) return true
+
   try {
     const response = await fetch(`${siteConfig.api_root}/Logout`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: withAuthHeaders(token),
     })
     if (!response.ok) throw new Error('Logout failed')
     return true

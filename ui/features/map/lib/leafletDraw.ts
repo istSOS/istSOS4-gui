@@ -182,6 +182,7 @@ export function drawNetworkLayers(args: {
   proj4: any
   map: any
   things: any[]
+  isThingVisible?: (thing: any) => boolean
   selectedNetwork?: string
 
   networkLayers: Map<string, { cluster: any; vectors: any }>
@@ -203,6 +204,7 @@ export function drawNetworkLayers(args: {
     proj4,
     map,
     things,
+    isThingVisible,
     selectedNetwork,
 
     networkLayers,
@@ -232,6 +234,7 @@ export function drawNetworkLayers(args: {
 
   if (isObservedMode) {
     for (const thing of things) {
+      if (isThingVisible && !isThingVisible(thing)) continue
       const geom = thing?.Locations?.[0]?.location
       if (!geom) continue
 
@@ -359,6 +362,7 @@ export function drawNetworkLayers(args: {
   }
 
   for (const thing of things) {
+    if (isThingVisible && !isThingVisible(thing)) continue
     const geom = thing?.Locations?.[0]?.location
     if (!geom) continue
 

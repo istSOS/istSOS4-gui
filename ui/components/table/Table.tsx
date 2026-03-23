@@ -191,6 +191,7 @@ export default function TableComponent({
               isClearable
               size="sm"
               variant="bordered"
+              aria-label={searchPlaceholder}
               placeholder={searchPlaceholder}
               startContent={<SearchIcon size={18} />}
               value={filterValue}

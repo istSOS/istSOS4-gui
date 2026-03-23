@@ -4,7 +4,7 @@ import { fetchData } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
-export async function getNetworks(token: string) {
+export async function getNetworks(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url = `${siteConfig.api_root}/Networks?$select=id,name`

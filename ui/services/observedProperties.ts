@@ -1,6 +1,6 @@
 'use server'
 
-import { fetchData } from '@/services/fetch'
+import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
@@ -9,10 +9,10 @@ export type CreateObservedPropertyPayload = {
   definition: string
   description?: string
   properties?: Record<string, string>
-  commitMessage: string
+  commitMessage?: string
 }
 
-export async function getObservedProperties(token: string) {
+export async function getObservedProperties(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url =
@@ -43,18 +43,21 @@ export async function getObservedProperties(token: string) {
 
 export async function createObservedProperty(
   payload: CreateObservedPropertyPayload,
-  token: string
+  token?: string | null
 ) {
   try {
     const { commitMessage, ...observedPropertyPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
 
     const response = await fetch(`${siteConfig.api_root}/ObservedProperties`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'commit-message': commitMessage,
-      },
+      headers,
       body: JSON.stringify(observedPropertyPayload),
     })
 

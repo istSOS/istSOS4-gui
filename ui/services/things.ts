@@ -13,7 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { fetchData } from '@/services/fetch'
+import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
@@ -22,10 +22,10 @@ export type CreateThingPayload = {
   description?: string
   Locations?: Array<{ '@iot.id': number | string }>
   properties?: Record<string, string>
-  commitMessage: string
+  commitMessage?: string
 }
 
-export async function getThings(token: string) {
+export async function getThings(token?: string | null) {
   const expand = `
     Datastreams(
       $expand=Network,
@@ -73,16 +73,23 @@ export async function getThingsCountByNetwork(token: string, network: string) {
   }
 }
 
-export async function createThing(payload: CreateThingPayload, token: string) {
+export async function createThing(
+  payload: CreateThingPayload,
+  token?: string | null
+) {
   try {
     const { commitMessage, ...thingPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
     const response = await fetch(`${siteConfig.api_root}/Things`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'commit-message': commitMessage,
-      },
+      headers,
       body: JSON.stringify(thingPayload),
     })
 

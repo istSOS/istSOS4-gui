@@ -19,14 +19,18 @@ import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { BASEMAPS } from '@/config/site'
+import { BASEMAPS, siteConfig } from '@/config/site'
 
 import LayersControl, { ToggleItem } from './LayersControl'
 import MapContextMenu from './MapContextMenu'
 import MapMenu from './MapMenu'
 
 import { createClusterGroup } from '../lib/leafletCluster'
-import { drawNetworkLayers } from '../lib/leafletDraw'
+import { drawNetworkLayers, networkKey } from '../lib/leafletDraw'
+
+function getThingKey(thing: any) {
+  return String(thing?.['@iot.id'] ?? thing?.id ?? thing?.name ?? '')
+}
 
 export default function LeafletMap({
   things,
@@ -63,6 +67,7 @@ export default function LeafletMap({
 
   const [observedPropsMeta, setObservedPropsMeta] = useState<ToggleItem[]>([])
   const observedEnabledRef = useRef<Map<string, boolean>>(new Map())
+  const [thingEnabled, setThingEnabled] = useState<Record<string, boolean>>({})
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
@@ -75,6 +80,20 @@ export default function LeafletMap({
     const v = (things as any)?.value
     return Array.isArray(v) ? v : []
   }, [things])
+
+  useEffect(() => {
+    setThingEnabled((prev) => {
+      const next: Record<string, boolean> = {}
+
+      for (const thing of thingsArr) {
+        const key = getThingKey(thing)
+        if (!key) continue
+        next[key] = prev[key] ?? true
+      }
+
+      return next
+    })
+  }, [thingsArr])
 
   useEffect(() => {
     const set = new Set<string>()
@@ -155,8 +174,15 @@ export default function LeafletMap({
       proj4,
       map,
       things: thingsArr,
+      isThingVisible: (thing) => {
+        const key = getThingKey(thing)
+        return key ? thingEnabled[key] !== false : true
+      },
 
-      selectedNetwork: isObservedMode ? undefined : selectedNetwork,
+      selectedNetwork:
+        isObservedMode || !siteConfig.networkEnabled
+          ? undefined
+          : selectedNetwork,
 
       networkLayers: networkLayersRef.current,
       overlayWrappersRef: { current: overlayWrappersRef.current },
@@ -283,7 +309,7 @@ export default function LeafletMap({
 
   useEffect(() => {
     redraw()
-  }, [thingsArr, selectedNetwork])
+  }, [thingsArr, selectedNetwork, thingEnabled])
 
   useEffect(() => {
     redraw()
@@ -317,16 +343,15 @@ export default function LeafletMap({
   }
 
   const setAllNetworks = (nextEnabled: boolean) => {
-    const map = mapRef.current
-    if (!map) return
-
-    for (const [netKey, wrapper] of overlayWrappersRef.current.entries()) {
-      enabledRef.current.set(netKey, nextEnabled)
-      try {
-        nextEnabled ? map.addLayer(wrapper) : map.removeLayer(wrapper)
-      } catch {}
-    }
-    setNetworksMeta((prev) => prev.map((n) => ({ ...n, enabled: nextEnabled })))
+    setThingEnabled((prev) => {
+      const next = { ...prev }
+      for (const thing of thingsArr) {
+        const key = getThingKey(thing)
+        if (!key) continue
+        next[key] = nextEnabled
+      }
+      return next
+    })
   }
 
   const onToggleNetwork = (key: string, nextEnabled: boolean) => {
@@ -334,16 +359,25 @@ export default function LeafletMap({
       setAllObservedProps(false)
     }
 
-    const map = mapRef.current
-    const wrapper = overlayWrappersRef.current.get(key)
-    if (!map || !wrapper) return
+    if (!siteConfig.networkEnabled) {
+      setThingEnabled((prev) => ({
+        ...prev,
+        [key]: nextEnabled,
+      }))
+      return
+    }
 
-    enabledRef.current.set(key, nextEnabled)
-    nextEnabled ? map.addLayer(wrapper) : map.removeLayer(wrapper)
+    setThingEnabled((prev) => {
+      const next = { ...prev }
+      for (const thing of thingsArr) {
+        if (networkKey(thing?.Datastreams?.[0]?.Network?.name) !== key) continue
 
-    setNetworksMeta((prev) =>
-      prev.map((it) => (it.key === key ? { ...it, enabled: nextEnabled } : it))
-    )
+        const thingKey = getThingKey(thing)
+        if (!thingKey) continue
+        next[thingKey] = nextEnabled
+      }
+      return next
+    })
   }
 
   const onToggleAllNetworks = (nextEnabled: boolean) => {
@@ -371,7 +405,70 @@ export default function LeafletMap({
     setAllObservedProps(nextEnabled)
   }
 
+  const onToggleNetworkThing = (
+    _networkKeyValue: string,
+    thingKey: string,
+    nextEnabled: boolean
+  ) => {
+    if (nextEnabled && isObservedMode) {
+      setAllObservedProps(false)
+    }
+
+    setThingEnabled((prev) => ({
+      ...prev,
+      [thingKey]: nextEnabled,
+    }))
+  }
+
   const networksForUI = networksMeta
+    .map((network) => {
+      const details: Array<{ key: string; label: string; enabled: boolean }> = []
+
+      for (const thing of thingsArr) {
+        const key = networkKey(thing?.Datastreams?.[0]?.Network?.name)
+        if (key !== network.key) continue
+
+        const thingKey = getThingKey(thing)
+        if (!thingKey) continue
+
+        const label = String(thing?.name ?? '').trim() || 'Unnamed thing'
+        details.push({
+          key: thingKey,
+          label,
+          enabled: thingEnabled[thingKey] !== false,
+        })
+      }
+
+      details.sort((a, b) => a.label.localeCompare(b.label))
+
+      return {
+        ...network,
+        enabled: details.length > 0 ? details.every((detail) => detail.enabled) : false,
+        details,
+      }
+    })
+    .sort((a, b) => a.key.localeCompare(b.key))
+
+  const thingsForUI: ToggleItem[] = thingsArr
+    .reduce<ToggleItem[]>((items, thing) => {
+      const key = getThingKey(thing)
+      if (!key) return items
+
+      items.push({
+        key,
+        label: String(thing?.name ?? '').trim() || 'Unnamed thing',
+        enabled: thingEnabled[key] !== false,
+      })
+
+      return items
+    }, [])
+    .sort((a, b) => a.label.localeCompare(b.label))
+
+  const primaryItems = siteConfig.networkEnabled
+    ? networksForUI
+    : thingsForUI
+
+  const networksTitle = siteConfig.networkEnabled ? 'Networks' : 'Things'
 
   return (
     <div className="relative w-full h-full">
@@ -407,9 +504,12 @@ export default function LeafletMap({
       ) : null}
 
       <LayersControl
-        networks={networksForUI}
+        networks={primaryItems}
         observedProps={observedPropsMeta}
+        networksTitle={networksTitle}
+        networksGrouped={siteConfig.networkEnabled}
         onToggleNetwork={onToggleNetwork}
+        onToggleNetworkThing={onToggleNetworkThing}
         onToggleObservedProperty={onToggleObservedProperty}
         onToggleAllNetworks={onToggleAllNetworks}
         onToggleAllObservedProps={onToggleAllObservedProps}

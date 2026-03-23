@@ -11,13 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-export const fetchData = async (endpoint: string, token: string) => {
+import { siteConfig } from '@/config/site'
+
+export function withAuthHeaders(
+  token?: string | null,
+  headers: Record<string, string> = {}
+) {
+  if (!siteConfig.authorizationEnabled || !token) return headers
+
+  return {
+    ...headers,
+    Authorization: `Bearer ${token}`,
+  }
+}
+
+export const fetchData = async (endpoint: string, token?: string | null) => {
   try {
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: withAuthHeaders(token),
     })
     if (!response.ok) {
       throw new Error(
