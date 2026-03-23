@@ -22,7 +22,7 @@ export const ENTITY_TYPES: EntityType[] = [
   'HistoricalLocations',
 ]
 
-// ─── Shared types ────────────────────────────────────────────────────────────
+
 
 export type ActionType = 'INSERT' | 'UPDATE' | 'DELETE'
 
@@ -69,7 +69,7 @@ export interface EntityMockData {
   fromTo: CommitRow[]
 }
 
-// ─── Things ──────────────────────────────────────────────────────────────────
+
 
 const THINGS: EntityMockData = {
   defaultAsOf: { date: '2026-03-20', time: '12:00' },
@@ -99,7 +99,7 @@ const THINGS: EntityMockData = {
   ],
 }
 
-// ─── Locations ───────────────────────────────────────────────────────────────
+
 
 const LOCATIONS: EntityMockData = {
   defaultAsOf: { date: '2026-03-20', time: '00:00' },
@@ -123,7 +123,7 @@ const LOCATIONS: EntityMockData = {
   ],
 }
 
-// ─── Sensors ─────────────────────────────────────────────────────────────────
+
 
 const SENSORS: EntityMockData = {
   defaultAsOf: { date: '2025-12-01', time: '00:00' },
@@ -160,7 +160,7 @@ const SENSORS: EntityMockData = {
   ],
 }
 
-// ─── Datastreams ─────────────────────────────────────────────────────────────
+
 
 const DATASTREAMS: EntityMockData = {
   defaultAsOf: { date: '2026-03-20', time: '00:00' },
@@ -185,7 +185,7 @@ const DATASTREAMS: EntityMockData = {
   ],
 }
 
-// ─── Observations ────────────────────────────────────────────────────────────
+
 
 const OBSERVATIONS: EntityMockData = {
   defaultAsOf: { date: '2026-03-22', time: '09:00' },
@@ -209,7 +209,7 @@ const OBSERVATIONS: EntityMockData = {
   ],
 }
 
-// ─── ObservedProperties ──────────────────────────────────────────────────────
+
 
 const OBSERVED_PROPERTIES: EntityMockData = {
   defaultAsOf: { date: '2026-03-01', time: '00:00' },
@@ -233,7 +233,7 @@ const OBSERVED_PROPERTIES: EntityMockData = {
   ],
 }
 
-// ─── FeaturesOfInterest ──────────────────────────────────────────────────────
+
 
 const FEATURES_OF_INTEREST: EntityMockData = {
   defaultAsOf: { date: '2026-03-20', time: '00:00' },
@@ -257,7 +257,7 @@ const FEATURES_OF_INTEREST: EntityMockData = {
   ],
 }
 
-// ─── HistoricalLocations ─────────────────────────────────────────────────────
+
 
 const HISTORICAL_LOCATIONS: EntityMockData = {
   defaultAsOf: { date: '2026-03-20', time: '08:00' },
@@ -281,7 +281,7 @@ const HISTORICAL_LOCATIONS: EntityMockData = {
   ],
 }
 
-// ─── Aggregated exports ───────────────────────────────────────────────────────
+
 
 export const HISTORY_MOCK: Record<EntityType, EntityMockData> = {
   Things: THINGS,

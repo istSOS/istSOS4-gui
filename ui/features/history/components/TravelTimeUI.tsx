@@ -64,7 +64,7 @@ export default function TravelTimeUI() {
           </div>
         </div>
 
-        {/* Horizontal Entity Tabs */}
+
         <div className="mb-6 flex gap-1 border-b border-gray-200 overflow-x-auto no-scrollbar">
           {ENTITY_TYPES.map((e) => (
             <button
@@ -82,7 +82,7 @@ export default function TravelTimeUI() {
           ))}
         </div>
 
-        {/* Query Controls */}
+
         <div className="mb-8 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
           {queryMode === 'current' ? (
              <div className="flex items-center justify-between">
@@ -106,7 +106,7 @@ export default function TravelTimeUI() {
           )}
         </div>
 
-        {/* Unified Table Results */}
+
         <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 bg-gray-50/50 px-6 py-3 flex justify-between items-center">
             <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">

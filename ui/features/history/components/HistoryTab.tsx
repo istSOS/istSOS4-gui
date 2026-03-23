@@ -25,7 +25,7 @@ import {
   HISTORY_MOCK,
 } from '@/features/history/mock/historyMockData'
 
-// ─── Badge ───────────────────────────────────────────────────────────────────
+
 
 const BADGE: Record<ActionType, { bg: string; color: string }> = {
   INSERT: { bg: '#E6F9F1', color: '#0F6E56' },
@@ -45,7 +45,7 @@ function ActionBadge({ action }: { action: ActionType }) {
   )
 }
 
-// ─── Shared Modal ─────────────────────────────────────────────────────────────
+
 
 function CommitModal({
   commit,
@@ -62,7 +62,7 @@ function CommitModal({
       }}
     >
       <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" style={{ fontFamily: 'Arial, sans-serif' }}>
-        {/* Header */}
+
         <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-6 py-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
@@ -82,7 +82,7 @@ function CommitModal({
         </div>
 
         <div className="max-h-[70vh] overflow-y-auto px-6 py-5 space-y-5">
-          {/* Commit details */}
+
           <div>
             <SectionLabel>Commit Details</SectionLabel>
             <div className="space-y-2 text-sm">
@@ -97,7 +97,7 @@ function CommitModal({
 
           <hr className="border-gray-100" />
 
-          {/* Diff */}
+
           <div>
             <SectionLabel>What Changed</SectionLabel>
             <div className="space-y-3">
@@ -121,7 +121,7 @@ function CommitModal({
 
           <hr className="border-gray-100" />
 
-          {/* Snapshot */}
+
           <div>
             <SectionLabel>Snapshot at this moment</SectionLabel>
             <div className="space-y-1.5">
@@ -139,7 +139,7 @@ function CommitModal({
   )
 }
 
-// ─── Entity State Card ────────────────────────────────────────────────────────
+
 
 function EntityCard({
   entity,
@@ -193,7 +193,7 @@ function EntityCard({
   )
 }
 
-// ─── Commit List Table ────────────────────────────────────────────────────────
+
 
 function CommitTable({
   rows,
@@ -240,7 +240,7 @@ function CommitTable({
   )
 }
 
-// ─── Date + Time inputs ───────────────────────────────────────────────────────
+
 
 function DateTimeInput({
   label,
@@ -289,7 +289,7 @@ function SearchButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-// ─── Tiny shared helpers ──────────────────────────────────────────────────────
+
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -308,7 +308,7 @@ function KV({ label, value }: { label: string; value: string }) {
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+
 
 type QueryMode = 'single' | 'range'
 
@@ -354,7 +354,7 @@ export default function HistoryTab({ entityType }: HistoryTabProps) {
   return (
     <>
       <div className="rounded-xl border border-gray-200 bg-white shadow-sm" style={{ fontFamily: 'Arial, sans-serif' }}>
-        {/* Mode toggle */}
+
         <div className="flex border-b border-gray-100">
           {MODES.map(({ key, label }) => (
             <button
@@ -372,7 +372,7 @@ export default function HistoryTab({ entityType }: HistoryTabProps) {
           ))}
         </div>
 
-        {/* ── Single Point ── */}
+
         {mode === 'single' && (
           <div className="p-5">
             <SectionLabel>as_of</SectionLabel>
@@ -399,7 +399,7 @@ export default function HistoryTab({ entityType }: HistoryTabProps) {
           </div>
         )}
 
-        {/* ── Range ── */}
+
         {mode === 'range' && (
           <div className="p-5">
             <SectionLabel>from_to</SectionLabel>
@@ -433,7 +433,7 @@ export default function HistoryTab({ entityType }: HistoryTabProps) {
         )}
       </div>
 
-      {/* Shared modal */}
+
       {modalCommit && (
         <CommitModal commit={modalCommit} onClose={() => setModalCommit(null)} />
       )}

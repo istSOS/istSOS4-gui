@@ -12,7 +12,7 @@ export function HistorySubTab({ entityType }: { entityType: EntityType }) {
 
   const rawCommits = MOCK_COMMITS[entityType] || []
   
-  // Simple mock filtering based on period
+
   const entityCommits = rawCommits.filter((c, i) => {
     if (period === 'Day') return i === 0 // Just the most recent for "Day" mock
     if (period === 'Week') return i < 2   // First two for "Week"
