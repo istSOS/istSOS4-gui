@@ -23,6 +23,7 @@ import dayjs from 'dayjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuth } from '@/context/AuthContext'
+import Link from 'next/link'
 
 type FormTabKey =
   | 'thing'
@@ -176,6 +177,16 @@ export default function Home({
 
   return (
     <div className="relative h-[95vh] w-full overflow-hidden">
+      <div className="absolute top-[500px] right-6 z-[3000] flex gap-2">
+        <Link
+          href="/history"
+          style={{ fontFamily: 'Arial, sans-serif' }}
+          className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-bold text-[#007668] shadow-lg transition-all hover:scale-105 hover:bg-[#007668] hover:text-white"
+        >
+          History Explorer
+        </Link>
+      </div>
+
       <LeafletMap
         things={localThings}
         selectedNetwork={selectedNetwork}
