@@ -634,6 +634,28 @@ export const DescriptionIcon = ({
   )
 }
 
+export const CommitIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      {...props}
+    >
+      <path d="M4 4H20V6H4V4M4 8H20V10H4V8M4 12H20V14H4V12M4 18H11V20H4V18M20.59 14.58L22 16L16 22L12 18L13.41 16.59L16 19.17L20.59 14.58Z" />
+    </svg>
+  )
+}
+
 export const EncodingTypeIcon = ({
   size = 24,
   width,

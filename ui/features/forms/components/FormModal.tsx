@@ -13,14 +13,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import {
+  type CreateDatastreamPayload,
+  createDatastream,
+} from '@/services/datastreams'
+import {
+  type CreateLocationPayload,
+  createLocation,
+} from '@/services/locations'
+import {
+  type CreateObservedPropertyPayload,
+  createObservedProperty,
+} from '@/services/observedProperties'
+import { type CreateSensorPayload, createSensor } from '@/services/sensors'
+import { type CreateThingPayload, createThing } from '@/services/things'
 import { Button } from '@heroui/button'
 import { Form as HeroForm } from '@heroui/form'
+import { Textarea } from '@heroui/input'
 import { Modal, ModalBody, ModalContent } from '@heroui/modal'
 import { Tab, Tabs } from '@heroui/tabs'
 import { type ComponentType, type ReactNode, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useRouter } from 'next/navigation'
+
 import {
+  CommitIcon,
   DatastreamIcon,
   LocationIcon,
   ObservedPropertyIcon,
@@ -28,6 +46,8 @@ import {
   SensorIcon,
   ThingIcon,
 } from '@/components/icons'
+
+import { useAuth } from '@/context/AuthContext'
 
 import { EntityFields, ExistingEntitySelect } from './wizard/fields'
 import { ModeCard, SectionTitle, StepCard } from './wizard/primitives'
@@ -42,7 +62,12 @@ import {
   createInitialAssociatedDraft,
   createInitialSingleDraft,
 } from './wizard/types'
-import { buildExistingOptions, normalizeEntityPayload } from './wizard/utils'
+import {
+  type ExistingEntities,
+  type ExistingOptionsMap,
+  buildExistingOptions,
+  normalizeEntityPayload,
+} from './wizard/utils'
 
 interface FormProps {
   operation: 'create' | 'edit'
@@ -51,7 +76,7 @@ interface FormProps {
   initialTab?: FormTabKey
   isOpen: boolean
   onClose: () => void
-  things?: any[]
+  existingEntities?: ExistingEntities
 }
 
 function StepIcon({
@@ -75,9 +100,18 @@ export default function FormModal({
   initialTab = 'thing',
   isOpen,
   onClose,
-  things = [],
+  existingEntities = {
+    things: [],
+    locations: [],
+    sensors: [],
+    observedProperties: [],
+    datastreams: [],
+    networks: [],
+  },
 }: FormProps) {
   const { t } = useTranslation()
+  const router = useRouter()
+  const { token } = useAuth()
 
   const entityLabels = useMemo<Record<EntityKey, string>>(
     () => ({
@@ -123,7 +157,10 @@ export default function FormModal({
     [t]
   )
 
-  const existingOptions = useMemo(() => buildExistingOptions(things), [things])
+  const existingOptions = useMemo<ExistingOptionsMap>(
+    () => buildExistingOptions(existingEntities),
+    [existingEntities]
+  )
 
   const [wizardMode, setWizardMode] = useState<WizardMode>('associated')
   const [singleEntity, setSingleEntity] = useState<EntityKey>(initialTab)
@@ -134,6 +171,17 @@ export default function FormModal({
     createInitialAssociatedDraft(latitude, longitude)
   )
   const [associatedStepIndex, setAssociatedStepIndex] = useState(0)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [commitMessage, setCommitMessage] = useState('')
+
+  const requiresCommitMessage =
+    wizardMode === 'single' &&
+    (singleEntity === 'thing' ||
+      singleEntity === 'location' ||
+      singleEntity === 'sensor' ||
+      singleEntity === 'observedProperty' ||
+      singleEntity === 'datastream')
 
   const isReviewStep = associatedStepIndex === ENTITY_ORDER.length
   const associatedTotalSteps = ENTITY_ORDER.length + 1
@@ -158,13 +206,105 @@ export default function FormModal({
     }))
   }
 
-  const handleSingleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSingleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault()
-    console.log('single entity draft', {
-      entity: singleEntity,
-      payload: normalizeEntityPayload(singleEntity, singleDraft[singleEntity]),
-    })
-    onClose()
+
+    setSubmitError(null)
+
+    if (!token) {
+      setSubmitError('Missing token')
+      return
+    }
+
+    if (requiresCommitMessage && !commitMessage.trim()) {
+      setSubmitError(t('commit.message_required'))
+      return
+    }
+
+    setIsSubmitting(true)
+
+    try {
+      let result = null
+
+      if (singleEntity === 'thing') {
+        result = await createThing(
+          {
+            ...(normalizeEntityPayload('thing', singleDraft.thing) as Omit<
+              CreateThingPayload,
+              'commitMessage'
+            >),
+            commitMessage: commitMessage.trim(),
+          },
+          token
+        )
+      } else if (singleEntity === 'location') {
+        result = await createLocation(
+          {
+            ...(normalizeEntityPayload(
+              'location',
+              singleDraft.location
+            ) as Omit<CreateLocationPayload, 'commitMessage'>),
+            commitMessage: commitMessage.trim(),
+          },
+          token
+        )
+      } else if (singleEntity === 'sensor') {
+        result = await createSensor(
+          {
+            ...(normalizeEntityPayload('sensor', singleDraft.sensor) as Omit<
+              CreateSensorPayload,
+              'commitMessage'
+            >),
+            commitMessage: commitMessage.trim(),
+          },
+          token
+        )
+      } else if (singleEntity === 'datastream') {
+        result = await createDatastream(
+          {
+            ...(normalizeEntityPayload(
+              'datastream',
+              singleDraft.datastream
+            ) as Omit<CreateDatastreamPayload, 'commitMessage'>),
+            commitMessage: commitMessage.trim(),
+          },
+          token
+        )
+      } else {
+        result = await createObservedProperty(
+          {
+            ...(normalizeEntityPayload(
+              'observedProperty',
+              singleDraft.observedProperty
+            ) as Omit<CreateObservedPropertyPayload, 'commitMessage'>),
+            commitMessage: commitMessage.trim(),
+          },
+          token
+        )
+      }
+
+      if (!result) {
+        setSubmitError(
+          singleEntity === 'thing'
+            ? 'Unable to create Thing'
+            : singleEntity === 'location'
+              ? 'Unable to create Location'
+              : singleEntity === 'sensor'
+                ? 'Unable to create Sensor'
+                : singleEntity === 'datastream'
+                  ? 'Unable to create Datastream'
+                  : 'Unable to create Observed Property'
+        )
+        return
+      }
+
+      router.refresh()
+      onClose()
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleAssociatedSubmit = () => {
@@ -257,16 +397,48 @@ export default function FormModal({
                         showSingleAssociations
                       />
 
+                      {requiresCommitMessage ? (
+                        <Textarea
+                          label={t('commit.message')}
+                          labelPlacement="inside"
+                          value={commitMessage}
+                          onValueChange={setCommitMessage}
+                          placeholder={t('commit.message_placeholder')}
+                          variant="underlined"
+                          radius="sm"
+                          minRows={3}
+                          isRequired
+                          startContent={<StepIcon icon={CommitIcon} />}
+                          size="sm"
+                        />
+                      ) : null}
+
+                      {submitError ? (
+                        <div className="rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                          {submitError}
+                        </div>
+                      ) : null}
+
                       <div className="flex justify-between gap-2">
                         <div />
                         <div className="flex gap-2">
                           <Button variant="light" onPress={onClose}>
                             {t('general.cancel')}
                           </Button>
-                          <Button color="primary" type="submit">
-                            {operation === 'edit'
-                              ? t('general.edit')
-                              : t('general.create')}
+                          <Button
+                            color="primary"
+                            type="submit"
+                            isDisabled={isSubmitting}
+                          >
+                            {isSubmitting
+                              ? `${
+                                  operation === 'edit'
+                                    ? t('general.edit')
+                                    : t('general.create')
+                                }...`
+                              : operation === 'edit'
+                                ? t('general.edit')
+                                : t('general.create')}
                           </Button>
                         </div>
                       </div>
@@ -367,13 +539,13 @@ export default function FormModal({
                               <div className="space-y-4">
                                 <ExistingEntitySelect
                                   entity={currentAssociatedEntity}
-                                  label={t(
-                                    'wizard.select_existing_entity',
-                                    {
-                                      entity: entityLabels[currentAssociatedEntity],
-                                    }
+                                  label={t('wizard.select_existing_entity', {
+                                    entity:
+                                      entityLabels[currentAssociatedEntity],
+                                  })}
+                                  placeholder={t(
+                                    'wizard.select_existing_entity_placeholder'
                                   )}
-                                  placeholder={t('wizard.select_existing_entity_placeholder')}
                                   value={currentAssociatedDraft.existingId}
                                   options={
                                     existingOptions[currentAssociatedEntity]

@@ -13,6 +13,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { getDatastreams } from '@/services/datastreams'
+import { getLocations } from '@/services/locations'
+import { getNetworks } from '@/services/networks'
+import { getObservedProperties } from '@/services/observedProperties'
+import { getSensors } from '@/services/sensors'
 import { getThings } from '@/services/things'
 
 import { cookies } from 'next/headers'
@@ -29,8 +34,26 @@ export default async function Page() {
   }
 
   try {
-    const things = await getThings(token)
-    return <Home things={things.thingData} />
+    const [things, locations, sensors, observedProperties, datastreams, networks] =
+      await Promise.all([
+        getThings(token),
+        getLocations(token),
+        getSensors(token),
+        getObservedProperties(token),
+        getDatastreams(token),
+        getNetworks(token),
+      ])
+
+    return (
+      <Home
+        things={things.thingData}
+        locations={locations.locationData}
+        sensors={sensors.sensorData}
+        observedProperties={observedProperties.observedPropertyData}
+        datastreams={datastreams.datastreamData}
+        networks={networks.networkData}
+      />
+    )
   } catch (error) {
     redirect('/login')
   }

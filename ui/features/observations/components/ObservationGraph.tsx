@@ -86,7 +86,6 @@ export default function ObservationGraph({
   const unit = String(datastream?.unitOfMeasurement?.symbol ?? '')
   const observedProperty = String(datastream?.ObservedProperty?.name ?? '')
   const streamName = String(datastream?.name ?? '')
-  const thingName = String(thing?.name ?? '')
 
   useEffect(() => {
     const el = containerRef.current
@@ -163,13 +162,6 @@ export default function ObservationGraph({
         containLabel: true,
       },
 
-      title: {
-        text: streamName,
-        subtext: thingName,
-        left: 0,
-        top: 0,
-      },
-
       tooltip: {
         trigger: 'axis',
       },
@@ -177,6 +169,31 @@ export default function ObservationGraph({
       toolbox: {
         right: 0,
         feature: {
+          dataView: {
+            readOnly: true,
+            title: t('chart.data_view'),
+            optionToContent: () => {
+              const rows = chartData.categories.map((category, index) => {
+                const value = chartData.values[index]
+                const displayValue = unit ? `${value} ${unit}` : String(value)
+
+                return `<tr>
+                  <td style="padding:6px 10px;border:1px solid #d4d4d8;">${category}</td>
+                  <td style="padding:6px 10px;border:1px solid #d4d4d8;">${displayValue}</td>
+                </tr>`
+              })
+
+              return `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+                <thead>
+                  <tr>
+                    <th style="padding:6px 10px;border:1px solid #d4d4d8;text-align:left;">Date</th>
+                    <th style="padding:6px 10px;border:1px solid #d4d4d8;text-align:left;">Value</th>
+                  </tr>
+                </thead>
+                <tbody>${rows.join('')}</tbody>
+              </table>`
+            },
+          },
           dataZoom: { xAxisIndex: 0, yAxisIndex: 'none' },
           restore: {},
         },
@@ -200,10 +217,7 @@ export default function ObservationGraph({
         scale: true,
       },
 
-      dataZoom: [
-        { type: 'inside', xAxisIndex: 0, filterMode: 'none' },
-        { type: 'slider', xAxisIndex: 0, filterMode: 'none' },
-      ],
+      dataZoom: [{ type: 'inside', xAxisIndex: 0, filterMode: 'none' }],
 
       series: [
         {
@@ -224,7 +238,6 @@ export default function ObservationGraph({
     datastream,
     chartData,
     streamName,
-    thingName,
     observedProperty,
     unit,
     loading,

@@ -25,9 +25,11 @@ import {
   ThingIcon,
 } from '@/components/icons'
 
+import { formatLv95FromWgs84 } from './coordinates'
 import {
   type DatastreamFormData,
   type EntityKey,
+  type ExistingEntitySelectKey,
   type ExistingOption,
   type FormDataMap,
   type KeyValueItem,
@@ -250,7 +252,7 @@ export function ExistingEntitySelect({
   emptyText,
   required = false,
 }: {
-  entity: EntityKey
+  entity: ExistingEntitySelectKey
   label: string
   placeholder: string
   value: string
@@ -259,12 +261,13 @@ export function ExistingEntitySelect({
   emptyText: string
   required?: boolean
 }) {
-  const entityIcons: Record<EntityKey, ReactNode> = {
+  const entityIcons: Record<ExistingEntitySelectKey, ReactNode> = {
     thing: <FormIcon icon={ThingIcon} />,
     location: <FormIcon icon={LocationIcon} />,
     sensor: <FormIcon icon={SensorIcon} />,
     observedProperty: <FormIcon icon={ObservedPropertyIcon} />,
     datastream: <FormIcon icon={DatastreamIcon} />,
+    network: <FormIcon icon={DatastreamIcon} />,
   }
 
   if (options.length === 0) {
@@ -319,7 +322,7 @@ export function EntityFields({
   data: FormDataMap[EntityKey]
   onChange: (value: FormDataMap[EntityKey]) => void
   labels: Record<EntityKey, string>
-  existingOptions?: Record<EntityKey, ExistingOption[]>
+  existingOptions?: Record<ExistingEntitySelectKey, ExistingOption[]>
   showSingleAssociations?: boolean
 }) {
   const { t } = useTranslation()
@@ -436,7 +439,7 @@ export function EntityFields({
               onCenterChange={(coords) => {
                 updateField(
                   'location',
-                  `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`
+                  formatLv95FromWgs84(coords.lat, coords.lng)
                 )
               }}
             />
@@ -578,7 +581,7 @@ export function EntityFields({
             </div>
           </div>
           {showSingleAssociations ? (
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
               <ExistingEntitySelect
                 entity="thing"
                 label={t('datastreams.thing')}
@@ -621,6 +624,22 @@ export function EntityFields({
                 value={currentDatastream?.observedPropertyId ?? ''}
                 options={existingOptions?.observedProperty ?? []}
                 onChange={(value) => updateField('observedPropertyId', value)}
+                required
+                emptyText={t(
+                  'wizard.no_existing_entities',
+                  'No entities are available yet for this type in the current dataset.'
+                )}
+              />
+              <ExistingEntitySelect
+                entity="network"
+                label={t('datastreams.network')}
+                placeholder={t(
+                  'datastreams.network_placeholder',
+                  'Select an existing Network'
+                )}
+                value={currentDatastream?.networkId ?? ''}
+                options={existingOptions?.network ?? []}
+                onChange={(value) => updateField('networkId', value)}
                 required
                 emptyText={t(
                   'wizard.no_existing_entities',

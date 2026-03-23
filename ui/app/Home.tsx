@@ -16,16 +16,14 @@
 import DatastreamTable from '@/features/datastreams/components/DatastreamTable'
 import FormModal from '@/features/forms/components/FormModal'
 import LeafletMap from '@/features/map/components/LeafletMap'
-import ObservationGraph from '@/features/observations/components/ObservationGraph'
+import ChartModal from '@/features/observations/components/ChartModal'
 import { getObservationsByDatastream } from '@/services/observations'
 import { Card } from '@heroui/card'
-import { Tab, Tabs } from '@heroui/tabs'
 import dayjs from 'dayjs'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAuth } from '@/context/AuthContext'
 
-type BottomTabKey = 'table' | 'chart'
 type FormTabKey =
   | 'thing'
   | 'location'
@@ -41,22 +39,37 @@ type CreateFormState = {
 
 export default function Home({
   things,
+  locations,
+  sensors,
+  observedProperties,
+  datastreams,
+  networks,
   selectedNetwork,
 }: {
   things: any[]
+  locations: any[]
+  sensors: any[]
+  observedProperties: any[]
+  datastreams: any[]
+  networks: any[]
   selectedNetwork?: string
 }) {
   const { token } = useAuth()
   const [localThings, setLocalThings] = useState<any[]>(things)
 
+  useEffect(() => {
+    setLocalThings(things)
+  }, [things])
+
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
-  const [activeBottomTab, setActiveBottomTab] = useState<BottomTabKey>('table')
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
   const [createFormState, setCreateFormState] =
     useState<CreateFormState | null>(null)
 
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
+  const [obsStart, setObsStart] = useState<string | null>(null)
+  const [obsEnd, setObsEnd] = useState<string | null>(null)
 
   const obsCacheRef = useRef<Map<string, any[]>>(new Map())
   const [observations, setObservations] = useState<any[]>([])
@@ -75,44 +88,57 @@ export default function Home({
   const closePanel = () => {
     setSelectedThingId(null)
     setSelectedDatastream(null)
-    setActiveBottomTab('table')
     setObservations([])
     setObsError(null)
     setObsLoading(false)
+    setObsStart(null)
+    setObsEnd(null)
   }
 
   const loadObservations = async (
     datastreamId: string,
-    phenomenonTime?: string
+    phenomenonTime?: string,
+    range?: { start?: string | null; end?: string | null }
   ) => {
     if (!token) {
       setObsError('Missing token')
       return
     }
 
-    const cached = obsCacheRef.current.get(datastreamId)
+    let startIso = range?.start ?? null
+    let endIso = range?.end ?? null
+
+    if (!startIso || !endIso) {
+      const [, endRaw] = phenomenonTime?.split('/') ?? []
+
+      const end = endRaw ? dayjs.utc(endRaw) : dayjs.utc()
+      const start = end.subtract(7, 'day')
+      endIso = end.toISOString()
+      startIso = start.toISOString()
+    }
+
+    const cacheKey = `${datastreamId}|${startIso}|${endIso}`
+    const cached = obsCacheRef.current.get(cacheKey)
     if (cached) {
       setObservations(cached)
+      setObsStart(startIso)
+      setObsEnd(endIso)
       return
     }
 
     setObsLoading(true)
     setObsError(null)
     try {
-      const [, endRaw] = phenomenonTime.split('/')
-
-      const end = dayjs.utc(endRaw)
-      const start = end.subtract(7, 'day')
-      const endIso = end.toISOString()
-      const startIso = start.toISOString()
       const { observationData } = await getObservationsByDatastream(
         token,
         datastreamId,
-        startIso,
-        endIso
+        startIso ?? undefined,
+        endIso ?? undefined
       )
-      obsCacheRef.current.set(datastreamId, observationData)
+      obsCacheRef.current.set(cacheKey, observationData)
       setObservations(observationData)
+      setObsStart(startIso)
+      setObsEnd(endIso)
     } catch (e: any) {
       setObsError(e?.message ?? 'Failed to load observations')
       setObservations([])
@@ -123,7 +149,6 @@ export default function Home({
 
   const openChartForDatastream = async (ds: any) => {
     setSelectedDatastream(ds)
-    setActiveBottomTab('chart')
 
     const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
     if (!dsId) {
@@ -132,6 +157,21 @@ export default function Home({
       return
     }
     await loadObservations(dsId, ds.phenomenonTime)
+  }
+
+  const applyObservationRange = async (
+    start?: string | null,
+    end?: string | null
+  ) => {
+    const dsId = String(
+      selectedDatastream?.['@iot.id'] ?? selectedDatastream?.id ?? ''
+    )
+    if (!dsId) return
+
+    await loadObservations(dsId, selectedDatastream?.phenomenonTime, {
+      start,
+      end,
+    })
   }
 
   return (
@@ -144,7 +184,6 @@ export default function Home({
           setSelectedDatastream(null)
           setObservations([])
           setObsError(null)
-          setActiveBottomTab('table')
         }}
         onCreateThingAt={(point) => {
           setCreateFormState({
@@ -160,69 +199,58 @@ export default function Home({
           latitude={createFormState.latitude}
           longitude={createFormState.longitude}
           initialTab={createFormState.initialTab}
-          things={localThings}
+          existingEntities={{
+            things: localThings,
+            locations,
+            sensors,
+            observedProperties,
+            datastreams,
+            networks,
+          }}
           isOpen={!!createFormState}
           onClose={() => {
             setCreateFormState(null)
           }}
         />
       ) : null}
+      <ChartModal
+        isOpen={!!selectedDatastream}
+        onClose={() => {
+          setSelectedDatastream(null)
+          setObservations([])
+          setObsError(null)
+          setObsLoading(false)
+          setObsStart(null)
+          setObsEnd(null)
+        }}
+        thing={selectedThing}
+        datastream={selectedDatastream}
+        observations={observations}
+        loading={obsLoading}
+        error={obsError}
+        start={obsStart}
+        end={obsEnd}
+        onApplyRange={applyObservationRange}
+        onResetRange={() => {
+          applyObservationRange(null, null)
+        }}
+      />
       {isPanelOpen && (
         <div className="fixed inset-x-0 bottom-0 z-[4000] pb-[env(safe-area-inset-bottom)]">
           <Card
-            radius="none"
-            className="max-h-[38vh] overflow-hidden"
-            classNames={{ body: 'p-0' }}
+            className="max-h-[38vh] overflow-hidden rounded-none"
           >
-            <div className="px-3 pt-2">
-              <Tabs
-                selectedKey={activeBottomTab}
-                onSelectionChange={async (key) => {
-                  const next = key as BottomTabKey
-                  setActiveBottomTab(next)
-
-                  if (next === 'chart' && selectedDatastream) {
-                    const dsId = String(
-                      selectedDatastream?.['@iot.id'] ??
-                        selectedDatastream?.id ??
-                        ''
-                    )
-                    if (dsId)
-                      await loadObservations(
-                        dsId,
-                        selectedDatastream.phenomenonTime
-                      )
-                  }
+            <div className="max-h-[32vh] overflow-auto pb-2">
+              <DatastreamTable
+                thing={selectedThing}
+                onClose={closePanel}
+                onCreateDatastream={() => {
+                  setCreateFormState({
+                    initialTab: 'datastream',
+                  })
                 }}
-                variant="underlined"
-              >
-                <Tab key="table" title="Table">
-                  <div className="max-h-[32vh] overflow-auto pb-2">
-                    <DatastreamTable
-                      thing={selectedThing}
-                      onClose={closePanel}
-                      onCreateDatastream={() => {
-                        setCreateFormState({
-                          initialTab: 'datastream',
-                        })
-                      }}
-                      onOpenDetails={openChartForDatastream}
-                    />
-                  </div>
-                </Tab>
-
-                <Tab key="chart" title="Chart">
-                  <div className="h-[32vh] p-3">
-                    <ObservationGraph
-                      thing={selectedThing}
-                      datastream={selectedDatastream}
-                      observations={observations}
-                      loading={obsLoading}
-                      error={obsError}
-                    />
-                  </div>
-                </Tab>
-              </Tabs>
+                onOpenDetails={openChartForDatastream}
+              />
             </div>
           </Card>
         </div>

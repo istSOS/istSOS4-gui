@@ -32,7 +32,8 @@ export async function getObservationsByDatastream(
   let url =
     `${siteConfig.api_root}/Datastreams(${datastreamId})/Observations` +
     '?$orderby=phenomenonTime desc' +
-    (filters.length ? `&$filter=${filters.join(' and ')}` : '')
+    (filters.length ? `&$filter=${filters.join(' and ')}` : '') +
+    '&$top=1440'
 
   const apiBase = new URL(siteConfig.api_root)
 

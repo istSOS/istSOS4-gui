@@ -13,11 +13,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { UNSPECIFIED_NETWORK_KEY } from '@/features/map/lib/leafletDraw'
 import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Checkbox } from '@heroui/checkbox'
 import { Divider } from '@heroui/divider'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 import { ChevronDownIcon } from '@/components/icons'
 
@@ -52,6 +54,7 @@ function ScrollTable({
   onToggleAll: (nextEnabled: boolean) => void
   maxVisibleRows?: number
 }) {
+  const { t } = useTranslation()
   const allEnabled = items.length > 0 && items.every((i) => i.enabled)
 
   const [expanded, setExpanded] = useState(false)
@@ -117,7 +120,11 @@ function ScrollTable({
             >
               <div className="min-w-0 flex items-center gap-2">
                 {showDot ? <PillPreview color={it.color} /> : null}
-                <span className="text-xs truncate">{it.key}</span>
+                <span className="text-xs truncate">
+                  {it.key === UNSPECIFIED_NETWORK_KEY
+                    ? t('map.unspecified_network')
+                    : it.key}
+                </span>
               </div>
 
               <Checkbox

@@ -17,6 +17,14 @@ import { fetchData } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
+export type CreateThingPayload = {
+  name: string
+  description?: string
+  Locations?: Array<{ '@iot.id': number | string }>
+  properties?: Record<string, string>
+  commitMessage: string
+}
+
 export async function getThings(token: string) {
   const expand = `
     Datastreams(
@@ -62,5 +70,34 @@ export async function getThingsCountByNetwork(token: string, network: string) {
 
   return {
     thingData: uniqueThings.size,
+  }
+}
+
+export async function createThing(payload: CreateThingPayload, token: string) {
+  try {
+    const { commitMessage, ...thingPayload } = payload
+    const response = await fetch(`${siteConfig.api_root}/Things`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'commit-message': commitMessage,
+      },
+      body: JSON.stringify(thingPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Create Thing failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error creating Thing:', error)
+    return null
   }
 }

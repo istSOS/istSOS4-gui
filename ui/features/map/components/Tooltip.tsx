@@ -13,7 +13,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { UNSPECIFIED_NETWORK_KEY } from '@/features/map/lib/leafletDraw'
 import { Card } from '@heroui/card'
+import { useTranslation } from 'react-i18next'
 
 export default function Tooltip({
   name,
@@ -22,13 +24,19 @@ export default function Tooltip({
   name: string
   network?: string
 }) {
+  const { t } = useTranslation()
+  const networkLabel =
+    network === UNSPECIFIED_NETWORK_KEY || !network?.trim()
+      ? t('map.unspecified_network')
+      : network
+
   return (
     <Card>
       <div className="min-w-0 flex items-center px-2 py-1">
         <div className="min-w-0">
           <div className="text-xs font-medium leading-4 truncate">{name}</div>
           <div className="text-[11px] text-default-500 leading-3 truncate">
-            {network}
+            {networkLabel}
           </div>
         </div>
       </div>

@@ -18,11 +18,13 @@
     "actions": "Actions",
     "total": "Total",
     "new": "Add New",
+    "apply": "Apply",
     "columns": "Columns",
     "back": "Back",
     "next": "Next",
     "finish": "Finish",
-    "no_data": "No data available."
+    "no_data": "No data available.",
+    "reset": "Reset"
   },
     "wizard": {
     "title": "Create SensorThings entities",
@@ -74,6 +76,18 @@
     "login_error": "Invalid credentials",
     "login": "Login",
     "reset": "Reset"
+  },
+  "commit": {
+    "message": "Commit message",
+    "message_placeholder": "Briefly describe the change",
+    "message_required": "Commit message is required"
+  },
+  "chart": {
+    "data_view": "View data",
+    "time_range": "Time range"
+  },
+  "map": {
+    "unspecified_network": "Unspecified"
   },
   "things": {
     "name": "Name",
@@ -146,6 +160,8 @@
     "sensor_placeholder": "Select an existing Sensor",
     "observed_property": "Observed Property",
     "observed_property_placeholder": "Select an existing Observed Property",
+    "network": "Network",
+    "network_placeholder": "Select an existing Network",
     "unit_of_measurement": "Unit of Measurement",
     "unit_of_measurement_placeholder": "Enter the unit of measurement of the Datastream",
     "unit_of_measurement_name": "Name of the unit of measurement",
