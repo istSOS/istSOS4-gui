@@ -51,8 +51,8 @@ export async function createObservedProperty(
       'Content-Type': 'application/json',
     })
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Creating observed property'
     }
 
     const response = await fetch(`${siteConfig.api_root}/ObservedProperties`, {
@@ -74,5 +74,79 @@ export async function createObservedProperty(
   } catch (error) {
     console.error('Error creating Observed Property:', error)
     return null
+  }
+}
+export async function updateObservedProperty(
+  id: number | string,
+  payload: Partial<CreateObservedPropertyPayload>,
+  token?: string | null
+) {
+  try {
+    const { commitMessage, ...observedPropertyPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(
+      `${siteConfig.api_root}/ObservedProperties(${id})`,
+      {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(observedPropertyPayload),
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Observed Property failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Observed Property:', error)
+    return null
+  }
+}
+
+export async function deleteObservedProperty(
+  id: number | string,
+  token?: string | null,
+  commitMessage?: string
+) {
+  try {
+    const headers = withAuthHeaders(token)
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage || 'Deleting observed property'
+    }
+
+    const response = await fetch(
+      `${siteConfig.api_root}/ObservedProperties(${id})`,
+      {
+        method: 'DELETE',
+        headers,
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Delete Observed Property failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting Observed Property:', error)
+    return false
   }
 }

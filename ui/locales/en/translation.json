@@ -24,7 +24,10 @@
     "next": "Next",
     "finish": "Finish",
     "no_data": "No data available.",
-    "reset": "Reset"
+    "reset": "Reset",
+    "confirm_delete": "Are you sure you want to delete this entity?",
+    "delete_error": "An error occurred while deleting the entity.",
+    "delete_default_message": "Deleting entity"
   },
     "wizard": {
     "title": "Create SensorThings entities",

@@ -17,6 +17,7 @@ import {
   UNSPECIFIED_NETWORK_KEY,
   networkKey,
 } from '@/features/map/lib/leafletDraw'
+import { deleteDatastream } from '@/services/datastreams'
 import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Chip } from '@heroui/chip'
@@ -25,8 +26,10 @@ import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import utc from 'dayjs/plugin/utc'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { useRouter } from 'next/navigation'
 
 import {
   ChartIcon,
@@ -35,6 +38,7 @@ import {
   EditIcon,
   PlusIcon,
 } from '@/components/icons'
+import { useAuth } from '@/context/AuthContext'
 import TableComponent from '@/components/table/Table'
 
 dayjs.extend(duration)
@@ -98,6 +102,8 @@ type Props = {
   onClose: () => void
   onCreateDatastream?: () => void
   onOpenDetails?: (datastream: any) => void
+  onEditDatastream?: (datastream: any) => void
+  onDeleteDatastream?: (datastreamId: string) => void
 }
 
 export default function DatastreamTable({
@@ -105,8 +111,13 @@ export default function DatastreamTable({
   onClose,
   onCreateDatastream,
   onOpenDetails,
+  onEditDatastream,
+  onDeleteDatastream,
 }: Props) {
   const { t, i18n } = useTranslation()
+  const { token } = useAuth()
+  const router = useRouter()
+  const [isDeleting, setIsDeleting] = useState<string | null>(null)
   const lang = i18n.resolvedLanguage ?? i18n.language
 
   const datastreams: any[] = useMemo(() => {
@@ -208,8 +219,49 @@ export default function DatastreamTable({
           onOpenDetails(item)
         }
       }
-      const handleEdit = () => console.log('Edit datastream:', item)
-      const handleDelete = () => console.log('Delete datastream:', item)
+      const handleEdit = () => {
+        if (onEditDatastream) {
+          const itemWithThing = {
+            ...item,
+            Thing: item.Thing || {
+              '@iot.id': thing?.['@iot.id'] ?? thing?.id,
+              name: thing?.name,
+            },
+          }
+          onEditDatastream(itemWithThing)
+        }
+      }
+      const handleDelete = async () => {
+        const dsId = String(item?.['@iot.id'] ?? item?.id ?? '')
+        if (!dsId) return
+
+        const commitMsg = prompt(
+          t('general.confirm_delete'),
+          t('general.delete_default_message') || 'Deleting datastream'
+        )
+        if (commitMsg === null) return
+
+        setIsDeleting(dsId)
+        try {
+          const success = await deleteDatastream(
+            dsId,
+            token,
+            commitMsg || undefined
+          )
+          if (success) {
+            if (onDeleteDatastream) {
+              onDeleteDatastream(dsId)
+            }
+            router.refresh()
+          } else {
+            alert(t('general.delete_error'))
+          }
+        } catch (error) {
+          console.error('Delete error:', error)
+        } finally {
+          setIsDeleting(null)
+        }
+      }
 
       switch (columnKey) {
         case 'name':
@@ -294,6 +346,7 @@ export default function DatastreamTable({
                   size="sm"
                   variant="light"
                   color="danger"
+                  isLoading={isDeleting === String(item?.['@iot.id'] ?? item?.id ?? '')}
                   onPress={handleDelete}
                 >
                   <DeleteIcon size={18} />

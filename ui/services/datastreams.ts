@@ -57,8 +57,8 @@ export async function createDatastream(
       'Content-Type': 'application/json',
     })
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Creating datastream'
     }
 
     const response = await fetch(`${siteConfig.api_root}/Datastreams`, {
@@ -80,5 +80,73 @@ export async function createDatastream(
   } catch (error) {
     console.error('Error creating Datastream:', error)
     return null
+  }
+}
+export async function updateDatastream(
+  id: number | string,
+  payload: Partial<CreateDatastreamPayload>,
+  token?: string | null
+) {
+  try {
+    const { commitMessage, ...datastreamPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Updating datastream'
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Datastreams(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(datastreamPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Datastream failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Datastream:', error)
+    return null
+  }
+}
+
+export async function deleteDatastream(
+  id: number | string,
+  token?: string | null,
+  commitMessage?: string
+) {
+  try {
+    const headers = withAuthHeaders(token)
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage || 'Deleting datastream'
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Datastreams(${id})`, {
+      method: 'DELETE',
+      headers,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Delete Datastream failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting Datastream:', error)
+    return false
   }
 }

@@ -55,8 +55,8 @@ export async function createLocation(
       'Content-Type': 'application/json',
     })
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Creating location'
     }
 
     const response = await fetch(`${siteConfig.api_root}/Locations`, {
@@ -78,5 +78,73 @@ export async function createLocation(
   } catch (error) {
     console.error('Error creating Location:', error)
     return null
+  }
+}
+export async function updateLocation(
+  id: number | string,
+  payload: Partial<CreateLocationPayload>,
+  token?: string | null
+) {
+  try {
+    const { commitMessage, ...locationPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Updating location'
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Locations(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(locationPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Location failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Location:', error)
+    return null
+  }
+}
+
+export async function deleteLocation(
+  id: number | string,
+  token?: string | null,
+  commitMessage?: string
+) {
+  try {
+    const headers = withAuthHeaders(token)
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage || 'Deleting location'
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Locations(${id})`, {
+      method: 'DELETE',
+      headers,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Delete Location failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting Location:', error)
+    return false
   }
 }

@@ -24,7 +24,10 @@
     "next": "Avanti",
     "finish": "Conferma",
     "no_data": "Nessun dato disponibile.",
-    "reset": "Reset"
+    "reset": "Reset",
+    "confirm_delete": "Sei sicuro di voler eliminare questa entità?",
+    "delete_error": "Si è verificato un errore durante l'eliminazione dell'entità.",
+    "delete_default_message": "Eliminazione entità"
   },
     "wizard": {
     "title": "Crea entità SensorThings",

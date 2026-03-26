@@ -196,3 +196,15 @@ export function createInitialAssociatedDraft(
     },
   }
 }
+export function createInitialEditDraft(
+  entity: EntityKey,
+  data: any,
+  latitude?: number,
+  longitude?: number
+): FormDataMap {
+  const draft = createInitialSingleDraft(latitude, longitude)
+  if (data) {
+    draft[entity] = data
+  }
+  return draft
+}

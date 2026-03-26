@@ -29,9 +29,10 @@ export async function getThings(token?: string | null) {
   const expand = `
     Datastreams(
       $expand=Network,
-              Sensor,
+              Sensor($select=id,name),
               Observations($top=1;$orderby=phenomenonTime desc),
-              ObservedProperty
+              ObservedProperty($select=id,name),
+              Thing($select=id,name)
     ),
     Locations
   `
@@ -83,8 +84,8 @@ export async function createThing(
       'Content-Type': 'application/json',
     })
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Updating thing'
     }
 
     const response = await fetch(`${siteConfig.api_root}/Things`, {
@@ -106,5 +107,73 @@ export async function createThing(
   } catch (error) {
     console.error('Error creating Thing:', error)
     return null
+  }
+}
+export async function updateThing(
+  id: number | string,
+  payload: Partial<CreateThingPayload>,
+  token?: string | null
+) {
+  try {
+    const { commitMessage, ...thingPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage?.trim() || 'Updating thing'
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Things(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(thingPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Thing failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Thing:', error)
+    return null
+  }
+}
+
+export async function deleteThing(
+  id: number | string,
+  token?: string | null,
+  commitMessage?: string
+) {
+  try {
+    const headers = withAuthHeaders(token)
+
+    if (siteConfig.authorizationEnabled) {
+      headers['commit-message'] = commitMessage || 'Deleting thing'
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Things(${id})`, {
+      method: 'DELETE',
+      headers,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Delete Thing failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    return true
+  } catch (error) {
+    console.error('Error deleting Thing:', error)
+    return false
   }
 }
