@@ -359,74 +359,75 @@ export default function DatastreamTable({
           return <span>{''}</span>
       }
     },
-    [lang]
+    [
+      lang,
+      t,
+      onOpenDetails,
+      onEditDatastream,
+      onDeleteDatastream,
+      thing,
+      token,
+      router,
+    ]
   )
 
   if (!thing) return null
 
   return (
-    <div
-      className="fixed left-0 right-0 bottom-0 pb-[env(safe-area-inset-bottom)]"
-      style={{ zIndex: 3000 }}
-    >
-      <Card className="h-[27vh] overflow-hidden rounded-none">
-        <TableComponent
-          key={lang}
-          items={datastreams}
-          columns={columns}
-          rowKey={(item, index) =>
-            item?.id ?? `${item?.name ?? 'row'}-${index}`
-          }
-          initialSort={{ column: 'name', direction: 'ascending' }}
-          getSortValue={getSortValue}
-          enableSearch
-          searchPlaceholder={t('general.search')}
-          searchPredicate={searchPredicate}
-          enablePagination
-          showTotal
-          totalLabel={(total) => (
-            <span className="text-default-400 text-small">
-              {t('general.total')}: {total}
-            </span>
-          )}
-          enableColumnSelector
-          columnSelectorLabel={t('general.columns')}
-          emptyContent={t('general.no_data')}
-          topLeft={
-            <div className="min-w-0 flex-1 p-1">
-              <div className="text-xs font-medium ">{thingName}</div>
-              <div className="text-[10px]">{networkLabel}</div>
-            </div>
-          }
-          topRight={
-            <div className="flex gap-2">
-              <Button
-                endContent={<PlusIcon size={18} />}
-                size="sm"
-                color="primary"
-                onPress={onCreateDatastream}
-              >
-                {t('general.new')}
-              </Button>
-
-              <Tooltip content={t('general.close')}>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  className="h-6 w-6 min-w-6"
-                  radius="none"
-                  variant="light"
-                  aria-label={t('general.close')}
-                  onPress={onClose}
-                >
-                  <CloseIcon size={18} />
-                </Button>
-              </Tooltip>
-            </div>
-          }
-          renderCell={(item, columnKey) => renderCell(item, columnKey)}
-        />
-      </Card>
-    </div>
+    <TableComponent
+      key={lang}
+      items={datastreams}
+      columns={columns}
+      rowKey={(item, index) =>
+        item?.id ?? `${item?.name ?? 'row'}-${index}`
+      }
+      initialSort={{ column: 'name', direction: 'ascending' }}
+      getSortValue={getSortValue}
+      enableSearch
+      searchPlaceholder={t('general.search')}
+      searchPredicate={searchPredicate}
+      enablePagination
+      showTotal
+      totalLabel={(total) => (
+        <span className="text-default-400 text-small">
+          {t('general.total')}: {total}
+        </span>
+      )}
+      enableColumnSelector
+      columnSelectorLabel={t('general.columns')}
+      emptyContent={t('general.no_data')}
+      topLeft={
+        <div className="min-w-0 flex-1 p-1">
+          <div className="text-xs font-medium ">{thingName}</div>
+          <div className="text-[10px]">{networkLabel}</div>
+        </div>
+      }
+      topRight={
+        <div className="flex gap-2">
+          <Button
+            endContent={<PlusIcon size={18} />}
+            size="sm"
+            color="primary"
+            onPress={onCreateDatastream}
+          >
+            {t('general.new')}
+          </Button>
+          <Tooltip content={t('general.close')}>
+            <Button
+              isIconOnly
+              size="sm"
+              className="h-6 w-6 min-w-6"
+              radius="none"
+              variant="light"
+              aria-label={t('general.close')}
+              onPress={onClose}
+            >
+              <CloseIcon size={18} />
+            </Button>
+          </Tooltip>
+        </div>
+      }
+      renderCell={(item, columnKey) => renderCell(item, columnKey)}
+    />
   )
 }

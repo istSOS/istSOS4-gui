@@ -18,9 +18,13 @@ import FormModal from '@/features/forms/components/FormModal'
 import LeafletMap from '@/features/map/components/LeafletMap'
 import ChartModal from '@/features/observations/components/ChartModal'
 import { getObservationsByDatastream } from '@/services/observations'
+import { toDatastreamFormData } from '@/features/forms/components/wizard/utils'
 import { Card } from '@heroui/card'
 import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
 import { useEffect, useMemo, useRef, useState } from 'react'
+
+dayjs.extend(utc)
 
 import { siteConfig } from '@/config/site'
 
@@ -67,6 +71,11 @@ export default function Home({
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
   const [createFormState, setCreateFormState] =
     useState<CreateFormState | null>(null)
+  const [editFormState, setEditFormState] = useState<{
+    type: FormTabKey
+    data: any
+    formData: any
+  } | null>(null)
 
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
@@ -215,6 +224,26 @@ export default function Home({
           }}
         />
       ) : null}
+      {editFormState ? (
+        <FormModal
+          operation="edit"
+          initialTab={editFormState.type}
+          initialEntityData={editFormState.data}
+          initialFormData={editFormState.formData}
+          existingEntities={{
+            things: localThings,
+            locations,
+            sensors,
+            observedProperties,
+            datastreams,
+            networks,
+          }}
+          isOpen={!!editFormState}
+          onClose={() => {
+            setEditFormState(null)
+          }}
+        />
+      ) : null}
       <ChartModal
         isOpen={!!selectedDatastream}
         onClose={() => {
@@ -250,6 +279,28 @@ export default function Home({
                   })
                 }}
                 onOpenDetails={openChartForDatastream}
+                onEditDatastream={(ds) => {
+                  setEditFormState({
+                    type: 'datastream',
+                    data: ds,
+                    formData: toDatastreamFormData(ds),
+                  })
+                }}
+                onDeleteDatastream={(dsId) => {
+                  setLocalThings((prev) =>
+                    prev.map((t) => {
+                      if (String(t?.['@iot.id'] ?? t?.id ?? '') === selectedThingId) {
+                        return {
+                          ...t,
+                          Datastreams: t.Datastreams.filter(
+                            (ds: any) => String(ds?.['@iot.id'] ?? ds?.id ?? '') !== dsId
+                          ),
+                        }
+                      }
+                      return t
+                    })
+                  )
+                }}
               />
             </div>
           </Card>
