@@ -24,9 +24,11 @@
     "next": "Next",
     "finish": "Finish",
     "no_data": "No data available.",
+    "select_datastream": "Select a datastream to view the chart",
+    "loading": "Loading...",
     "reset": "Reset"
   },
-    "wizard": {
+  "wizard": {
     "title": "Create SensorThings entities",
     "subtitle": "Choose whether to create one entity or build a guided associated setup.",
     "single_mode": "Single entity",
