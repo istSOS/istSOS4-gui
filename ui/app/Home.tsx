@@ -18,10 +18,13 @@ import FormModal from '@/features/forms/components/FormModal'
 import LeafletMap from '@/features/map/components/LeafletMap'
 import ObservationGraph from '@/features/observations/components/ObservationGraph'
 import { getObservationsByDatastream } from '@/services/observations'
+import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Tab, Tabs } from '@heroui/tabs'
 import dayjs from 'dayjs'
 import { useMemo, useRef, useState } from 'react'
+
+import { useRouter } from 'next/navigation'
 
 import { useAuth } from '@/context/AuthContext'
 
@@ -46,6 +49,7 @@ export default function Home({
   things: any[]
   selectedNetwork?: string
 }) {
+  const router = useRouter()
   const { token } = useAuth()
   const [localThings, setLocalThings] = useState<any[]>(things)
 
@@ -135,7 +139,27 @@ export default function Home({
   }
 
   return (
-    <div className="relative h-[95vh] w-full overflow-hidden">
+    <div className="relative h-[calc(100vh-56px)] w-full overflow-hidden">
+      <div className="absolute left-4 top-4 z-[4100] max-w-sm">
+        <Card className="section-card p-4">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Monitoring workspace</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                Select a station on the map to open stream details and charts.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              radius="sm"
+              color="primary"
+              onPress={() => router.push('/history')}
+            >
+              Open History Explorer
+            </Button>
+          </div>
+        </Card>
+      </div>
       <LeafletMap
         things={localThings}
         selectedNetwork={selectedNetwork}
@@ -171,10 +195,10 @@ export default function Home({
         <div className="fixed inset-x-0 bottom-0 z-[4000] pb-[env(safe-area-inset-bottom)]">
           <Card
             radius="none"
-            className="max-h-[38vh] overflow-hidden"
+            className="max-h-[40vh] overflow-hidden border-t border-[var(--color-border)] bg-[var(--color-surface)]"
             classNames={{ body: 'p-0' }}
           >
-            <div className="px-3 pt-2">
+            <div className="px-4 pt-3">
               <Tabs
                 selectedKey={activeBottomTab}
                 onSelectionChange={async (key) => {
@@ -195,6 +219,11 @@ export default function Home({
                   }
                 }}
                 variant="underlined"
+                classNames={{
+                  tabList: 'bg-[var(--color-surface-elevated)] border border-[var(--color-border)] rounded-lg',
+                  tab: 'text-[var(--color-text-secondary)] data-[selected=true]:text-[var(--color-text-primary)]',
+                  cursor: 'bg-[var(--color-accent)]',
+                }}
               >
                 <Tab key="table" title="Table">
                   <div className="max-h-[32vh] overflow-auto pb-2">

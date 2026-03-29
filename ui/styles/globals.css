@@ -9,7 +9,55 @@
 @theme {
     --font-sans: "font", sans-serif;
     --font-mono: "monospace", monospace;
-    --color-primary: #008374;
+    --color-primary: #16a34a;
+}
+
+:root {
+    --color-bg: #0b0f14;
+    --color-surface: #111827;
+    --color-surface-elevated: #182230;
+    --color-accent: #16a34a;
+    --color-accent-hover: #15803d;
+    --color-text-primary: #f3f7fb;
+    --color-text-secondary: #a9b4c0;
+    --color-text-tertiary: #8b97a6;
+    --color-border: #2a3441;
+    --color-border-strong: #364356;
+    --content-max-width: 1200px;
+}
+
+.page-shell {
+    min-height: calc(100vh - 56px);
+    padding: 32px 16px 56px;
+}
+
+.page-container {
+    margin: 0 auto;
+    width: 100%;
+    max-width: var(--content-max-width);
+}
+
+.page-header {
+    margin-bottom: 24px;
+}
+
+.page-title {
+    font-size: clamp(1.75rem, 2.8vw, 2.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--color-text-primary);
+}
+
+.page-subtitle {
+    margin-top: 8px;
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+}
+
+.section-card {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: 14px;
 }
 
 .marker-cluster-net {

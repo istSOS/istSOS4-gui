@@ -13,6 +13,23 @@
 // limitations under the License.
 import { IconSvgProps, LogoProps } from '@/types'
 
+function normalizeBasePath(rawBasePath?: string) {
+  if (!rawBasePath) return ''
+  if (rawBasePath === 'undefined' || rawBasePath === 'null') return ''
+
+  const trimmed = rawBasePath.trim()
+  if (!trimmed || trimmed === '/' || trimmed === 'undefined' || trimmed === 'null') {
+    return ''
+  }
+
+  const withoutTrailing = trimmed.replace(/\/+$/, '')
+  return withoutTrailing.startsWith('/') ? withoutTrailing : `/${withoutTrailing}`
+}
+
+const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH)
+const logoIstSOSSrc = `${basePath}/istsos_logo.png`
+const logoOSGeoSrc = `${basePath}/osgeo_logo.png`
+
 export const LogoIstSOS = ({
   size = 24,
   width,
@@ -24,11 +41,7 @@ export const LogoIstSOS = ({
 
   return (
     <img
-      src={
-        process.env.NODE_ENV === 'development'
-          ? `${process.env.NEXT_PUBLIC_BASE_PATH}/istsos_logo.png`
-          : '/NEXT_APP_URL/istsos_logo.png'
-      }
+      src={logoIstSOSSrc}
       width={computedWidth}
       height={computedHeight}
       alt="Logo IstSOS"
@@ -48,11 +61,7 @@ export const LogoOSGeo = ({
 
   return (
     <img
-      src={
-        process.env.NODE_ENV === 'development'
-          ? `${process.env.NEXT_PUBLIC_BASE_PATH}/osgeo_logo.png`
-          : '/NEXT_APP_URL/osgeo_logo.png'
-      }
+      src={logoOSGeoSrc}
       width={computedWidth}
       height={computedHeight}
       alt="Logo OSGeo"

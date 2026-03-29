@@ -51,44 +51,63 @@ export default function DatastreamsPage() {
   const items = data?.value || []
 
   return (
-    <div className="min-h-screen p-4 space-y-3">
-      <h1 className="text-3xl font-bold text-white">Datastreams</h1>
-      <TemporalModeSwitch />
+    <div className="page-shell">
+      <div className="page-container space-y-8">
+        <div className="page-header">
+          <h1 className="page-title">Datastreams</h1>
+          <p className="page-subtitle">Inspect stream definitions and temporal validity with clear context.</p>
+        </div>
 
-      <Card className="p-2 bg-white/10 text-white/80 text-xs font-mono overflow-auto">
-        GET {activeUrl}
-      </Card>
+        <Card className="section-card p-5 md:p-6">
+          <div className="space-y-4">
+            <TemporalModeSwitch />
+            <div className="overflow-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-elevated)] p-3 font-mono text-xs text-[var(--color-text-secondary)]">
+              GET {activeUrl}
+            </div>
+          </div>
+        </Card>
 
-      {mode !== 'current' && <PhantomEditWarning />}
-      {mode !== 'current' && items.length === 0 && (
-        <TemporalConflictWarning asOf={mode === 'as_of' ? asOf : null} />
-      )}
+        {mode !== 'current' && <PhantomEditWarning />}
+        {mode !== 'current' && items.length === 0 && (
+          <TemporalConflictWarning asOf={mode === 'as_of' ? asOf : null} />
+        )}
 
-      {loading && <p className="text-white">Loading...</p>}
-      {error && <p className="text-danger">{error.message}</p>}
+        {loading && <p className="text-[var(--color-text-primary)]">Loading...</p>}
+        {error && <p className="text-danger">{error.message}</p>}
 
-      <Table aria-label="Datastreams table" removeWrapper>
-        <TableHeader>
-          <TableColumn>ID</TableColumn>
-          <TableColumn>Name</TableColumn>
-          <TableColumn>Description</TableColumn>
-          <TableColumn>Observation Type</TableColumn>
-          <TableColumn>Phenomenon Time</TableColumn>
-          <TableColumn>System validity</TableColumn>
-        </TableHeader>
-        <TableBody emptyContent="No datastreams found" items={items}>
-          {(item) => (
-            <TableRow key={item['@iot.id']}>
-              <TableCell>{item['@iot.id']}</TableCell>
-              <TableCell>{item.name}</TableCell>
-              <TableCell>{item.description}</TableCell>
-              <TableCell>{item.observationType}</TableCell>
-              <TableCell>{item.phenomenonTime || '-'}</TableCell>
-              <TableCell>{item.systemTimeValidity || '-'}</TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+        <Card className="section-card p-3 md:p-4">
+          <Table
+            aria-label="Datastreams table"
+            removeWrapper
+            classNames={{
+              th: '!bg-[var(--color-surface-elevated)] !text-[var(--color-text-secondary)]',
+              td: 'text-[var(--color-text-primary)]',
+              tr: 'border-b border-[var(--color-border)]',
+            }}
+          >
+            <TableHeader>
+              <TableColumn>ID</TableColumn>
+              <TableColumn>Name</TableColumn>
+              <TableColumn>Description</TableColumn>
+              <TableColumn>Observation Type</TableColumn>
+              <TableColumn>Phenomenon Time</TableColumn>
+              <TableColumn>System validity</TableColumn>
+            </TableHeader>
+            <TableBody emptyContent="No datastreams found" items={items}>
+              {(item) => (
+                <TableRow key={item['@iot.id']}>
+                  <TableCell>{item['@iot.id']}</TableCell>
+                  <TableCell>{item.name}</TableCell>
+                  <TableCell>{item.description}</TableCell>
+                  <TableCell>{item.observationType}</TableCell>
+                  <TableCell>{item.phenomenonTime || '-'}</TableCell>
+                  <TableCell>{item.systemTimeValidity || '-'}</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
     </div>
   )
 }

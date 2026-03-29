@@ -273,19 +273,19 @@ export default function TableComponent({
   )
 
   const classNames = {
-    base: 'gap-1',
-    wrapper: 'min-h-[190px]',
-    th: ['text-[10px]', 'font-semibold', 'px-2', 'py-0.5', 'h-7', 'leading-4'],
+    base: 'gap-2',
+    wrapper: 'min-h-[220px]',
+    th: ['text-xs', 'font-semibold', 'px-3', 'py-1', 'h-9', 'leading-5'],
     td: [
-      'px-2',
-      'py-0.5',
-      'h-7',
+      'px-3',
+      'py-1.5',
+      'h-9',
       'text-xs',
-      'leading-4',
+      'leading-5',
       'border-b',
       'border-default-200',
     ],
-    tr: 'hover:bg-[color:rgba(0,131,116,0.12)]',
+    tr: 'hover:bg-[var(--color-surface-elevated)]',
     table: 'border-collapse',
   }
 

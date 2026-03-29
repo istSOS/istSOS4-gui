@@ -59,65 +59,93 @@ export default function CommitsPage() {
   }, [actionType, author])
 
   return (
-    <div className="min-h-screen p-4">
-      <h1 className="mb-4 text-3xl font-bold text-white">Commits</h1>
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-        <Select
-          radius="sm"
-          label="Action type"
-          selectedKeys={actionType ? [actionType] : []}
-          onChange={(event) => setActionType(event.target.value)}
-        >
-          <SelectItem key="">All</SelectItem>
-          <SelectItem key="CREATE">CREATE</SelectItem>
-          <SelectItem key="UPDATE">UPDATE</SelectItem>
-          <SelectItem key="DELETE">DELETE</SelectItem>
-        </Select>
-        <Input
-          radius="sm"
-          label="Author"
-          placeholder="Filter by author"
-          value={author}
-          onChange={(event) => setAuthor(event.target.value)}
-        />
-      </div>
+    <div className="page-shell">
+      <div className="page-container space-y-8">
+        <div className="page-header">
+          <h1 className="page-title">Commits</h1>
+          <p className="page-subtitle">Track changes by author and action type, then pivot into temporal entity views.</p>
+        </div>
 
-      {loading && <p className="text-white">Loading...</p>}
+        <Card className="section-card p-5 md:p-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Select
+              radius="sm"
+              label="Action type"
+              selectedKeys={actionType ? [actionType] : []}
+              onChange={(event) => setActionType(event.target.value)}
+              classNames={{
+                label: 'text-[var(--color-text-secondary)]',
+                trigger:
+                  'bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]',
+                value: 'text-[var(--color-text-primary)]',
+              }}
+            >
+              <SelectItem key="">All</SelectItem>
+              <SelectItem key="CREATE">CREATE</SelectItem>
+              <SelectItem key="UPDATE">UPDATE</SelectItem>
+              <SelectItem key="DELETE">DELETE</SelectItem>
+            </Select>
+            <Input
+              radius="sm"
+              label="Author"
+              placeholder="Filter by author"
+              value={author}
+              onChange={(event) => setAuthor(event.target.value)}
+              classNames={{
+                label: 'text-[var(--color-text-secondary)]',
+                inputWrapper:
+                  'bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]',
+                input: 'text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)]',
+              }}
+            />
+          </div>
+        </Card>
 
-      <div className="space-y-3">
-        {items.map((item) => (
-          <Card key={item.id} className="p-4 bg-white/10 border border-white/15">
-            <div className="flex items-start justify-between gap-3 mb-2">
-              <div>
-                <p className="font-semibold text-white">{item.message}</p>
-                <p className="text-sm text-white/70">
-                  {item.author} · {dayjs(item.date).format('MMM D, YYYY HH:mm')}
-                </p>
-              </div>
-              <Chip color={actionColorMap[item.actionType]} size="sm" variant="flat">
-                {item.actionType}
-              </Chip>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {item.affectedEntities.map((entity) => (
-                <Chip key={`${item.id}-${entity}`} size="sm" variant="bordered">
-                  {entity}
+        {loading && <p className="text-[var(--color-text-primary)]">Loading...</p>}
+
+        <div className="space-y-4">
+          {items.map((item) => (
+            <Card
+              key={item.id}
+              className="section-card p-5 md:p-6"
+            >
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-[var(--color-text-primary)]">{item.message}</p>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {item.author} · {dayjs(item.date).format('MMM D, YYYY HH:mm')}
+                  </p>
+                </div>
+                <Chip color={actionColorMap[item.actionType]} size="sm" variant="flat">
+                  {item.actionType}
                 </Chip>
-              ))}
-            </div>
-            {item.actionType === 'UPDATE' && (
-              <button
-                className="text-sm underline text-primary-300"
-                onClick={() => {
-                  setAsOf(item.date)
-                  router.push('/things')
-                }}
-              >
-                View Things at this time
-              </button>
-            )}
-          </Card>
-        ))}
+              </div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                {item.affectedEntities.map((entity) => (
+                  <Chip
+                    key={`${item.id}-${entity}`}
+                    size="sm"
+                    variant="bordered"
+                    className="border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] text-[var(--color-text-primary)]"
+                  >
+                    {entity}
+                  </Chip>
+                ))}
+              </div>
+              {item.actionType === 'UPDATE' && (
+                <button
+                  className="text-sm text-[var(--color-accent)] underline"
+                  onClick={() => {
+                    setAsOf(item.date)
+                    router.push('/things')
+                  }}
+                >
+                  View Things at this time
+                </button>
+              )}
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   )

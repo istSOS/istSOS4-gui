@@ -26,10 +26,22 @@ const THUMBS: Record<BasemapKey, { left: number; top: number }> = {
   pixelColor: { left: -205, top: 0 },
 }
 
-const SPRITE_URL =
-  process.env.NODE_ENV === 'development'
-    ? `${process.env.NEXT_PUBLIC_BASE_PATH}/basemapimage.jpeg`
-    : '/NEXT_APP_URL/basemapimage.jpeg'
+function normalizeBasePath(rawBasePath?: string) {
+  if (!rawBasePath) return ''
+  if (rawBasePath === 'undefined' || rawBasePath === 'null') return ''
+
+  const trimmed = rawBasePath.trim()
+  if (!trimmed || trimmed === '/' || trimmed === 'undefined' || trimmed === 'null') {
+    return ''
+  }
+
+  const withoutTrailing = trimmed.replace(/\/+$/, '')
+  return withoutTrailing.startsWith('/') ? withoutTrailing : `/${withoutTrailing}`
+}
+
+const BASE_PATH = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH)
+
+const SPRITE_URL = `${BASE_PATH}/basemapimage.jpeg`
 
 function Thumb({ k }: { k: BasemapKey }) {
   const pos = THUMBS[k]

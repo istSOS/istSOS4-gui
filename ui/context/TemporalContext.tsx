@@ -42,6 +42,15 @@ const TemporalContext = createContext<TemporalContextType>({
   reset: () => {},
 })
 
+function isSameState(a: TemporalState, b: TemporalState) {
+  return (
+    a.mode === b.mode &&
+    a.asOf === b.asOf &&
+    a.fromTo?.[0] === b.fromTo?.[0] &&
+    a.fromTo?.[1] === b.fromTo?.[1]
+  )
+}
+
 function parseTemporalFromUrl(params: URLSearchParams): TemporalState {
   const mode = (params.get('temporal_mode') || 'current') as TemporalMode
   const asOf = params.get('as_of')
@@ -112,48 +121,52 @@ export function TemporalProvider({ children }: { children: React.ReactNode }) {
     () => ({
       ...state,
       setMode: (mode: TemporalMode) => {
-        if (mode === 'current') {
-          setState(defaultState)
-          return
-        }
-
-        if (mode === 'as_of') {
-          setState((prev) => ({
-            mode,
-            asOf: prev.asOf || new Date().toISOString(),
-            fromTo: null,
-          }))
-          return
-        }
-
         setState((prev) => {
-          const now = new Date()
-          const start = new Date(now.getTime() - 60 * 60 * 1000)
-          return {
-            mode,
-            asOf: null,
-            fromTo: prev.fromTo || [start.toISOString(), now.toISOString()],
+          let next: TemporalState
+
+          if (mode === 'current') {
+            next = defaultState
+          } else if (mode === 'as_of') {
+            next = {
+              mode,
+              asOf: prev.asOf || new Date().toISOString(),
+              fromTo: null,
+            }
+          } else {
+            const now = new Date()
+            const start = new Date(now.getTime() - 60 * 60 * 1000)
+            next = {
+              mode,
+              asOf: null,
+              fromTo: prev.fromTo || [start.toISOString(), now.toISOString()],
+            }
           }
+
+          return isSameState(prev, next) ? prev : next
         })
       },
       setAsOf: (asOf: string | null) => {
-        setState((prev) => ({
-          ...prev,
-          mode: asOf ? 'as_of' : 'current',
-          asOf,
-          fromTo: null,
-        }))
+        setState((prev) => {
+          const next: TemporalState = {
+            mode: asOf ? 'as_of' : 'current',
+            asOf,
+            fromTo: null,
+          }
+          return isSameState(prev, next) ? prev : next
+        })
       },
       setFromTo: (fromTo: [string, string] | null) => {
-        setState((prev) => ({
-          ...prev,
-          mode: fromTo ? 'from_to' : 'current',
-          asOf: null,
-          fromTo,
-        }))
+        setState((prev) => {
+          const next: TemporalState = {
+            mode: fromTo ? 'from_to' : 'current',
+            asOf: null,
+            fromTo,
+          }
+          return isSameState(prev, next) ? prev : next
+        })
       },
       reset: () => {
-        setState(defaultState)
+        setState((prev) => (isSameState(prev, defaultState) ? prev : defaultState))
       },
     }),
     [state]

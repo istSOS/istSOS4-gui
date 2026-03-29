@@ -37,13 +37,18 @@ export default function TemporalModeSwitch() {
   const { mode, asOf, fromTo, setMode, setAsOf, setFromTo } = useTemporal()
 
   return (
-    <div className="mb-4 p-3 rounded-lg bg-white/10 border border-white/15">
+    <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <Tabs
         selectedKey={mode}
         onSelectionChange={(key) => setMode(String(key) as 'current' | 'as_of' | 'from_to')}
         aria-label="Temporal mode switch"
         variant="solid"
         color="primary"
+        classNames={{
+          tabList: 'bg-[var(--color-surface-elevated)] border border-[var(--color-border)]',
+          tab: 'text-[var(--color-text-secondary)] data-[selected=true]:text-white',
+          cursor: 'bg-[var(--color-accent)]',
+        }}
       >
         <Tab key="current" title="Current" />
         <Tab key="as_of" title="As-of" />
@@ -59,12 +64,18 @@ export default function TemporalModeSwitch() {
             onChange={(event) => setAsOf(fromLocalInputValue(event.target.value))}
             size="sm"
             radius="sm"
+            classNames={{
+              label: 'text-[var(--color-text-secondary)]',
+              inputWrapper:
+                'bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]',
+              input: 'text-[var(--color-text-primary)]',
+            }}
           />
         </div>
       )}
 
       {mode === 'from_to' && (
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
           <Input
             type="datetime-local"
             label="From"
@@ -77,6 +88,12 @@ export default function TemporalModeSwitch() {
             }
             size="sm"
             radius="sm"
+            classNames={{
+              label: 'text-[var(--color-text-secondary)]',
+              inputWrapper:
+                'bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]',
+              input: 'text-[var(--color-text-primary)]',
+            }}
           />
           <Input
             type="datetime-local"
@@ -90,6 +107,12 @@ export default function TemporalModeSwitch() {
             }
             size="sm"
             radius="sm"
+            classNames={{
+              label: 'text-[var(--color-text-secondary)]',
+              inputWrapper:
+                'bg-[var(--color-surface-elevated)] border border-[var(--color-border)] text-[var(--color-text-primary)]',
+              input: 'text-[var(--color-text-primary)]',
+            }}
           />
         </div>
       )}

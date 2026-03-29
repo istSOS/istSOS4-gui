@@ -27,7 +27,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html suppressHydrationWarning lang="en">
       <body
-        style={{ backgroundColor: 'var(--color-primary)' }}
+        style={{
+          backgroundColor: 'var(--color-bg)',
+          color: 'var(--color-text-primary)',
+        }}
         className="min-h-screen"
       >
         <Providers>

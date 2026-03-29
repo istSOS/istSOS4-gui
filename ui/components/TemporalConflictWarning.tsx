@@ -24,7 +24,7 @@ type Props = {
 
 export default function TemporalConflictWarning({ asOf }: Props) {
   return (
-    <Card className="mb-4 border border-warning bg-warning/10 p-4 text-warning-200">
+    <Card className="mb-4 border border-warning/70 bg-warning/15 p-4 text-warning-100">
       This entity did not exist at {asOf ? dayjs(asOf).format('MMM D, YYYY, HH:mm') : 'the selected time'}. Try a more recent timestamp.
     </Card>
   )

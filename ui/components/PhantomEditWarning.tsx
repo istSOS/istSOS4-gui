@@ -19,7 +19,7 @@ import { Card } from '@heroui/card'
 
 export default function PhantomEditWarning() {
   return (
-    <Card className="mb-4 border border-primary bg-primary/10 p-4 text-primary-100">
+    <Card className="mb-4 border border-[var(--color-border-strong)] bg-[var(--color-surface-elevated)] p-4 text-[var(--color-text-secondary)]">
       Note: Changes to phenomenonTime and observedArea are not versioned. The history below reflects only metadata and configuration changes.
     </Card>
   )
