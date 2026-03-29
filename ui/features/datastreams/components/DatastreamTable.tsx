@@ -13,6 +13,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import {
+  UNSPECIFIED_NETWORK_KEY,
+  networkKey,
+} from '@/features/map/lib/leafletDraw'
 import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Chip } from '@heroui/chip'
@@ -111,7 +115,11 @@ export default function DatastreamTable({
   }, [thing])
 
   const thingName = String(thing?.name ?? '')
-  const networkName = String(thing?.Datastreams?.[0]?.Network?.name ?? '')
+  const networkName = networkKey(thing?.Datastreams?.[0]?.Network?.name)
+  const networkLabel =
+    networkName === UNSPECIFIED_NETWORK_KEY
+      ? t('map.unspecified_network')
+      : networkName
 
   const columns: any[] = useMemo(
     () => [
@@ -214,6 +222,14 @@ export default function DatastreamTable({
           return <span>{item?.unitOfMeasurement?.symbol ?? ''}</span>
 
         case 'last': {
+          const hasObservations = Array.isArray(item?.Observations)
+            ? item.Observations.length > 0
+            : false
+
+          if (!hasObservations || !endRaw) {
+            return <span>{''}</span>
+          }
+
           const acquisition = item?.properties?.acquisitionFrequency
           const fresh = isFresh(endRaw, acquisition)
 
@@ -300,11 +316,7 @@ export default function DatastreamTable({
       className="fixed left-0 right-0 bottom-0 pb-[env(safe-area-inset-bottom)]"
       style={{ zIndex: 3000 }}
     >
-      <Card
-        radius="none"
-        className="max-h-[30vh] overflow-hidden"
-        classNames={{ body: 'p-0' }}
-      >
+      <Card className="h-[27vh] overflow-hidden rounded-none">
         <TableComponent
           key={lang}
           items={datastreams}
@@ -330,7 +342,7 @@ export default function DatastreamTable({
           topLeft={
             <div className="min-w-0 flex-1 p-1">
               <div className="text-xs font-medium ">{thingName}</div>
-              <div className="text-[10px]">{networkName}</div>
+              <div className="text-[10px]">{networkLabel}</div>
             </div>
           }
           topRight={

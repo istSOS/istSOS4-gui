@@ -37,6 +37,8 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
+import { getTokenUsername } from '@/lib/auth'
+
 export default function Navbar() {
   const { token, setToken } = useAuth()
   const { t } = useTranslation()
@@ -73,13 +75,9 @@ export default function Navbar() {
   }
 
   const username = useMemo(() => {
+    if (!siteConfig.authorizationEnabled) return null
     if (!token) return null
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      return payload?.sub ?? 'User'
-    } catch {
-      return 'User'
-    }
+    return getTokenUsername(token)
   }, [token])
 
   const initials = useMemo(() => {
@@ -95,7 +93,7 @@ export default function Navbar() {
       if (token) await logout(token)
     } finally {
       setToken(null)
-      router.push('/login')
+      router.push(siteConfig.authorizationEnabled ? '/login' : '/')
     }
   }
 

@@ -1,3 +1,5 @@
+import { formatLv95FromWgs84 } from './coordinates'
+
 export type EntityKey =
   | 'thing'
   | 'location'
@@ -53,6 +55,7 @@ export type DatastreamFormData = {
   thingId: string
   sensorId: string
   observedPropertyId: string
+  networkId: string
   unitOfMeasurement: UnitOfMeasurement
   properties: KeyValueItem[]
 }
@@ -81,6 +84,8 @@ export type ExistingOption = {
   description?: string
 }
 
+export type ExistingEntitySelectKey = EntityKey | 'network'
+
 export const ENTITY_ORDER: EntityKey[] = [
   'thing',
   'location',
@@ -107,7 +112,7 @@ export function createLocationFormData(
     encodingType: '',
     location:
       latitude !== undefined && longitude !== undefined
-        ? `${latitude}, ${longitude}`
+        ? formatLv95FromWgs84(latitude, longitude)
         : '',
     properties: [],
   }
@@ -140,6 +145,7 @@ export function createDatastreamFormData(): DatastreamFormData {
     thingId: '',
     sensorId: '',
     observedPropertyId: '',
+    networkId: '',
     unitOfMeasurement: [],
     properties: [],
   }

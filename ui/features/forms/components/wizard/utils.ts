@@ -2,6 +2,7 @@ import type {
   AssociatedDraft,
   DatastreamFormData,
   EntityKey,
+  ExistingEntitySelectKey,
   ExistingOption,
   FormDataMap,
   KeyValueItem,
@@ -10,6 +11,20 @@ import type {
   SensorFormData,
   ThingFormData,
 } from './types'
+import { parseLv95String } from './coordinates'
+
+import { siteConfig } from '@/config/site'
+
+export type ExistingEntities = {
+  things: any[]
+  locations: any[]
+  sensors: any[]
+  observedProperties: any[]
+  datastreams: any[]
+  networks: any[]
+}
+
+export type ExistingOptionsMap = Record<ExistingEntitySelectKey, ExistingOption[]>
 
 function toPropertiesObject(items: KeyValueItem[]) {
   const entries = items
@@ -17,6 +32,28 @@ function toPropertiesObject(items: KeyValueItem[]) {
     .map((item) => [item.key, item.value] as const)
 
   return entries.length > 0 ? Object.fromEntries(entries) : undefined
+}
+
+function toEntityReferenceId(id: string) {
+  const trimmed = id.trim()
+  if (!trimmed) return undefined
+
+  const numericId = Number(trimmed)
+  return Number.isFinite(numericId) ? numericId : trimmed
+}
+
+function toPointGeometry(value: string) {
+  const parsed = parseLv95String(value)
+  if (!parsed) {
+    return value
+  }
+
+  const { east, north } = parsed
+
+  return {
+    type: 'Point',
+    coordinates: [east, north],
+  }
 }
 
 function getEntityId(item: any) {
@@ -28,7 +65,10 @@ function getEntityName(item: any, fallback: string) {
 }
 
 function getLocationDescription(location: any, thing: any) {
-  if (typeof location?.description === 'string' && location.description.trim()) {
+  if (
+    typeof location?.description === 'string' &&
+    location.description.trim()
+  ) {
     return location.description
   }
 
@@ -64,8 +104,11 @@ function uniqueOptions(options: ExistingOption[]) {
 }
 
 export function buildExistingOptions(
-  things: any[]
-): Record<EntityKey, ExistingOption[]> {
+  entities: ExistingEntities
+): ExistingOptionsMap {
+  const { things, locations, sensors, observedProperties, datastreams, networks } =
+    entities
+
   const thingOptions = uniqueOptions(
     things.map((thing, index) => ({
       value: getEntityId(thing),
@@ -75,46 +118,29 @@ export function buildExistingOptions(
   )
 
   const locationOptions = uniqueOptions(
-    things.flatMap((thing) =>
-      (Array.isArray(thing?.Locations) ? thing.Locations : []).map(
-        (location: any, index: number) => ({
-          value: getEntityId(location),
-          label: getEntityName(location, `Location ${index + 1}`),
-          description: getLocationDescription(location, thing),
-        })
-      )
-    )
-  )
-
-  const datastreams = things.flatMap((thing) =>
-    Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
+    locations.map((location: any, index: number) => ({
+      value: getEntityId(location),
+      label: getEntityName(location, `Location ${index + 1}`),
+      description: getLocationDescription(location, null),
+    }))
   )
 
   const sensorOptions = uniqueOptions(
-    datastreams
-      .map((datastream: any) => datastream?.Sensor)
-      .filter(Boolean)
-      .map((sensor: any, index: number) => ({
-        value: getEntityId(sensor),
-        label: getEntityName(sensor, `Sensor ${index + 1}`),
-        description: String(sensor?.description ?? ''),
-      }))
+    sensors.map((sensor: any, index: number) => ({
+      value: getEntityId(sensor),
+      label: getEntityName(sensor, `Sensor ${index + 1}`),
+      description: String(sensor?.description ?? ''),
+    }))
   )
 
   const observedPropertyOptions = uniqueOptions(
-    datastreams
-      .map((datastream: any) => datastream?.ObservedProperty)
-      .filter(Boolean)
-      .map((observedProperty: any, index: number) => ({
-        value: getEntityId(observedProperty),
-        label: getEntityName(
-          observedProperty,
-          `Observed Property ${index + 1}`
-        ),
-        description: String(
-          observedProperty?.definition ?? observedProperty?.description ?? ''
-        ),
-      }))
+    observedProperties.map((observedProperty: any, index: number) => ({
+      value: getEntityId(observedProperty),
+      label: getEntityName(observedProperty, `Observed Property ${index + 1}`),
+      description: String(
+        observedProperty?.definition ?? observedProperty?.description ?? ''
+      ),
+    }))
   )
 
   const datastreamOptions = uniqueOptions(
@@ -123,10 +149,20 @@ export function buildExistingOptions(
       label: getEntityName(datastream, `Datastream ${index + 1}`),
       description: String(
         datastream?.ObservedProperty?.name ??
+          datastream?.Sensor?.name ??
+          datastream?.Thing?.name ??
           datastream?.description ??
           datastream?.unitOfMeasurement?.symbol ??
           ''
       ),
+    }))
+  )
+
+  const networkOptions = uniqueOptions(
+    networks.map((network: any, index: number) => ({
+      value: getEntityId(network),
+      label: getEntityName(network, `Network ${index + 1}`),
+      description: String(network?.description ?? ''),
     }))
   )
 
@@ -136,6 +172,7 @@ export function buildExistingOptions(
     sensor: sensorOptions,
     observedProperty: observedPropertyOptions,
     datastream: datastreamOptions,
+    network: networkOptions,
   }
 }
 
@@ -147,10 +184,11 @@ export function normalizeEntityPayload(
     case 'thing': {
       const current = formData as ThingFormData
       const properties = toPropertiesObject(current.properties)
+      const locationId = toEntityReferenceId(current.locationId)
       return {
         name: current.name,
         description: current.description,
-        location_id: current.locationId || undefined,
+        ...(locationId ? { Locations: [{ '@iot.id': locationId }] } : {}),
         properties,
       }
     }
@@ -161,7 +199,7 @@ export function normalizeEntityPayload(
         name: current.name,
         description: current.description,
         encodingType: current.encodingType,
-        location: current.location,
+        location: toPointGeometry(current.location),
         properties,
       }
     }
@@ -190,12 +228,21 @@ export function normalizeEntityPayload(
       const current = formData as DatastreamFormData
       const properties = toPropertiesObject(current.properties)
       const unitOfMeasurement = toPropertiesObject(current.unitOfMeasurement)
+      const thingId = toEntityReferenceId(current.thingId)
+      const sensorId = toEntityReferenceId(current.sensorId)
+      const observedPropertyId = toEntityReferenceId(current.observedPropertyId)
+      const networkId = toEntityReferenceId(current.networkId)
       return {
         name: current.name,
         description: current.description,
-        thing_id: current.thingId || undefined,
-        sensor_id: current.sensorId || undefined,
-        observedProperty_id: current.observedPropertyId || undefined,
+        ...(thingId ? { Thing: { '@iot.id': thingId } } : {}),
+        ...(sensorId ? { Sensor: { '@iot.id': sensorId } } : {}),
+        ...(observedPropertyId
+          ? { ObservedProperty: { '@iot.id': observedPropertyId } }
+          : {}),
+        ...(siteConfig.networkEnabled && networkId
+          ? { Network: { '@iot.id': networkId } }
+          : {}),
         unitOfMeasurement,
         observationType: current.observationType,
         properties,

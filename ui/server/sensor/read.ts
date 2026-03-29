@@ -1,4 +1,4 @@
-'use server';
+'use server'
 
 // Copyright 2026 SUPSI
 //
@@ -13,15 +13,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { fetchData } from '@/services/fetch';
+import { fetchData } from '@/services/fetch'
 
-
-
-import { siteConfig } from '@/config/site';
-
-
-
-
+import { siteConfig } from '@/config/site'
 
 export async function getSensorsCount(token: string) {
   const [sensorData] = await Promise.all([

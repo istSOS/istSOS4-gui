@@ -13,25 +13,58 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { getDatastreams } from '@/services/datastreams'
+import { getLocations } from '@/services/locations'
+import { getNetworks } from '@/services/networks'
+import { getObservedProperties } from '@/services/observedProperties'
+import { getSensors } from '@/services/sensors'
 import { getThings } from '@/services/things'
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
 import Home from '@/app/Home'
+import { siteConfig } from '@/config/site'
+import { isTokenExpired } from '@/lib/auth'
 
 export default async function Page() {
   const cookieStore = await cookies()
-  const token = cookieStore.get('token')?.value
+  const token = siteConfig.authorizationEnabled
+    ? (cookieStore.get('token')?.value ?? null)
+    : null
 
-  if (!token) {
+  if (siteConfig.authorizationEnabled && (!token || isTokenExpired(token))) {
     redirect('/login')
   }
 
   try {
-    const things = await getThings(token)
-    return <Home things={things.thingData} />
+    const [things, locations, sensors, observedProperties, datastreams, networks] =
+      await Promise.all([
+        getThings(token),
+        getLocations(token),
+        getSensors(token),
+        getObservedProperties(token),
+        getDatastreams(token),
+        siteConfig.networkEnabled
+          ? getNetworks(token)
+          : Promise.resolve({ networkData: [] }),
+      ])
+
+    return (
+      <Home
+        things={things.thingData}
+        locations={locations.locationData}
+        sensors={sensors.sensorData}
+        observedProperties={observedProperties.observedPropertyData}
+        datastreams={datastreams.datastreamData}
+        networks={networks.networkData}
+      />
+    )
   } catch (error) {
-    redirect('/login')
+    if (siteConfig.authorizationEnabled) {
+      redirect('/login')
+    }
+
+    throw error
   }
 }

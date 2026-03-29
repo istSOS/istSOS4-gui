@@ -39,10 +39,22 @@ const API_ROOT =
     ? `${process.env.NEXT_PUBLIC_API_URL}`
     : '__NEXT_API_URL__'
 
+const AUTHORIZATION_ENABLED =
+  process.env.NODE_ENV === 'development'
+    ? process.env.AUTHORIZATION !== '0'
+    : String('__AUTHORIZATION__') !== '0'
+
+const NETWORK_ENABLED =
+  process.env.NODE_ENV === 'development'
+    ? process.env.NETWORK !== '0'
+    : String('__NETWORK__') !== '0'
+
 export const siteConfig = {
   name: 'istSOS4 admin ui',
   versioning: true,
   api_root: API_ROOT,
+  authorizationEnabled: AUTHORIZATION_ENABLED,
+  networkEnabled: NETWORK_ENABLED,
   items: [
     {
       label: 'Locations',

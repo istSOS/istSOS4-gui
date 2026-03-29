@@ -18,11 +18,13 @@
     "actions": "Azioni",
     "total": "Totale",
     "new": "Aggiungi nuovo",
+    "apply": "Applica",
     "columns": "Colonne",
     "back": "Indietro",
     "next": "Avanti",
     "finish": "Conferma",
-    "no_data": "Nessun dato disponibile."
+    "no_data": "Nessun dato disponibile.",
+    "reset": "Reset"
   },
     "wizard": {
     "title": "Crea entità SensorThings",
@@ -74,6 +76,20 @@
     "login_error": "Credenziali non valide",
     "login": "Accedi",
     "reset": "Reset"
+  },
+  "commit": {
+    "message": "Messaggio di commit",
+    "message_placeholder": "Descrivi brevemente la modifica effettuata",
+    "message_required": "Il messaggio di commit è obbligatorio"
+  },
+  "chart": {
+    "data_view": "Visualizza dati",
+    "time_range": "Intervallo temporale"
+  },
+  "map": {
+    "unspecified_network": "Non specificata",
+    "things_count_one": "{{count}} thing",
+    "things_count_other": "{{count}} things"
   },
   "things": {
     "name": "Nome",
@@ -146,6 +162,8 @@
     "sensor_placeholder": "Seleziona un Sensor esistente",
     "observed_property": "Observed Property",
     "observed_property_placeholder": "Seleziona una Observed Property esistente",
+    "network": "Network",
+    "network_placeholder": "Seleziona una Network esistente",
     "unit_of_measurement": "Unità di Misura",
     "unit_of_measurement_placeholder": "Inserisci l'unità di misura del Datastream",
     "unit_of_measurement_name": "Nome dell'unità di misura",

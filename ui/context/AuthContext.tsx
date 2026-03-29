@@ -14,7 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { refresh } from '@/services/auth'
+import { deleteCookie, setCookie } from 'cookies-next'
 import React, { createContext, useContext, useEffect, useState } from 'react'
+
+import { siteConfig } from '@/config/site'
+import { decodeTokenPayload } from '@/lib/auth'
 
 type AuthContextType = {
   token: string | null
@@ -33,20 +37,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  //function to decode jwt token
-  const decodeToken = (jwt: string) => {
-    try {
-      //split the jwt token and decode the payload
-      return JSON.parse(atob(jwt.split('.')[1]))
-    } catch {
-      return null
-    }
-  }
-
   //check token expiration and refresh if necessary
   useEffect(() => {
+    if (!siteConfig.authorizationEnabled) return
     if (!token) return
-    const payload = decodeToken(token)
+    const payload = decodeTokenPayload(token)
     if (!payload?.exp) return
 
     //set now to current time in seconds
@@ -67,6 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   //initialize token from local storage
   useEffect(() => {
+    if (!siteConfig.authorizationEnabled) {
+      setLoading(false)
+      return
+    }
+
     if (typeof window !== 'undefined') {
       //take the token from local storage if it exists
       const storedToken = localStorage.getItem('token')
@@ -78,10 +78,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   //set token in state and local storage
   const setToken = (newToken: string | null) => {
     setTokenState(newToken)
+
+    if (!siteConfig.authorizationEnabled) {
+      return
+    }
+
     if (newToken) {
       localStorage.setItem('token', newToken)
+      const payload = decodeTokenPayload(newToken)
+      const now = Math.floor(Date.now() / 1000)
+      const maxAge =
+        typeof payload?.exp === 'number' ? Math.max(payload.exp - now, 0) : undefined
+
+      setCookie('token', newToken, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        ...(typeof maxAge === 'number' ? { maxAge } : {}),
+        path: '/',
+      })
     } else {
       localStorage.removeItem('token')
+      deleteCookie('token')
     }
   }
 

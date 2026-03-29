@@ -1,4 +1,4 @@
-'use client'
+'use server'
 
 // Copyright 2026 SUPSI
 //
@@ -13,16 +13,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { redirect } from 'next/navigation'
+import { fetchData } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
-import LoginPageClient from './LoginPageClient'
-
-export default function LoginPage() {
-  if (!siteConfig.authorizationEnabled) {
-    redirect('/')
+export async function getHistoricalLocationsCount(token: string) {
+  const [historicalLocationData] = await Promise.all([
+    fetchData(
+      `${siteConfig.api_root}/HistoricalLocations?$count=true&$top=1`,
+      token
+    ),
+  ])
+  return {
+    historicalLocationData: historicalLocationData['@iot.count'] || 0,
   }
-
-  return <LoginPageClient />
 }

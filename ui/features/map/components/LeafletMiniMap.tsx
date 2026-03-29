@@ -17,6 +17,8 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import { forwardRef, useImperativeHandle } from 'react'
 
+import { lv95ToWgs84, parseLv95String } from '@/features/forms/components/wizard/coordinates'
+
 export type MapRef = {
   setCenter: (coords: { lat: number; lng: number }) => void
 }
@@ -28,24 +30,32 @@ const MapComponent = forwardRef<
     coordinates?: string
   }
 >(({ onCenterChange, coordinates }, ref) => {
-  const mapRef = useRef(null)
+  const mapRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<any>(null)
+  const onCenterChangeRef = useRef(onCenterChange)
+
+  useEffect(() => {
+    onCenterChangeRef.current = onCenterChange
+  }, [onCenterChange])
 
   let initialLat = 45.881237
   let initialLng = 8.971079
   if (coordinates) {
-    const parts = coordinates.split(',').map((v) => parseFloat(v.trim()))
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      initialLat = parts[0]
-      initialLng = parts[1]
+    const parsed = parseLv95String(coordinates)
+    if (parsed) {
+      const { latitude, longitude } = lv95ToWgs84(parsed.east, parsed.north)
+      initialLat = latitude
+      initialLng = longitude
     }
   }
 
   useEffect(() => {
     const L = require('leaflet')
+    const mapElement = mapRef.current
+    if (!mapElement) return
 
     if (!mapInstanceRef.current) {
-      mapInstanceRef.current = L.map('map').setView(
+      mapInstanceRef.current = L.map(mapElement).setView(
         [initialLat, initialLng],
         13
       )
@@ -57,14 +67,29 @@ const MapComponent = forwardRef<
 
       mapInstanceRef.current.on('moveend', () => {
         const center = mapInstanceRef.current.getCenter()
-        onCenterChange?.({ lat: center.lat, lng: center.lng })
+        onCenterChangeRef.current?.({ lat: center.lat, lng: center.lng })
       })
 
       setTimeout(() => {
         mapInstanceRef.current.invalidateSize()
       }, 200)
     }
-  }, [onCenterChange])
+  }, [initialLat, initialLng])
+
+  useEffect(() => {
+    if (!mapInstanceRef.current) return
+
+    const center = mapInstanceRef.current.getCenter()
+    const latChanged = Math.abs(center.lat - initialLat) > 0.00001
+    const lngChanged = Math.abs(center.lng - initialLng) > 0.00001
+
+    if (latChanged || lngChanged) {
+      mapInstanceRef.current.setView(
+        [initialLat, initialLng],
+        mapInstanceRef.current.getZoom()
+      )
+    }
+  }, [initialLat, initialLng])
 
   useImperativeHandle(ref, () => ({
     setCenter: ({ lat, lng }) => {

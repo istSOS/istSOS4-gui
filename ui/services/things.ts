@@ -13,11 +13,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { fetchData } from '@/services/fetch'
+import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
-export async function getThings(token: string) {
+export type CreateThingPayload = {
+  name: string
+  description?: string
+  Locations?: Array<{ '@iot.id': number | string }>
+  properties?: Record<string, string>
+  commitMessage?: string
+}
+
+export async function getThings(token?: string | null) {
   const expand = `
     Datastreams(
       $expand=Network,
@@ -62,5 +70,41 @@ export async function getThingsCountByNetwork(token: string, network: string) {
 
   return {
     thingData: uniqueThings.size,
+  }
+}
+
+export async function createThing(
+  payload: CreateThingPayload,
+  token?: string | null
+) {
+  try {
+    const { commitMessage, ...thingPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    })
+
+    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(`${siteConfig.api_root}/Things`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(thingPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Create Thing failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error creating Thing:', error)
+    return null
   }
 }
