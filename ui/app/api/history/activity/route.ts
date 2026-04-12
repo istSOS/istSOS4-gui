@@ -13,27 +13,16 @@
 // limitations under the License.
 import { NextResponse } from 'next/server'
 
-import { ActivityBucket } from '@/features/history/types'
-
-const DAYS = 28
+import { buildActivityBuckets } from '../data'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
-  const period = searchParams.get('period') || 'week'
 
-  const today = new Date('2024-08-20T00:00:00Z')
-  const buckets: ActivityBucket[] = []
-
-  for (let index = DAYS - 1; index >= 0; index -= 1) {
-    const date = new Date(today)
-    date.setUTCDate(today.getUTCDate() - index)
-    const count = period === 'week' ? (index * 3) % 5 : (index * 7) % 9
-
-    buckets.push({
-      date: date.toISOString().slice(0, 10),
-      count,
-    })
-  }
+  const buckets = buildActivityBuckets({
+    entityType: searchParams.get('entityType'),
+    $as_of: searchParams.get('$as_of'),
+    $from_to: searchParams.get('$from_to'),
+  })
 
   return NextResponse.json({ value: buckets })
 }

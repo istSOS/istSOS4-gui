@@ -52,21 +52,24 @@ export default function HistoryPage() {
 		return appendTemporalParams(baseUrl, { mode, asOf, fromTo })
 	}, [entityType, mode, asOf, fromTo])
 
+	const activityUrl = React.useMemo(() => {
+		const baseUrl = `/api/history/activity?entityType=${entityType}&period=week`
+		return appendTemporalParams(baseUrl, { mode, asOf, fromTo })
+	}, [entityType, mode, asOf, fromTo])
+
 	React.useEffect(() => {
 		setLoading(true)
 
 		Promise.all([
 			fetch(historyUrl).then((response) => response.json()),
-			fetch(`/api/history/activity?entityType=${entityType}&period=week`).then(
-				(response) => response.json()
-			),
+			fetch(activityUrl).then((response) => response.json()),
 		])
 			.then(([historyPayload, activityPayload]) => {
 				setData(historyPayload)
 				setActivity(activityPayload?.value || [])
 			})
 			.finally(() => setLoading(false))
-	}, [historyUrl, entityType])
+	}, [historyUrl, activityUrl])
 
 	return (
 		<div className="page-shell">
