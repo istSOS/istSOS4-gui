@@ -19,7 +19,7 @@ import { deleteData, fetchData, updateData } from '@/server/api'
 
 interface FeatureOfInterestCRUDHandlerProps {
   item: any
-  token: string
+  token: string | null
   setExpanded: (v: string | null) => void
   setEditFeatureOfInterest: (v: any) => void
   setEditLoading: (v: boolean) => void
@@ -52,6 +52,11 @@ export const useFeatureOfInterestCRUDHandler = ({
     setEditLoading(true)
     setEditError(null)
     try {
+      if (!token) {
+        setEditError('Missing token')
+        return
+      }
+
       const payload = {
         name: updatedFeatureOfInterest.name,
         description: updatedFeatureOfInterest.description,
@@ -79,13 +84,19 @@ export const useFeatureOfInterestCRUDHandler = ({
 
   const handleDelete = async (id: string | number) => {
     try {
+      if (!token) {
+        setEditError('Missing token')
+        return
+      }
+
       await deleteData(`${item.root}(${id})`, token)
       const data = await fetchData(item.root, token)
       setFeaturesOfInterest(data?.value || [])
     } catch (err) {
       console.error('Error deleting FeatureOfInterest:', err)
+      setEditError('Error deleting FeatureOfInterest')
     }
-    refetchAll()
+    await refetchAll()
   }
 
   return {

@@ -75,10 +75,18 @@ export default function FeaturesOfInterestPage() {
       refetchAll,
     })
 
+  if (!item) {
+    return (
+      <p className="p-4 text-red-500">
+        FeaturesOfInterest configuration not found
+      </p>
+    )
+  }
+
   const handleCreated = React.useCallback(
     (createdFeatureOfInterest: any) => {
       setShowCreate(false)
-      setEditError(null)
+      setError(null)
       refetchAll()
       const createdId = createdFeatureOfInterest?.['@iot.id']
       if (createdId != null) {
