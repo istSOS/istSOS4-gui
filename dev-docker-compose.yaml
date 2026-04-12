@@ -9,6 +9,7 @@ services:
       - 3000:3000
     volumes:
       - ./ui/:/home/node/app
+      - /home/node/app/node_modules
     environment:
       NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
       NEXT_PUBLIC_API_URL: ${NEXT_API_URL}
