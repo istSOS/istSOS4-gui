@@ -163,18 +163,31 @@ export default function FormModal({
     [existingEntities]
   )
 
+  const initialSingleDraft = useMemo(
+    () => createInitialSingleDraft(latitude, longitude),
+    [latitude, longitude]
+  )
+  const initialAssociatedDraft = useMemo(
+    () => createInitialAssociatedDraft(latitude, longitude),
+    [latitude, longitude]
+  )
+
   const [wizardMode, setWizardMode] = useState<WizardMode>('associated')
   const [singleEntity, setSingleEntity] = useState<EntityKey>(initialTab)
   const [singleDraft, setSingleDraft] = useState<FormDataMap>(
-    createInitialSingleDraft(latitude, longitude)
+    initialSingleDraft
   )
   const [associatedDraft, setAssociatedDraft] = useState<AssociatedDraft>(
-    createInitialAssociatedDraft(latitude, longitude)
+    initialAssociatedDraft
   )
   const [associatedStepIndex, setAssociatedStepIndex] = useState(0)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
+  const [showModeSwitchWarning, setShowModeSwitchWarning] = useState(false)
+  const [pendingWizardMode, setPendingWizardMode] = useState<WizardMode | null>(
+    null
+  )
 
   const requiresCommitMessage =
     siteConfig.authorizationEnabled &&
@@ -197,6 +210,45 @@ export default function FormModal({
   const currentAssociatedDraft = currentAssociatedEntity
     ? associatedDraft[currentAssociatedEntity]
     : null
+
+  const hasSingleDraftData =
+    JSON.stringify(singleDraft) !== JSON.stringify(initialSingleDraft)
+  const hasAssociatedDraftData =
+    JSON.stringify(associatedDraft) !== JSON.stringify(initialAssociatedDraft)
+
+  const shouldWarnOnModeSwitch = (targetMode: WizardMode) => {
+    if (targetMode === wizardMode) {
+      return false
+    }
+
+    return wizardMode === 'single' ? hasSingleDraftData : hasAssociatedDraftData
+  }
+
+  const requestModeSwitch = (targetMode: WizardMode) => {
+    if (!shouldWarnOnModeSwitch(targetMode)) {
+      setWizardMode(targetMode)
+      setShowModeSwitchWarning(false)
+      setPendingWizardMode(null)
+      return
+    }
+
+    setPendingWizardMode(targetMode)
+    setShowModeSwitchWarning(true)
+  }
+
+  const confirmModeSwitch = () => {
+    if (pendingWizardMode) {
+      setWizardMode(pendingWizardMode)
+    }
+
+    setPendingWizardMode(null)
+    setShowModeSwitchWarning(false)
+  }
+
+  const cancelModeSwitch = () => {
+    setPendingWizardMode(null)
+    setShowModeSwitchWarning(false)
+  }
 
   const updateAssociatedEntity = <K extends EntityKey>(
     entity: K,
@@ -325,15 +377,40 @@ export default function FormModal({
                 active={wizardMode === 'associated'}
                 title={t('wizard.associated_mode')}
                 description={t('wizard.associated_mode_description')}
-                onClick={() => setWizardMode('associated')}
+                onClick={() => requestModeSwitch('associated')}
               />
               <ModeCard
                 active={wizardMode === 'single'}
                 title={t('wizard.single_mode')}
                 description={t('wizard.single_mode_description')}
-                onClick={() => setWizardMode('single')}
+                onClick={() => requestModeSwitch('single')}
               />
             </div>
+
+            {showModeSwitchWarning ? (
+              <div className="rounded-2xl border border-warning/30 bg-warning/10 p-3">
+                <div className="text-sm font-medium text-warning-700">
+                  {t(
+                    'wizard.mode_switch_warning_title',
+                    'Switch mode and keep drafts separated?'
+                  )}
+                </div>
+                <div className="mt-1 text-xs text-warning-800/90">
+                  {t(
+                    'wizard.mode_switch_warning_description',
+                    'Data entered in this mode stays here and is not automatically transferred to the other mode.'
+                  )}
+                </div>
+                <div className="mt-3 flex justify-end gap-2">
+                  <Button size="sm" variant="light" onPress={cancelModeSwitch}>
+                    {t('general.cancel')}
+                  </Button>
+                  <Button size="sm" color="warning" onPress={confirmModeSwitch}>
+                    {t('wizard.switch_mode_confirm', 'Switch mode')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto pr-1">
               {wizardMode === 'single' ? (
