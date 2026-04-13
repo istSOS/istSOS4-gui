@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import { useRouter } from 'next/navigation'
 
 import { GithubIcon, LogoIstSOS } from '@/components/icons'
+import TemporalBadge from '@/components/TemporalBadge'
 
 import { siteConfig } from '@/config/site'
 
@@ -99,22 +100,47 @@ export default function Navbar() {
   const selectedFlag =
     languages.find((l) => l.code === selectedLang)?.flag ?? languages[0].flag
 
+  const prototypePages = [
+    { label: 'Things', href: '/things' },
+    { label: 'Datastreams', href: '/datastreams' },
+    { label: 'Commits', href: '/commits' },
+    { label: 'History', href: '/history' },
+  ]
+
   return (
-    <header className="w-full bg-[var(--color-primary)] text-white">
-      <div className="mx-auto flex h-14 w-full items-center justify-between lg:px-[25px] text-sm">
+    <header className="w-full border-b border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]">
+      <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center justify-between px-4 text-sm sm:px-6 lg:px-8">
         <Link isExternal aria-label="istSOS4" href={siteConfig.links.istSOS}>
           <div className="w-[150px]">
             <LogoIstSOS className="w-full" />
           </div>
         </Link>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <div className="hidden lg:block">
+            <TemporalBadge />
+          </div>
+
+          <div className="hidden items-center gap-1 lg:flex">
+            {prototypePages.map((page) => (
+              <Button
+                key={page.href}
+                size="sm"
+                variant="light"
+                className="text-[var(--color-text-primary)]"
+                onPress={() => router.push(page.href)}
+              >
+                {page.label}
+              </Button>
+            ))}
+          </div>
+
           <Dropdown placement="bottom-end">
             <DropdownTrigger>
               <Button
                 variant="light"
                 isIconOnly
-                className="text-white hover:bg-white/10"
+                className="text-[var(--color-text-primary)] hover:bg-[var(--color-surface-elevated)]"
                 aria-label="Change language"
               >
                 {/* ✅ optionally hide flag until mounted to be extra-safe */}
@@ -143,7 +169,7 @@ export default function Navbar() {
             isExternal
             aria-label="Source Code"
             href={siteConfig.links.github}
-            className="inline-flex items-center gap-2 rounded-md p-2 text-white hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            className="inline-flex items-center gap-2 rounded-md p-2 text-[var(--color-text-primary)] hover:bg-[var(--color-surface-elevated)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-strong)]"
           >
             <GithubIcon />
           </Link>
@@ -158,7 +184,7 @@ export default function Navbar() {
                 <DropdownTrigger>
                   <button
                     type="button"
-                    className="rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    className="rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-border-strong)]"
                     aria-label="Open user menu"
                   >
                     <Avatar

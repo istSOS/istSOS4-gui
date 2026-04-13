@@ -19,6 +19,8 @@ import * as React from 'react'
 import { ThemeProvider } from 'next-themes'
 import type { ThemeProviderProps } from 'next-themes'
 
+import { TemporalProvider } from '@/context/TemporalContext'
+
 export interface ProvidersProps {
   children: React.ReactNode
   themeProps?: ThemeProviderProps
@@ -27,7 +29,11 @@ export interface ProvidersProps {
 export default function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <HeroUIProvider>
-      <ThemeProvider {...themeProps}>{children}</ThemeProvider>
+      <ThemeProvider {...themeProps}>
+        <React.Suspense fallback={null}>
+          <TemporalProvider>{children}</TemporalProvider>
+        </React.Suspense>
+      </ThemeProvider>
     </HeroUIProvider>
   )
 }

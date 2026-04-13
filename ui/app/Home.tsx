@@ -18,11 +18,14 @@ import FormModal from '@/features/forms/components/FormModal'
 import LeafletMap from '@/features/map/components/LeafletMap'
 import ChartModal from '@/features/observations/components/ChartModal'
 import { getObservationsByDatastream } from '@/services/observations'
+import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import dayjs from 'dayjs'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
+
+import { useRouter } from 'next/navigation'
 
 import { useAuth } from '@/context/AuthContext'
 
@@ -56,6 +59,7 @@ export default function Home({
   networks: any[]
   selectedNetwork?: string
 }) {
+  const router = useRouter()
   const { token } = useAuth()
   const [localThings, setLocalThings] = useState<any[]>(things)
 
@@ -178,6 +182,26 @@ export default function Home({
 
   return (
     <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden">
+      <div className="absolute left-4 top-4 z-[4100] max-w-sm">
+        <Card className="section-card p-4">
+          <div className="space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Monitoring workspace</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                Select a station on the map to open stream details and charts.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              radius="sm"
+              color="primary"
+              onPress={() => router.push('/history')}
+            >
+              Open History Explorer
+            </Button>
+          </div>
+        </Card>
+      </div>
       <LeafletMap
         things={localThings}
         selectedNetwork={selectedNetwork}
