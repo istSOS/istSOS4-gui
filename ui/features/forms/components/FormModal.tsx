@@ -47,7 +47,6 @@ import {
   ThingIcon,
 } from '@/components/icons'
 
-import { useAuth } from '@/context/AuthContext'
 import { siteConfig } from '@/config/site'
 
 import { EntityFields, ExistingEntitySelect } from './wizard/fields'
@@ -112,7 +111,6 @@ export default function FormModal({
 }: FormProps) {
   const { t } = useTranslation()
   const router = useRouter()
-  const { token } = useAuth()
 
   const entityLabels = useMemo<Record<EntityKey, string>>(
     () => ({
@@ -215,11 +213,6 @@ export default function FormModal({
 
     setSubmitError(null)
 
-    if (siteConfig.authorizationEnabled && !token) {
-      setSubmitError('Missing token')
-      return
-    }
-
     if (requiresCommitMessage && !commitMessage.trim()) {
       setSubmitError(t('commit.message_required'))
       return
@@ -232,40 +225,35 @@ export default function FormModal({
 
       if (singleEntity === 'thing') {
         result = await createThing(
-          normalizeEntityPayload('thing', singleDraft.thing) as CreateThingPayload,
-          token ?? undefined
+          normalizeEntityPayload('thing', singleDraft.thing) as CreateThingPayload
         )
       } else if (singleEntity === 'location') {
         result = await createLocation(
           normalizeEntityPayload(
             'location',
             singleDraft.location
-          ) as CreateLocationPayload,
-          token ?? undefined
+          ) as CreateLocationPayload
         )
       } else if (singleEntity === 'sensor') {
         result = await createSensor(
           normalizeEntityPayload(
             'sensor',
             singleDraft.sensor
-          ) as CreateSensorPayload,
-          token ?? undefined
+          ) as CreateSensorPayload
         )
       } else if (singleEntity === 'datastream') {
         result = await createDatastream(
           normalizeEntityPayload(
             'datastream',
             singleDraft.datastream
-          ) as CreateDatastreamPayload,
-          token ?? undefined
+          ) as CreateDatastreamPayload
         )
       } else {
         result = await createObservedProperty(
           normalizeEntityPayload(
             'observedProperty',
             singleDraft.observedProperty
-          ) as CreateObservedPropertyPayload,
-          token ?? undefined
+          ) as CreateObservedPropertyPayload
         )
       }
 

@@ -46,7 +46,7 @@ export async function createSensor(
 ) {
   try {
     const { commitMessage, ...sensorPayload } = payload
-    const headers = withAuthHeaders(token, {
+    const headers = await withAuthHeaders(token, {
       'Content-Type': 'application/json',
     })
 

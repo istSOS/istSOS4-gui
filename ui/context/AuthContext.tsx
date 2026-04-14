@@ -13,98 +13,73 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { refresh } from '@/services/auth'
-import { deleteCookie, setCookie } from 'cookies-next'
+import { getSession } from '@/services/auth'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
-import { decodeTokenPayload } from '@/lib/auth'
 
 type AuthContextType = {
-  token: string | null
-  setToken: (token: string | null) => void
+  authenticated: boolean
+  username: string | null
+  setSessionState: (authenticated: boolean, username?: string | null) => void
+  refreshSession: () => Promise<void>
   loading: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
-  token: null,
-  setToken: () => {},
+  authenticated: false,
+  username: null,
+  setSessionState: () => {},
+  refreshSession: async () => {},
   loading: true,
 })
 
 //create the auth provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [token, setTokenState] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [authenticated, setAuthenticated] = useState(false)
+  const [username, setUsername] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  //check token expiration and refresh if necessary
-  useEffect(() => {
-    if (!siteConfig.authorizationEnabled) return
-    if (!token) return
-    const payload = decodeTokenPayload(token)
-    if (!payload?.exp) return
+  const setSessionState = (
+    isAuthenticated: boolean,
+    nextUsername: string | null = null
+  ) => {
+    setAuthenticated(isAuthenticated)
+    setUsername(nextUsername)
+  }
 
-    //set now to current time in seconds
-    const now = Math.floor(Date.now() / 1000)
-
-    const timeLeft = payload.exp - now
-
-    //if the token is about to expire in less than 2 minutes, refresh it
-    if (timeLeft < 120) {
-      refresh(token).then((newToken) => {
-        //if the refresh was successful, set the new token
-        if (newToken) setToken(newToken)
-        //if the refresh failed, clear the token
-        else setToken(null)
-      })
-    }
-  }, [token])
-
-  //initialize token from local storage
-  useEffect(() => {
+  const refreshSession = async () => {
     if (!siteConfig.authorizationEnabled) {
+      setSessionState(true, null)
       setLoading(false)
       return
     }
 
-    if (typeof window !== 'undefined') {
-      //take the token from local storage if it exists
-      const storedToken = localStorage.getItem('token')
-      if (storedToken) setTokenState(storedToken)
+    setLoading(true)
+    try {
+      const session = await getSession()
+      setSessionState(!!session?.authenticated, session?.username ?? null)
+    } catch {
+      setSessionState(false, null)
+    } finally {
       setLoading(false)
-    }
-  }, [])
-
-  //set token in state and local storage
-  const setToken = (newToken: string | null) => {
-    setTokenState(newToken)
-
-    if (!siteConfig.authorizationEnabled) {
-      return
-    }
-
-    if (newToken) {
-      localStorage.setItem('token', newToken)
-      const payload = decodeTokenPayload(newToken)
-      const now = Math.floor(Date.now() / 1000)
-      const maxAge =
-        typeof payload?.exp === 'number' ? Math.max(payload.exp - now, 0) : undefined
-
-      setCookie('token', newToken, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        ...(typeof maxAge === 'number' ? { maxAge } : {}),
-        path: '/',
-      })
-    } else {
-      localStorage.removeItem('token')
-      deleteCookie('token')
     }
   }
 
+  useEffect(() => {
+    refreshSession()
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ token, setToken, loading }}>
+    <AuthContext.Provider
+      value={{
+        authenticated,
+        username,
+        setSessionState,
+        refreshSession,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

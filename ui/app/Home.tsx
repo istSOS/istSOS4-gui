@@ -24,8 +24,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
 
-import { useAuth } from '@/context/AuthContext'
-
 type FormTabKey =
   | 'thing'
   | 'location'
@@ -56,7 +54,6 @@ export default function Home({
   networks: any[]
   selectedNetwork?: string
 }) {
-  const { token } = useAuth()
   const [localThings, setLocalThings] = useState<any[]>(things)
 
   useEffect(() => {
@@ -102,11 +99,6 @@ export default function Home({
     phenomenonTime?: string,
     range?: { start?: string | null; end?: string | null }
   ) => {
-    if (siteConfig.authorizationEnabled && !token) {
-      setObsError('Missing token')
-      return
-    }
-
     let startIso = range?.start ?? null
     let endIso = range?.end ?? null
 
@@ -132,7 +124,7 @@ export default function Home({
     setObsError(null)
     try {
       const { observationData } = await getObservationsByDatastream(
-        token ?? undefined,
+        undefined,
         datastreamId,
         startIso ?? undefined,
         endIso ?? undefined

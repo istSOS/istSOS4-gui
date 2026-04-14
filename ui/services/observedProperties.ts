@@ -47,7 +47,7 @@ export async function createObservedProperty(
 ) {
   try {
     const { commitMessage, ...observedPropertyPayload } = payload
-    const headers = withAuthHeaders(token, {
+    const headers = await withAuthHeaders(token, {
       'Content-Type': 'application/json',
     })
 

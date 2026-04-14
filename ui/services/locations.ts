@@ -51,7 +51,7 @@ export async function createLocation(
 ) {
   try {
     const { commitMessage, ...locationPayload } = payload
-    const headers = withAuthHeaders(token, {
+    const headers = await withAuthHeaders(token, {
       'Content-Type': 'application/json',
     })
 

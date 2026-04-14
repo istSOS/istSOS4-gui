@@ -79,7 +79,7 @@ export async function createThing(
 ) {
   try {
     const { commitMessage, ...thingPayload } = payload
-    const headers = withAuthHeaders(token, {
+    const headers = await withAuthHeaders(token, {
       'Content-Type': 'application/json',
     })
 
