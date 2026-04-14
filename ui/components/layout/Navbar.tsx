@@ -36,10 +36,8 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { getTokenUsername } from '@/lib/auth'
-
 export default function Navbar() {
-  const { token, setToken } = useAuth()
+  const { authenticated, username, setSessionState } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
 
@@ -73,12 +71,6 @@ export default function Navbar() {
     setSelectedLang(langCode)
   }
 
-  const username = useMemo(() => {
-    if (!siteConfig.authorizationEnabled) return null
-    if (!token) return null
-    return getTokenUsername(token)
-  }, [token])
-
   const initials = useMemo(() => {
     if (!username) return ''
     const parts = username.trim().split(/\s+/)
@@ -89,9 +81,9 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     try {
-      if (token) await logout(token)
+      await logout()
     } finally {
-      setToken(null)
+      setSessionState(false, null)
       router.push(siteConfig.authorizationEnabled ? '/login' : '/')
     }
   }
@@ -148,7 +140,7 @@ export default function Navbar() {
             <GithubIcon />
           </Link>
 
-          {username && (
+          {authenticated && username && (
             <div className="flex items-center gap-1">
               <span className="hidden sm:inline">
                 {t('login.cheer')} <b>{username}</b>

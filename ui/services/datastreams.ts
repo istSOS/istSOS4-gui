@@ -53,7 +53,7 @@ export async function createDatastream(
 ) {
   try {
     const { commitMessage, ...datastreamPayload } = payload
-    const headers = withAuthHeaders(token, {
+    const headers = await withAuthHeaders(token, {
       'Content-Type': 'application/json',
     })
 

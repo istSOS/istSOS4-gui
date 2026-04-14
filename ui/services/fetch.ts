@@ -1,3 +1,5 @@
+"use server"
+
 // Copyright 2026 SUPSI
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,17 +13,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { cookies } from 'next/headers'
+
 import { siteConfig } from '@/config/site'
 
-export function withAuthHeaders(
+export async function resolveServerToken(token?: string | null) {
+  if (!siteConfig.authorizationEnabled) return null
+  if (token) return token
+
+  const cookieStore = await cookies()
+  return cookieStore.get('token')?.value ?? null
+}
+
+export async function withAuthHeaders(
   token?: string | null,
   headers: Record<string, string> = {}
 ) {
-  if (!siteConfig.authorizationEnabled || !token) return headers
+  const resolvedToken = await resolveServerToken(token)
+  if (!siteConfig.authorizationEnabled || !resolvedToken) return headers
 
   return {
     ...headers,
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${resolvedToken}`,
   }
 }
 
@@ -29,7 +42,7 @@ export const fetchData = async (endpoint: string, token?: string | null) => {
   try {
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: withAuthHeaders(token),
+      headers: await withAuthHeaders(token),
     })
     if (!response.ok) {
       throw new Error(

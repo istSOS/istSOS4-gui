@@ -32,7 +32,6 @@ import {
   ModalFooter,
   ModalHeader,
 } from '@heroui/modal'
-import { setCookie } from 'cookies-next'
 import 'flag-icons/css/flag-icons.min.css'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -44,7 +43,6 @@ import { LogoIstSOS, LogoOSGeo } from '@/components/icons'
 import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
-import { decodeTokenPayload } from '@/lib/auth'
 
 type LoginModalProps = {
   open: boolean
@@ -52,7 +50,7 @@ type LoginModalProps = {
 }
 
 export default function Login({ open, onClose }: LoginModalProps) {
-  const { setToken } = useAuth()
+  const { refreshSession } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
 
@@ -101,22 +99,8 @@ export default function Login({ open, onClose }: LoginModalProps) {
     try {
       const result = await login(username, password)
 
-      if (result?.access_token) {
-        setToken(result.access_token)
-        const payload = decodeTokenPayload(result.access_token)
-        const now = Math.floor(Date.now() / 1000)
-        const maxAge =
-          typeof payload?.exp === 'number'
-            ? Math.max(payload.exp - now, 0)
-            : 60 * 60 * 24
-
-        setCookie('token', result.access_token, {
-          httpOnly: false,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge,
-          path: '/',
-        })
+      if (result?.success) {
+        await refreshSession()
 
         onClose()
         router.push('/')
