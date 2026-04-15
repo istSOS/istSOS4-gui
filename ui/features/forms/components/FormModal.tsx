@@ -16,23 +16,26 @@
 import {
   type CreateDatastreamPayload,
   createDatastream,
+  updateDatastream,
 } from '@/services/datastreams'
 import {
   type CreateLocationPayload,
   createLocation,
+  updateLocation,
 } from '@/services/locations'
 import {
   type CreateObservedPropertyPayload,
   createObservedProperty,
+  updateObservedProperty,
 } from '@/services/observedProperties'
-import { type CreateSensorPayload, createSensor } from '@/services/sensors'
-import { type CreateThingPayload, createThing } from '@/services/things'
+import { type CreateSensorPayload, createSensor, updateSensor } from '@/services/sensors'
+import { type CreateThingPayload, createThing, updateThing } from '@/services/things'
 import { Button } from '@heroui/button'
 import { Form as HeroForm } from '@heroui/form'
 import { Textarea } from '@heroui/input'
 import { Modal, ModalBody, ModalContent } from '@heroui/modal'
 import { Tab, Tabs } from '@heroui/tabs'
-import { type ComponentType, type ReactNode, useMemo, useState } from 'react'
+import { type ComponentType, type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useRouter } from 'next/navigation'
@@ -75,6 +78,8 @@ interface FormProps {
   latitude?: number
   longitude?: number
   initialTab?: FormTabKey
+  initialEntityData?: any
+  initialFormData?: any
   isOpen: boolean
   onClose: () => void
   existingEntities?: ExistingEntities
@@ -99,6 +104,8 @@ export default function FormModal({
   latitude,
   longitude,
   initialTab = 'thing',
+  initialEntityData,
+  initialFormData,
   isOpen,
   onClose,
   existingEntities = {
@@ -163,11 +170,26 @@ export default function FormModal({
     [existingEntities]
   )
 
-  const [wizardMode, setWizardMode] = useState<WizardMode>('associated')
-  const [singleEntity, setSingleEntity] = useState<EntityKey>(initialTab)
-  const [singleDraft, setSingleDraft] = useState<FormDataMap>(
-    createInitialSingleDraft(latitude, longitude)
+  const [wizardMode, setWizardMode] = useState<WizardMode>(
+    operation === 'edit' ? 'single' : 'associated'
   )
+  const [singleEntity, setSingleEntity] = useState<EntityKey>(initialTab)
+  const [singleDraft, setSingleDraft] = useState<FormDataMap>(() => {
+    const base = createInitialSingleDraft(latitude, longitude)
+    if (operation === 'edit' && initialTab && initialFormData) {
+      base[initialTab] = initialFormData
+    }
+    return base
+  })
+
+  useEffect(() => {
+    if (operation === 'edit' && initialTab && initialFormData) {
+      setSingleDraft((prev) => ({
+        ...prev,
+        [initialTab]: { ...prev[initialTab], ...initialFormData }
+      }))
+    }
+  }, [operation, initialTab, initialFormData])
   const [associatedDraft, setAssociatedDraft] = useState<AssociatedDraft>(
     createInitialAssociatedDraft(latitude, longitude)
   )
@@ -220,53 +242,41 @@ export default function FormModal({
       return
     }
 
-    if (requiresCommitMessage && !commitMessage.trim()) {
-      setSubmitError(t('commit.message_required'))
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
       let result = null
 
       if (singleEntity === 'thing') {
-        result = await createThing(
-          normalizeEntityPayload('thing', singleDraft.thing) as CreateThingPayload,
-          token ?? undefined
-        )
+        const payload = normalizeEntityPayload('thing', singleDraft.thing) as CreateThingPayload
+        if (commitMessage) payload.commitMessage = commitMessage
+        result = operation === 'edit'
+          ? await updateThing(String(initialEntityData?.['@iot.id'] ?? initialEntityData?.id ?? ''), payload, token ?? undefined)
+          : await createThing(payload, token ?? undefined)
       } else if (singleEntity === 'location') {
-        result = await createLocation(
-          normalizeEntityPayload(
-            'location',
-            singleDraft.location
-          ) as CreateLocationPayload,
-          token ?? undefined
-        )
+        const payload = normalizeEntityPayload('location', singleDraft.location) as CreateLocationPayload
+        if (commitMessage) payload.commitMessage = commitMessage
+        result = operation === 'edit'
+          ? await updateLocation(String(initialEntityData?.['@iot.id'] ?? initialEntityData?.id ?? ''), payload, token ?? undefined)
+          : await createLocation(payload, token ?? undefined)
       } else if (singleEntity === 'sensor') {
-        result = await createSensor(
-          normalizeEntityPayload(
-            'sensor',
-            singleDraft.sensor
-          ) as CreateSensorPayload,
-          token ?? undefined
-        )
+        const payload = normalizeEntityPayload('sensor', singleDraft.sensor) as CreateSensorPayload
+        if (commitMessage) payload.commitMessage = commitMessage
+        result = operation === 'edit'
+          ? await updateSensor(String(initialEntityData?.['@iot.id'] ?? initialEntityData?.id ?? ''), payload, token ?? undefined)
+          : await createSensor(payload, token ?? undefined)
       } else if (singleEntity === 'datastream') {
-        result = await createDatastream(
-          normalizeEntityPayload(
-            'datastream',
-            singleDraft.datastream
-          ) as CreateDatastreamPayload,
-          token ?? undefined
-        )
+        const payload = normalizeEntityPayload('datastream', singleDraft.datastream) as CreateDatastreamPayload
+        if (commitMessage) payload.commitMessage = commitMessage
+        result = operation === 'edit'
+          ? await updateDatastream(String(initialEntityData?.['@iot.id'] ?? initialEntityData?.id ?? ''), payload, token ?? undefined)
+          : await createDatastream(payload, token ?? undefined)
       } else {
-        result = await createObservedProperty(
-          normalizeEntityPayload(
-            'observedProperty',
-            singleDraft.observedProperty
-          ) as CreateObservedPropertyPayload,
-          token ?? undefined
-        )
+        const payload = normalizeEntityPayload('observedProperty', singleDraft.observedProperty) as CreateObservedPropertyPayload
+        if (commitMessage) payload.commitMessage = commitMessage
+        result = operation === 'edit'
+          ? await updateObservedProperty(String(initialEntityData?.['@iot.id'] ?? initialEntityData?.id ?? ''), payload, token ?? undefined)
+          : await createObservedProperty(payload, token ?? undefined)
       }
 
       if (!result) {
@@ -315,56 +325,62 @@ export default function FormModal({
       <ModalContent>
         <ModalBody className="h-full overflow-hidden py-5">
           <div className="flex h-full min-h-0 flex-col gap-5">
-            <SectionTitle
-              title={t('wizard.title')}
-              description={t('wizard.subtitle')}
-            />
+            {operation === 'create' && (
+              <SectionTitle
+                title={t('wizard.title')}
+                description={t('wizard.subtitle')}
+              />
+            )}
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <ModeCard
-                active={wizardMode === 'associated'}
-                title={t('wizard.associated_mode')}
-                description={t('wizard.associated_mode_description')}
-                onClick={() => setWizardMode('associated')}
-              />
-              <ModeCard
-                active={wizardMode === 'single'}
-                title={t('wizard.single_mode')}
-                description={t('wizard.single_mode_description')}
-                onClick={() => setWizardMode('single')}
-              />
-            </div>
+            {operation === 'create' ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <ModeCard
+                  active={wizardMode === 'associated'}
+                  title={t('wizard.associated_mode')}
+                  description={t('wizard.associated_mode_description')}
+                  onClick={() => setWizardMode('associated')}
+                />
+                <ModeCard
+                  active={wizardMode === 'single'}
+                  title={t('wizard.single_mode')}
+                  description={t('wizard.single_mode_description')}
+                  onClick={() => setWizardMode('single')}
+                />
+              </div>
+            ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto pr-1">
-              {wizardMode === 'single' ? (
+              {wizardMode === 'single' || operation === 'edit' ? (
                 <HeroForm
                   className="block w-full min-w-0 space-y-4"
                   onSubmit={handleSingleSubmit}
                 >
-                  <div className="grid w-full min-w-0 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-                    <div className="space-y-2">
-                      {ENTITY_ORDER.map((entity) => {
-                        const active = singleEntity === entity
-                        const hasDraftData =
-                          singleDraft[entity].name.trim().length > 0
+                  <div className={`grid w-full min-w-0 gap-5 ${operation === 'create' ? 'lg:grid-cols-[220px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
+                    {operation === 'create' ? (
+                      <div className="space-y-2">
+                        {ENTITY_ORDER.map((entity) => {
+                          const active = singleEntity === entity
+                          const hasDraftData =
+                            singleDraft[entity].name.trim().length > 0
 
-                        return (
-                          <StepCard
-                            key={entity}
-                            active={active}
-                            complete={hasDraftData}
-                            label={entityLabels[entity]}
-                            icon={entityIcons[entity]}
-                            onClick={() => setSingleEntity(entity)}
-                          />
-                        )
-                      })}
-                    </div>
+                          return (
+                            <StepCard
+                              key={entity}
+                              active={active}
+                              complete={hasDraftData}
+                              label={entityLabels[entity]}
+                              icon={entityIcons[entity]}
+                              onClick={() => setSingleEntity(entity)}
+                            />
+                          )
+                        })}
+                      </div>
+                    ) : null}
 
                     <div className="min-w-0 space-y-4">
                       <SectionTitle
                         title={entityLabels[singleEntity]}
-                        description={t('wizard.select_entity_type')}
+                        description={operation === 'create' ? t('wizard.select_entity_type') : t('wizard.edit_entity', 'Edit Entity')}
                       />
 
                       <EntityFields
@@ -391,7 +407,6 @@ export default function FormModal({
                           variant="underlined"
                           radius="sm"
                           minRows={3}
-                          isRequired
                           startContent={<StepIcon icon={CommitIcon} />}
                           size="sm"
                         />

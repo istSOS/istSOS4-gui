@@ -297,3 +297,70 @@ export function buildAssociatedDraftPayload(draft: AssociatedDraft) {
         : null,
   }
 }
+function fromPropertiesObject(obj?: Record<string, any>): KeyValueItem[] {
+  if (!obj) return []
+  return Object.entries(obj).map(([key, value]) => ({
+    key,
+    value: String(value),
+  }))
+}
+
+export function toThingFormData(thing: any): ThingFormData {
+  return {
+    name: thing?.name ?? '',
+    description: thing?.description ?? '',
+    locationId: getEntityId(thing?.Locations?.[0]),
+    properties: fromPropertiesObject(thing?.properties),
+  }
+}
+
+export function toLocationFormData(location: any): LocationFormData {
+  const loc = location?.location
+  let locStr = ''
+  if (typeof loc === 'string') {
+    locStr = loc
+  } else if (loc?.type === 'Point' && Array.isArray(loc?.coordinates)) {
+    locStr = `${loc.coordinates[0]}, ${loc.coordinates[1]}`
+  }
+
+  return {
+    name: location?.name ?? '',
+    description: location?.description ?? '',
+    encodingType: location?.encodingType ?? '',
+    location: locStr,
+    properties: fromPropertiesObject(location?.properties),
+  }
+}
+
+export function toSensorFormData(sensor: any): SensorFormData {
+  return {
+    name: sensor?.name ?? '',
+    description: sensor?.description ?? '',
+    encodingType: sensor?.encodingType ?? '',
+    metadata: sensor?.metadata ?? '',
+    properties: fromPropertiesObject(sensor?.properties),
+  }
+}
+
+export function toObservedPropertyFormData(op: any): ObservedPropertyFormData {
+  return {
+    name: op?.name ?? '',
+    definition: op?.definition ?? '',
+    description: op?.description ?? '',
+    properties: fromPropertiesObject(op?.properties),
+  }
+}
+
+export function toDatastreamFormData(ds: any): DatastreamFormData {
+  return {
+    name: ds?.name ?? '',
+    description: ds?.description ?? '',
+    observationType: ds?.observationType ?? '',
+    thingId: getEntityId(ds?.Thing),
+    sensorId: getEntityId(ds?.Sensor),
+    observedPropertyId: getEntityId(ds?.ObservedProperty),
+    networkId: getEntityId(ds?.Network),
+    unitOfMeasurement: fromPropertiesObject(ds?.unitOfMeasurement),
+    properties: fromPropertiesObject(ds?.properties),
+  }
+}

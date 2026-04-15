@@ -30,6 +30,7 @@ export const fetchData = async (endpoint: string, token?: string | null) => {
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: withAuthHeaders(token),
+      cache: 'no-store',
     })
     if (!response.ok) {
       throw new Error(
