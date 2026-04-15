@@ -217,7 +217,7 @@ export default function LeafletMap({
       LRef.current = L
       proj4Ref.current = proj4
 
-      const map = L.map(el, { preferCanvas: true }).setView([46.005, 8.956], 9)
+      const map = L.map(el).setView([46.005, 8.956], 9)
 
       const bm = BASEMAPS[basemap]
       tileLayerRef.current = L.tileLayer(bm.url, {
@@ -297,6 +297,11 @@ export default function LeafletMap({
         tileLayerRef.current?.remove?.()
       } catch {}
       tileLayerRef.current = null
+
+      try {
+        mapRef.current?.off?.()
+        mapRef.current?.stop?.()
+      } catch {}
 
       mapRef.current?.remove?.()
       mapRef.current = null

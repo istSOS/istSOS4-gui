@@ -24,13 +24,14 @@ import {
   DropdownTrigger,
 } from '@heroui/dropdown'
 import { Link } from '@heroui/link'
+import { Tooltip } from '@heroui/tooltip'
 import 'flag-icons/css/flag-icons.min.css'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useRouter } from 'next/navigation'
 
-import { GithubIcon, LogoIstSOS } from '@/components/icons'
+import { DataSourcesIcon, GithubIcon, LogoIstSOS } from '@/components/icons'
 
 import { siteConfig } from '@/config/site'
 
@@ -109,66 +110,68 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-1">
-          <Dropdown placement="bottom-end">
-            <DropdownTrigger>
-              <Button
-                variant="light"
-                isIconOnly
-                className="text-white hover:bg-white/10"
-                aria-label="Change language"
-              >
-                {/* ✅ optionally hide flag until mounted to be extra-safe */}
-                {mounted ? (
-                  <span className={selectedFlag} />
-                ) : (
-                  <span className="w-12 h-8 inline-block" />
-                )}
-              </Button>
-            </DropdownTrigger>
+          <Tooltip content="Change language">
+            <Dropdown>
+              <DropdownTrigger>
+                <Button variant="light" isIconOnly>
+                  {mounted ? (
+                    <span className={selectedFlag} />
+                  ) : (
+                    <span className="w-12 h-8 inline-block" />
+                  )}
+                </Button>
+              </DropdownTrigger>
 
-            <DropdownMenu aria-label="Language selection" variant="light">
-              {languages.map((lang) => (
-                <DropdownItem
-                  key={lang.code}
-                  onPress={() => handleLanguageChange(lang.code)}
-                  startContent={<span className={lang.flag} />}
-                >
-                  {lang.label}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
+              <DropdownMenu variant="light">
+                {languages.map((lang) => (
+                  <DropdownItem
+                    key={lang.code}
+                    onPress={() => handleLanguageChange(lang.code)}
+                    startContent={<span className={lang.flag} />}
+                  >
+                    {lang.label}
+                  </DropdownItem>
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </Tooltip>
 
-          <Link
-            isExternal
-            aria-label="Source Code"
-            href={siteConfig.links.github}
-            className="inline-flex items-center gap-2 rounded-md p-2 text-white hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-          >
-            <GithubIcon />
-          </Link>
+          <Tooltip content="Source code">
+            <Button
+              as={Link}
+              isExternal
+              href={siteConfig.links.github}
+              isIconOnly
+              variant="light"
+              className="text-white"
+              aria-label="Source Code"
+            >
+              <GithubIcon />
+            </Button>
+          </Tooltip>
+
+          <Tooltip content={t('data_sources.nav_label')}>
+            <Button
+              isIconOnly
+              variant="light"
+              className="text-white"
+              onPress={() => router.push('/data-sources')}
+            >
+              <DataSourcesIcon />
+            </Button>
+          </Tooltip>
 
           {username && (
             <div className="flex items-center gap-1">
-              <span className="hidden sm:inline">
-                {t('login.cheer')} <b>{username}</b>
-              </span>
-
-              <Dropdown placement="bottom-end">
+              <Dropdown>
                 <DropdownTrigger>
-                  <button
-                    type="button"
-                    className="rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                    aria-label="Open user menu"
-                  >
+                  <Button isIconOnly variant="light" className="text-white">
                     <Avatar
                       size="sm"
-                      name={username}
-                      showFallback
-                      fallback={initials || 'U'}
-                      className="cursor-pointer"
+                      fallback={initials}
+                      className="bg-white text-[var(--color-primary)]"
                     />
-                  </button>
+                  </Button>
                 </DropdownTrigger>
 
                 <DropdownMenu aria-label="User menu" variant="light">

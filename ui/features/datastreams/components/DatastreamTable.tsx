@@ -262,25 +262,27 @@ export default function DatastreamTable({
         case 'actions':
           return (
             <div className="flex items-center justify-center gap-1">
-              <Tooltip content={t('general.details')}>
+              <Tooltip color="primary" content={t('general.details')}>
                 <Button
                   isIconOnly
                   className="h-6 w-6 min-w-6"
                   radius="none"
                   size="sm"
                   variant="light"
+                  color="primary"
                   onPress={handleDetails}
                 >
                   <ChartIcon size={18} />
                 </Button>
               </Tooltip>
-              <Tooltip content={t('general.edit')}>
+              <Tooltip color="primary" content={t('general.edit')}>
                 <Button
                   isIconOnly
                   className="h-6 w-6 min-w-6"
                   radius="none"
                   size="sm"
                   variant="light"
+                  color="primary"
                   onPress={handleEdit}
                 >
                   <EditIcon size={18} />

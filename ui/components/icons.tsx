@@ -404,6 +404,7 @@ export const ChartIcon = ({
       viewBox="0 0 24 24"
       width={w}
       height={h}
+      fill="currentColor"
       {...props}
     >
       <path d="M16,11.78L20.24,4.45L21.97,5.45L16.74,14.5L10.23,10.75L5.46,19H22V21H2V3H4V17.54L9.5,8L16,11.78Z" />
@@ -784,6 +785,77 @@ export const ReviewIcon = ({
       {...props}
     >
       <path d="M19 3H5C3.89 3 3 3.89 3 5V19C3 20.11 3.89 21 5 21H19C20.11 21 21 20.11 21 19V5C21 3.89 20.11 3 19 3M19 19H5V5H19V19M7 7H14V9H7V7M7 11H17V13H7V11M7 15H17V17H7V15Z" />
+    </svg>
+  )
+}
+
+export const DataSourcesIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M9.1 19.7L8.8 19L9 18.6C7.1 18.1 6 17.3 6 17V14.8C7.3 15.4 8.8 15.8 10.6 16C11.3 15.2 12.2 14.5 13.1 14H12C9.6 14 7.3 13.4 6 12.5V9.6C7.5 10.4 9.6 11 12 11S16.5 10.5 18 9.6V12.4C17.7 12.6 17.4 12.8 17 13C18 13 19 13.2 20 13.6V7C20 4.8 16.4 3 12 3S4 4.8 4 7V17C4 18.8 6.4 20.3 9.7 20.8C9.5 20.5 9.3 20.1 9.1 19.7M12 5C15.9 5 18 6.5 18 7S15.9 9 12 9 6 7.5 6 7 8.1 5 12 5M17 18C17.6 18 18 18.4 18 19S17.6 20 17 20 16 19.6 16 19 16.4 18 17 18M17 15C14.3 15 11.9 16.7 11 19C11.9 21.3 14.3 23 17 23S22.1 21.3 23 19C22.1 16.7 19.7 15 17 15M17 21.5C15.6 21.5 14.5 20.4 14.5 19S15.6 16.5 17 16.5 19.5 17.6 19.5 19 18.4 21.5 17 21.5Z" />
+    </svg>
+  )
+}
+
+export const DataSourcesIconPlus = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M20 13.09V7C20 4.79 16.42 3 12 3S4 4.79 4 7V17C4 19.21 7.59 21 12 21C12.46 21 12.9 21 13.33 20.94C13.12 20.33 13 19.68 13 19L13 18.95C12.68 19 12.35 19 12 19C8.13 19 6 17.5 6 17V14.77C7.61 15.55 9.72 16 12 16C12.65 16 13.27 15.96 13.88 15.89C14.93 14.16 16.83 13 19 13C19.34 13 19.67 13.04 20 13.09M18 12.45C16.7 13.4 14.42 14 12 14S7.3 13.4 6 12.45V9.64C7.47 10.47 9.61 11 12 11S16.53 10.47 18 9.64V12.45M12 9C8.13 9 6 7.5 6 7S8.13 5 12 5 18 6.5 18 7 15.87 9 12 9M23 18V20H20V23H18V20H15V18H18V15H20V18H23Z" />
+    </svg>
+  )
+}
+
+export const MapIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M20.5,3L20.34,3.03L15,5.1L9,3L3.36,4.9C3.15,4.97 3,5.15 3,5.38V20.5A0.5,0.5 0 0,0 3.5,21L3.66,20.97L9,18.9L15,21L20.64,19.1C20.85,19.03 21,18.85 21,18.62V3.5A0.5,0.5 0 0,0 20.5,3M10,5.47L14,6.87V18.53L10,17.13V5.47M5,6.46L8,5.45V17.15L5,18.31V6.46M19,17.54L16,18.55V6.86L19,5.7V17.54Z" />
     </svg>
   )
 }

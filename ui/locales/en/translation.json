@@ -91,6 +91,24 @@
     "things_count_one": "{{count}} thing",
     "things_count_other": "{{count}} things"
   },
+  "data_sources": {
+    "title": "Data sources",
+    "subtitle": "The first data source is used for login and all application data.",
+    "nav_label": "Data sources",
+    "back_to_map": "Back to map",
+    "new": "New data source",
+    "primary": "Primary",
+    "access_read_write": "Full access",
+    "access_anonymous": "Read-only",
+    "status_online": "Online",
+    "status_offline": "Offline",
+    "http_status": "HTTP status",
+    "response_time": "Response time",
+    "last_check": "Last check",
+    "error": "Error",
+    "not_available": "N/A",
+    "empty": "No data sources available."
+  },
   "things": {
     "name": "Name",
     "name_placeholder": "Enter the name of the Thing",

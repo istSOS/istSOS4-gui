@@ -22,3 +22,24 @@ export type LogoProps = ImgHTMLAttributes<HTMLImageElement> & {
 }
 
 export type BasemapKey = 'pixelGray' | 'pixelColor' | 'satellite'
+
+export type DataSourceStatus = 'online' | 'offline'
+
+export type DataSourceAccessMode = 'read_write' | 'anonymous'
+
+export type ConfiguredDataSource = {
+  id: string
+  name: string
+  apiRoot: string
+  authorizationEnabled: boolean
+  networkEnabled: boolean
+}
+
+export type UiDataSource = {
+  id: string
+  name: string
+  endpoint: string
+  status: DataSourceStatus
+  accessMode: DataSourceAccessMode
+  error: string | null
+}

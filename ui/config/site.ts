@@ -11,7 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { BasemapKey } from '@/types'
+import { primaryDataSource } from '@/config/dataSources'
+import type { BasemapKey } from '@/types'
 
 export const BASEMAPS: Record<
   BasemapKey,
@@ -34,20 +35,9 @@ export const BASEMAPS: Record<
   },
 }
 
-const API_ROOT =
-  process.env.NODE_ENV === 'development'
-    ? `${process.env.NEXT_PUBLIC_API_URL}`
-    : '__NEXT_API_URL__'
-
-const AUTHORIZATION_ENABLED =
-  process.env.NODE_ENV === 'development'
-    ? process.env.AUTHORIZATION !== '0'
-    : String('__AUTHORIZATION__') !== '0'
-
-const NETWORK_ENABLED =
-  process.env.NODE_ENV === 'development'
-    ? process.env.NETWORK !== '0'
-    : String('__NETWORK__') !== '0'
+const API_ROOT = primaryDataSource.apiRoot
+const AUTHORIZATION_ENABLED = primaryDataSource.authorizationEnabled
+const NETWORK_ENABLED = primaryDataSource.networkEnabled
 
 export const siteConfig = {
   name: 'istSOS4 admin ui',
