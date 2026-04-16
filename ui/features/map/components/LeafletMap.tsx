@@ -279,6 +279,10 @@ export default function LeafletMap({
       proj4Ref.current = proj4
 
       const map = L.map(el).setView([46.005, 8.956], 10)
+      if (!map.getPane('thing-points-pane')) {
+        const thingPointsPane = map.createPane('thing-points-pane')
+        thingPointsPane.style.zIndex = '650'
+      }
 
       const bm = BASEMAPS[basemap]
       tileLayerRef.current = L.tileLayer(bm.url, {

@@ -50,7 +50,36 @@ type SourceResult = {
   name: string
   endpoint: string
   things: any[]
+  sensors: any[]
+  observedProperties: any[]
+  networks: any[]
   error: string | null
+}
+
+const buildSensorsUrl = (apiRoot: string) =>
+  `${apiRoot}/Sensors?$select=id,name,description`
+const buildObservedPropertiesUrl = (apiRoot: string) =>
+  `${apiRoot}/ObservedProperties?$select=id,name,definition,description`
+const buildNetworksUrl = (apiRoot: string) =>
+  `${apiRoot}/Networks?$select=id,name,description`
+
+async function fetchSourceCollection(
+  url: string,
+  token: string | null
+): Promise<any[]> {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: withAuthHeaders(token),
+      cache: 'no-store',
+    })
+
+    if (!response.ok) return []
+    const data = await response.json().catch(() => null)
+    return Array.isArray(data?.value) ? data.value : []
+  } catch {
+    return []
+  }
 }
 
 async function fetchThingsForSource(
@@ -60,23 +89,54 @@ async function fetchThingsForSource(
   const endpoint = normalizeApiRoot(source.apiRoot)
 
   try {
-    const response = await fetch(buildThingsUrl(endpoint), {
-      method: 'GET',
-      headers: withAuthHeaders(token),
-      cache: 'no-store',
-    })
+    const [
+      thingsResponse,
+      sensorsValues,
+      observedPropertiesValues,
+      networkValues,
+    ] =
+      await Promise.all([
+        fetch(buildThingsUrl(endpoint), {
+          method: 'GET',
+          headers: withAuthHeaders(token),
+          cache: 'no-store',
+        }),
+        fetchSourceCollection(buildSensorsUrl(endpoint), token),
+        fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
+        fetchSourceCollection(buildNetworksUrl(endpoint), token),
+      ])
 
-    if (!response.ok) {
+    if (!thingsResponse.ok) {
       return {
         id: source.id,
         name: source.name,
         endpoint,
         things: [],
-        error: `${response.status} ${response.statusText}`,
+        sensors: sensorsValues.map((sensor: any) => ({
+          ...sensor,
+          __sourceId: source.id,
+          __sourceName: source.name,
+          __sourceEndpoint: endpoint,
+        })),
+        observedProperties: observedPropertiesValues.map(
+          (observedProperty: any) => ({
+            ...observedProperty,
+            __sourceId: source.id,
+            __sourceName: source.name,
+            __sourceEndpoint: endpoint,
+          })
+        ),
+        networks: networkValues.map((network: any) => ({
+          ...network,
+          __sourceId: source.id,
+          __sourceName: source.name,
+          __sourceEndpoint: endpoint,
+        })),
+        error: `${thingsResponse.status} ${thingsResponse.statusText}`,
       }
     }
 
-    const data = await response.json().catch(() => null)
+    const data = await thingsResponse.json().catch(() => null)
     const values = Array.isArray(data?.value) ? data.value : []
 
     const things = values.map((thing: any) => ({
@@ -99,6 +159,26 @@ async function fetchThingsForSource(
       name: source.name,
       endpoint,
       things,
+      sensors: sensorsValues.map((sensor: any) => ({
+        ...sensor,
+        __sourceId: source.id,
+        __sourceName: source.name,
+        __sourceEndpoint: endpoint,
+      })),
+      observedProperties: observedPropertiesValues.map(
+        (observedProperty: any) => ({
+          ...observedProperty,
+          __sourceId: source.id,
+          __sourceName: source.name,
+          __sourceEndpoint: endpoint,
+        })
+      ),
+      networks: networkValues.map((network: any) => ({
+        ...network,
+        __sourceId: source.id,
+        __sourceName: source.name,
+        __sourceEndpoint: endpoint,
+      })),
       error: null,
     }
   } catch (error) {
@@ -107,6 +187,9 @@ async function fetchThingsForSource(
       name: source.name,
       endpoint,
       things: [],
+      sensors: [],
+      observedProperties: [],
+      networks: [],
       error: error instanceof Error ? error.message : String(error),
     }
   }
@@ -147,11 +230,19 @@ export async function POST(request: Request) {
   )
 
   const things = sourceResults.flatMap((result) => result.things)
+  const sensors = sourceResults.flatMap((result) => result.sensors)
+  const observedProperties = sourceResults.flatMap(
+    (result) => result.observedProperties
+  )
+  const networks = sourceResults.flatMap((result) => result.networks)
 
   return NextResponse.json(
     {
       ok: true,
       things,
+      sensors,
+      observedProperties,
+      networks,
       sources: sourceResults.map((result) => ({
         id: result.id,
         name: result.name,

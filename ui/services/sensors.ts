@@ -4,6 +4,9 @@ import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
+const resolveApiRoot = (apiRoot?: string) =>
+  apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
+
 export type CreateSensorPayload = {
   name: string
   description?: string
@@ -42,19 +45,21 @@ export async function getSensors(token?: string | null) {
 
 export async function createSensor(
   payload: CreateSensorPayload,
-  token?: string | null
+  token?: string | null,
+  apiRoot?: string
 ) {
   try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
     const { commitMessage, ...sensorPayload } = payload
     const headers = withAuthHeaders(token, {
       'Content-Type': 'application/json',
-    })
+    }, resolvedApiRoot)
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+    if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
     }
 
-    const response = await fetch(`${siteConfig.api_root}/Sensors`, {
+    const response = await fetch(`${resolvedApiRoot}/Sensors`, {
       method: 'POST',
       headers,
       body: JSON.stringify(sensorPayload),

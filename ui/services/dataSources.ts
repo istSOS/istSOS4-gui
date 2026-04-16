@@ -57,10 +57,7 @@ export async function getDataSources(
 
   const checks = await Promise.all(
     sources.map(async (source): Promise<UiDataSource> => {
-      const accessMode =
-        source.isPrimary && source.authorizationEnabled
-          ? 'read_write'
-          : 'anonymous'
+      const accessMode = source.authorizationEnabled ? 'read_write' : 'anonymous'
 
       try {
         const response = await fetch(source.probeUrl, {

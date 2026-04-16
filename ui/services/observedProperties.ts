@@ -4,6 +4,9 @@ import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
+const resolveApiRoot = (apiRoot?: string) =>
+  apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
+
 export type CreateObservedPropertyPayload = {
   name: string
   definition: string
@@ -43,19 +46,21 @@ export async function getObservedProperties(token?: string | null) {
 
 export async function createObservedProperty(
   payload: CreateObservedPropertyPayload,
-  token?: string | null
+  token?: string | null,
+  apiRoot?: string
 ) {
   try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
     const { commitMessage, ...observedPropertyPayload } = payload
     const headers = withAuthHeaders(token, {
       'Content-Type': 'application/json',
-    })
+    }, resolvedApiRoot)
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+    if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
     }
 
-    const response = await fetch(`${siteConfig.api_root}/ObservedProperties`, {
+    const response = await fetch(`${resolvedApiRoot}/ObservedProperties`, {
       method: 'POST',
       headers,
       body: JSON.stringify(observedPropertyPayload),

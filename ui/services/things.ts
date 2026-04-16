@@ -17,6 +17,9 @@ import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
+const resolveApiRoot = (apiRoot?: string) =>
+  apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
+
 export type CreateThingPayload = {
   name: string
   description?: string
@@ -75,19 +78,21 @@ export async function getThingsCountByNetwork(token: string, network: string) {
 
 export async function createThing(
   payload: CreateThingPayload,
-  token?: string | null
+  token?: string | null,
+  apiRoot?: string
 ) {
   try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
     const { commitMessage, ...thingPayload } = payload
     const headers = withAuthHeaders(token, {
       'Content-Type': 'application/json',
-    })
+    }, resolvedApiRoot)
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+    if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
     }
 
-    const response = await fetch(`${siteConfig.api_root}/Things`, {
+    const response = await fetch(`${resolvedApiRoot}/Things`, {
       method: 'POST',
       headers,
       body: JSON.stringify(thingPayload),

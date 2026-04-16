@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { getDatastreams } from '@/services/datastreams'
+import { getDataSources } from '@/services/dataSources'
 import { getLocations } from '@/services/locations'
 import { getNetworks } from '@/services/networks'
 import { getObservedProperties } from '@/services/observedProperties'
@@ -38,8 +39,15 @@ export default async function Page() {
   }
 
   try {
-    const [things, locations, sensors, observedProperties, datastreams, networks] =
-      await Promise.all([
+    const [
+      things,
+      locations,
+      sensors,
+      observedProperties,
+      datastreams,
+      networks,
+      dataSources,
+    ] = await Promise.all([
         getThings(token),
         getLocations(token),
         getSensors(token),
@@ -48,7 +56,16 @@ export default async function Page() {
         siteConfig.networkEnabled
           ? getNetworks(token)
           : Promise.resolve({ networkData: [] }),
+        getDataSources(token),
       ])
+
+    const writableDataSources = dataSources
+      .filter((source) => source.authorizationEnabled)
+      .map((source) => ({
+        id: source.id,
+        name: source.name,
+        endpoint: source.endpoint,
+      }))
 
     return (
       <Home
@@ -58,6 +75,7 @@ export default async function Page() {
         observedProperties={observedProperties.observedPropertyData}
         datastreams={datastreams.datastreamData}
         networks={networks.networkData}
+        writableDataSources={writableDataSources}
       />
     )
   } catch (error) {

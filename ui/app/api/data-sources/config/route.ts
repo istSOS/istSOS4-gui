@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 
 import { readDataSourcesConfigFile, writeDataSourcesConfigFile } from '@/server/data-sources/config'
 import type { ConfiguredDataSource } from '@/types'
@@ -95,6 +96,8 @@ export async function PUT(request: Request) {
 
   try {
     const sources = await writeDataSourcesConfigFile(payload.sources)
+    revalidatePath('/')
+    revalidatePath('/data-sources')
     return NextResponse.json({ ok: true, sources }, { status: 200 })
   } catch {
     return NextResponse.json(

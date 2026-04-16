@@ -29,6 +29,7 @@ const PALETTE = [
   '#14b8a6',
 ]
 const TOOLTIP_VERTICAL_OFFSET = -14
+const THING_POINT_PANE = 'thing-points-pane'
 
 export const UNSPECIFIED_NETWORK_KEY = '__unspecified__'
 
@@ -317,6 +318,7 @@ export function drawNetworkLayers(args: {
 
   const isObservedMode =
     !!observedPropertyFilter && observedPropertyFilter.size > 0
+  const hasThingPointPane = !!map?.getPane?.(THING_POINT_PANE)
 
   try {
     observedCluster?.clearLayers?.()
@@ -414,7 +416,6 @@ export function drawNetworkLayers(args: {
       e.originalEvent?.preventDefault?.()
       e.originalEvent?.stopPropagation?.()
       e.layer?.closeTooltip?.()
-      e.layer?.unbindTooltip?.()
       e.layer?.spiderfy?.()
     })
 
@@ -431,7 +432,10 @@ export function drawNetworkLayers(args: {
         if (!dedup.has(key)) dedup.set(key, row)
       }
 
-      if (!dedup.size) return
+      if (!dedup.size) {
+        clusterLayer.closeTooltip?.()
+        return
+      }
 
       const rows = Array.from(dedup.values()).sort((a, b) => {
         const sourceCompare = a.source.localeCompare(b.source)
@@ -446,22 +450,25 @@ export function drawNetworkLayers(args: {
         showSource,
       })
 
-      clusterLayer.unbindTooltip?.()
-      clusterLayer.bindTooltip(mount, {
-        sticky: false,
-        interactive: false,
-        direction: 'top',
-        offset: [0, TOOLTIP_VERTICAL_OFFSET],
-        opacity: 1,
-        className: 'thing-tooltip',
-      })
+      const existingTooltip = clusterLayer.getTooltip?.()
+      if (existingTooltip) {
+        clusterLayer.setTooltipContent?.(mount)
+      } else {
+        clusterLayer.bindTooltip(mount, {
+          sticky: false,
+          interactive: false,
+          direction: 'top',
+          offset: [0, TOOLTIP_VERTICAL_OFFSET],
+          opacity: 1,
+          className: 'thing-tooltip',
+        })
+      }
       clusterLayer.openTooltip?.()
     })
 
     cluster.on('clustermouseout', (e: any) => {
       const clusterLayer = e.layer
       clusterLayer.closeTooltip?.()
-      clusterLayer.unbindTooltip?.()
     })
 
     networkLayers.set(netKey, { cluster, vectors })
@@ -524,6 +531,7 @@ export function drawNetworkLayers(args: {
         fillColor: base,
         fillOpacity: 0.85,
         weight: 2,
+        ...(hasThingPointPane ? { pane: THING_POINT_PANE } : {}),
       })
 
       ;(m as any).__tooltipRow = {

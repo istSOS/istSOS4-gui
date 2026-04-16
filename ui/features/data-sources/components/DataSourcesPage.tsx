@@ -138,11 +138,9 @@ const toEditableDataSource = (source: UiDataSource): EditableDataSource => {
     networkEnabled?: boolean
   }
 
-  const accessMode =
-    source.accessMode ??
-    (sourceWithFlags.authorizationEnabled ? 'read_write' : 'anonymous')
   const authorizationEnabled =
-    sourceWithFlags.authorizationEnabled ?? accessMode === 'read_write'
+    sourceWithFlags.authorizationEnabled ?? source.accessMode === 'read_write'
+  const accessMode = authorizationEnabled ? 'read_write' : 'anonymous'
   const networkEnabled = sourceWithFlags.networkEnabled ?? false
 
   return {
@@ -336,7 +334,7 @@ export default function DataSourcesPage({
     setForm({
       name: source.name,
       apiRoot: source.endpoint,
-      anonymous: source.accessMode === 'anonymous',
+      anonymous: !source.authorizationEnabled,
     })
     setSubmitted(false)
     setFormError(null)
@@ -365,6 +363,7 @@ export default function DataSourcesPage({
     removeDataSourceToken(source.endpoint)
     setPageError(null)
     setSources(nextSources)
+    router.refresh()
   }
 
   const persistSource = async (
@@ -418,6 +417,7 @@ export default function DataSourcesPage({
 
     setPageError(null)
     setSources(nextSources)
+    router.refresh()
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -700,10 +700,10 @@ export default function DataSourcesPage({
                 <CardBody className="pt-0">
                   <div className="mb-2 flex flex-row items-center gap-2">
                     <Chip
-                      color={source.accessMode === 'read_write' ? 'primary' : 'default'}
+                      color={source.authorizationEnabled ? 'primary' : 'default'}
                       variant="flat"
                     >
-                      {source.accessMode === 'read_write'
+                      {source.authorizationEnabled
                         ? t('data_sources.access_read_write')
                         : t('data_sources.access_anonymous')}
                     </Chip>

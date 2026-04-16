@@ -27,12 +27,25 @@ import {
 } from '@/services/observedProperties'
 import { type CreateSensorPayload, createSensor } from '@/services/sensors'
 import { type CreateThingPayload, createThing } from '@/services/things'
+import { Autocomplete, AutocompleteItem } from '@heroui/autocomplete'
 import { Button } from '@heroui/button'
 import { Form as HeroForm } from '@heroui/form'
-import { Textarea } from '@heroui/input'
-import { Modal, ModalBody, ModalContent } from '@heroui/modal'
+import { Input, Textarea } from '@heroui/input'
+import {
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@heroui/modal'
 import { Tab, Tabs } from '@heroui/tabs'
-import { type ComponentType, type ReactNode, useMemo, useState } from 'react'
+import {
+  type ComponentType,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useRouter } from 'next/navigation'
@@ -49,6 +62,7 @@ import {
 
 import { useAuth } from '@/context/AuthContext'
 import { siteConfig } from '@/config/site'
+import { getDataSourceToken, setDataSourceToken } from '@/lib/dataSourceTokens'
 
 import { EntityFields, ExistingEntitySelect } from './wizard/fields'
 import { ModeCard, SectionTitle, StepCard } from './wizard/primitives'
@@ -78,7 +92,28 @@ interface FormProps {
   isOpen: boolean
   onClose: () => void
   existingEntities?: ExistingEntities
+  writableDataSources?: Array<{
+    id: string
+    name: string
+    endpoint: string
+  }>
 }
+
+const normalizeEndpoint = (value: string) => value.trim().replace(/\/+$/, '')
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
+const normalizedBasePath =
+  basePath === '/' ? '' : basePath.replace(/\/+$/, '')
+const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
+
+type DataSourceInspectResponse =
+  | {
+      ok: true
+      accessToken?: string | null
+    }
+  | {
+      ok: false
+      errorCode: string
+    }
 
 function StepIcon({
   icon: Icon,
@@ -109,10 +144,15 @@ export default function FormModal({
     datastreams: [],
     networks: [],
   },
+  writableDataSources = [],
 }: FormProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const { token } = useAuth()
+  const primaryEndpoint = useMemo(
+    () => normalizeEndpoint(siteConfig.api_root),
+    []
+  )
 
   const entityLabels = useMemo<Record<EntityKey, string>>(
     () => ({
@@ -158,13 +198,22 @@ export default function FormModal({
     [t]
   )
 
-  const existingOptions = useMemo<ExistingOptionsMap>(
-    () => buildExistingOptions(existingEntities),
-    [existingEntities]
+  const fullAccessDataSources = useMemo(
+    () =>
+      writableDataSources.map((source) => ({
+        ...source,
+        endpoint: normalizeEndpoint(source.endpoint),
+      })),
+    [writableDataSources]
   )
+  const defaultSingleDataSourceEndpoint =
+    fullAccessDataSources[0]?.endpoint ?? normalizeEndpoint(siteConfig.api_root)
 
   const [wizardMode, setWizardMode] = useState<WizardMode>('associated')
   const [singleEntity, setSingleEntity] = useState<EntityKey>(initialTab)
+  const [singleDataSourceEndpoint, setSingleDataSourceEndpoint] = useState(
+    defaultSingleDataSourceEndpoint
+  )
   const [singleDraft, setSingleDraft] = useState<FormDataMap>(
     createInitialSingleDraft(latitude, longitude)
   )
@@ -175,9 +224,24 @@ export default function FormModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
+  const [pendingDataSourceLogin, setPendingDataSourceLogin] = useState<{
+    endpoint: string
+    name: string
+    resumeSubmit: boolean
+  } | null>(null)
+  const [dataSourceLoginForm, setDataSourceLoginForm] = useState({
+    username: '',
+    password: '',
+  })
+  const [dataSourceLoginSubmitted, setDataSourceLoginSubmitted] =
+    useState(false)
+  const [dataSourceLoginError, setDataSourceLoginError] = useState<
+    string | null
+  >(null)
+  const [isDataSourceLoginSaving, setIsDataSourceLoginSaving] =
+    useState(false)
 
   const requiresCommitMessage =
-    siteConfig.authorizationEnabled &&
     wizardMode === 'single' &&
     (singleEntity === 'thing' ||
       singleEntity === 'location' ||
@@ -197,6 +261,106 @@ export default function FormModal({
   const currentAssociatedDraft = currentAssociatedEntity
     ? associatedDraft[currentAssociatedEntity]
     : null
+  const sourceScopedExistingEntities = useMemo<ExistingEntities>(() => {
+    if (wizardMode !== 'single') return existingEntities
+
+    const selectedEndpoint =
+      normalizeEndpoint(singleDataSourceEndpoint || defaultSingleDataSourceEndpoint) ||
+      normalizeEndpoint(siteConfig.api_root)
+
+    const resolveEntityEndpoint = (entity: any) =>
+      normalizeEndpoint(String(entity?.__sourceEndpoint ?? siteConfig.api_root))
+
+    const filterByEndpoint = (items: any[]) =>
+      items.filter((item) => resolveEntityEndpoint(item) === selectedEndpoint)
+
+    return {
+      things: filterByEndpoint(existingEntities.things),
+      locations: filterByEndpoint(existingEntities.locations),
+      sensors: filterByEndpoint(existingEntities.sensors),
+      observedProperties: filterByEndpoint(existingEntities.observedProperties),
+      datastreams: filterByEndpoint(existingEntities.datastreams),
+      networks: filterByEndpoint(existingEntities.networks),
+    }
+  }, [
+    wizardMode,
+    singleDataSourceEndpoint,
+    defaultSingleDataSourceEndpoint,
+    existingEntities,
+  ])
+  const existingOptions = useMemo<ExistingOptionsMap>(
+    () => buildExistingOptions(sourceScopedExistingEntities),
+    [sourceScopedExistingEntities]
+  )
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    setSingleDataSourceEndpoint((current) => {
+      if (
+        current &&
+        fullAccessDataSources.some((source) => source.endpoint === current)
+      ) {
+        return current
+      }
+
+      return defaultSingleDataSourceEndpoint
+    })
+  }, [defaultSingleDataSourceEndpoint, fullAccessDataSources, isOpen])
+
+  const selectedDataSource = useMemo(
+    () =>
+      fullAccessDataSources.find(
+        (source) => source.endpoint === normalizeEndpoint(singleDataSourceEndpoint)
+      ) ?? null,
+    [fullAccessDataSources, singleDataSourceEndpoint]
+  )
+
+  const resolveRequestToken = (
+    endpoint: string,
+    preferredToken?: string | null
+  ) => {
+    const normalizedEndpoint = normalizeEndpoint(endpoint)
+
+    if (preferredToken?.trim()) return preferredToken.trim()
+
+    const endpointToken = getDataSourceToken(normalizedEndpoint)
+    if (endpointToken) return endpointToken
+
+    if (normalizedEndpoint === primaryEndpoint) {
+      return token ?? undefined
+    }
+
+    return undefined
+  }
+
+  const closeDataSourceLogin = () => {
+    setPendingDataSourceLogin(null)
+    setDataSourceLoginForm({ username: '', password: '' })
+    setDataSourceLoginSubmitted(false)
+    setDataSourceLoginError(null)
+    setIsDataSourceLoginSaving(false)
+  }
+
+  const openDataSourceLogin = (
+    source: { endpoint: string; name: string },
+    resumeSubmit: boolean
+  ) => {
+    setPendingDataSourceLogin({
+      endpoint: source.endpoint,
+      name: source.name,
+      resumeSubmit,
+    })
+    setDataSourceLoginForm({ username: '', password: '' })
+    setDataSourceLoginSubmitted(false)
+    setDataSourceLoginError(null)
+    setIsDataSourceLoginSaving(false)
+  }
+
+  const selectedDataSourceRequiresLogin =
+    !!selectedDataSource &&
+    siteConfig.authorizationEnabled &&
+    !resolveRequestToken(selectedDataSource.endpoint)
 
   const updateAssociatedEntity = <K extends EntityKey>(
     entity: K,
@@ -208,64 +372,89 @@ export default function FormModal({
     }))
   }
 
-  const handleSingleSubmit = async (
-    event: React.FormEvent<HTMLFormElement>
+  const executeSingleSubmit = async (
+    selectedEndpoint: string,
+    requestToken?: string | null
   ) => {
-    event.preventDefault()
-
-    setSubmitError(null)
-
-    if (siteConfig.authorizationEnabled && !token) {
-      setSubmitError('Missing token')
-      return
-    }
-
-    if (requiresCommitMessage && !commitMessage.trim()) {
-      setSubmitError(t('commit.message_required'))
-      return
-    }
-
     setIsSubmitting(true)
 
     try {
       let result = null
 
       if (singleEntity === 'thing') {
+        const thingPayload = normalizeEntityPayload(
+          'thing',
+          singleDraft.thing
+        ) as CreateThingPayload
         result = await createThing(
-          normalizeEntityPayload('thing', singleDraft.thing) as CreateThingPayload,
-          token ?? undefined
+          {
+            ...thingPayload,
+            ...(requiresCommitMessage
+              ? { commitMessage: commitMessage.trim() }
+              : {}),
+          },
+          requestToken,
+          selectedEndpoint
         )
       } else if (singleEntity === 'location') {
+        const locationPayload = normalizeEntityPayload(
+          'location',
+          singleDraft.location
+        ) as CreateLocationPayload
         result = await createLocation(
-          normalizeEntityPayload(
-            'location',
-            singleDraft.location
-          ) as CreateLocationPayload,
-          token ?? undefined
+          {
+            ...locationPayload,
+            ...(requiresCommitMessage
+              ? { commitMessage: commitMessage.trim() }
+              : {}),
+          },
+          requestToken,
+          selectedEndpoint
         )
       } else if (singleEntity === 'sensor') {
+        const sensorPayload = normalizeEntityPayload(
+          'sensor',
+          singleDraft.sensor
+        ) as CreateSensorPayload
         result = await createSensor(
-          normalizeEntityPayload(
-            'sensor',
-            singleDraft.sensor
-          ) as CreateSensorPayload,
-          token ?? undefined
+          {
+            ...sensorPayload,
+            ...(requiresCommitMessage
+              ? { commitMessage: commitMessage.trim() }
+              : {}),
+          },
+          requestToken,
+          selectedEndpoint
         )
       } else if (singleEntity === 'datastream') {
+        const datastreamPayload = normalizeEntityPayload(
+          'datastream',
+          singleDraft.datastream
+        ) as CreateDatastreamPayload
         result = await createDatastream(
-          normalizeEntityPayload(
-            'datastream',
-            singleDraft.datastream
-          ) as CreateDatastreamPayload,
-          token ?? undefined
+          {
+            ...datastreamPayload,
+            ...(requiresCommitMessage
+              ? { commitMessage: commitMessage.trim() }
+              : {}),
+          },
+          requestToken,
+          selectedEndpoint
         )
       } else {
+        const observedPropertyPayload = normalizeEntityPayload(
+          'observedProperty',
+          singleDraft.observedProperty
+        ) as CreateObservedPropertyPayload
         result = await createObservedProperty(
-          normalizeEntityPayload(
-            'observedProperty',
-            singleDraft.observedProperty
-          ) as CreateObservedPropertyPayload,
-          token ?? undefined
+          {
+            ...observedPropertyPayload,
+            ...(requiresCommitMessage
+              ? { commitMessage: commitMessage.trim() }
+              : {}),
+          },
+          requestToken,
+          selectedEndpoint
         )
       }
 
@@ -291,30 +480,151 @@ export default function FormModal({
     }
   }
 
+  const handleSingleSubmit = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault()
+
+    setSubmitError(null)
+
+    if (!fullAccessDataSources.length) {
+      setSubmitError(t('wizard.no_full_access_data_sources'))
+      return
+    }
+
+    if (requiresCommitMessage && !commitMessage.trim()) {
+      setSubmitError(t('commit.message_required'))
+      return
+    }
+
+    const selectedEndpoint = normalizeEndpoint(singleDataSourceEndpoint)
+    const currentSource = fullAccessDataSources.find(
+      (source) => source.endpoint === selectedEndpoint
+    )
+
+    if (!currentSource) {
+      setSubmitError(t('wizard.invalid_data_source_selection'))
+      return
+    }
+
+    const requestToken = resolveRequestToken(selectedEndpoint)
+
+    if (siteConfig.authorizationEnabled && !requestToken) {
+      openDataSourceLogin(currentSource, true)
+      return
+    }
+
+    await executeSingleSubmit(selectedEndpoint, requestToken)
+  }
+
+  const handleDataSourceLogin = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault()
+
+    if (!pendingDataSourceLogin || isDataSourceLoginSaving) return
+
+    setDataSourceLoginSubmitted(true)
+    setDataSourceLoginError(null)
+
+    const username = dataSourceLoginForm.username.trim()
+    const password = dataSourceLoginForm.password.trim()
+
+    if (!username || !password) {
+      setDataSourceLoginError(t('data_sources.validation_credentials_required'))
+      return
+    }
+
+    setIsDataSourceLoginSaving(true)
+
+    try {
+      const response = await fetch(inspectApiPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'authenticated',
+          apiRoot: pendingDataSourceLogin.endpoint,
+          username,
+          password,
+        }),
+        cache: 'no-store',
+      })
+
+      const data = (await response
+        .json()
+        .catch(() => null)) as DataSourceInspectResponse | null
+
+      if (!data || typeof data !== 'object' || !('ok' in data)) {
+        throw new Error('validation_probe_failed')
+      }
+
+      if (data.ok === false) {
+        throw new Error(data.errorCode || 'validation_login_failed')
+      }
+
+      const accessToken =
+        typeof data.accessToken === 'string' ? data.accessToken.trim() : ''
+
+      if (!accessToken) {
+        throw new Error('validation_login_failed')
+      }
+
+      setDataSourceToken(pendingDataSourceLogin.endpoint, accessToken)
+
+      const shouldResume = pendingDataSourceLogin.resumeSubmit
+      const endpoint = pendingDataSourceLogin.endpoint
+      closeDataSourceLogin()
+
+      if (shouldResume) {
+        setSubmitError(null)
+        await executeSingleSubmit(endpoint, accessToken)
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message === 'validation_credentials_required') {
+          setDataSourceLoginError(t('data_sources.validation_credentials_required'))
+        } else if (error.message === 'validation_login_missing') {
+          setDataSourceLoginError(t('data_sources.validation_login_missing'))
+        } else if (error.message === 'validation_login_failed') {
+          setDataSourceLoginError(t('data_sources.validation_login_failed'))
+        } else if (error.message === 'validation_login_check_failed') {
+          setDataSourceLoginError(t('data_sources.validation_login_check_failed'))
+        } else {
+          setDataSourceLoginError(t('data_sources.validation_probe_failed'))
+        }
+      } else {
+        setDataSourceLoginError(t('data_sources.validation_probe_failed'))
+      }
+    } finally {
+      setIsDataSourceLoginSaving(false)
+    }
+  }
+
   const handleAssociatedSubmit = () => {
     console.log('associated entity draft', associatedDraft)
     onClose()
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      placement="center"
-      scrollBehavior="inside"
-      backdrop="blur"
-      onOpenChange={(open) => {
-        if (!open) onClose()
-      }}
-      size="5xl"
-      classNames={{
-        wrapper: 'z-[6000]',
-        base: 'z-[6001] h-[80vh] min-h-[80vh] max-h-[80vh]',
-        backdrop: 'z-[5999]',
-      }}
-    >
-      <ModalContent>
-        <ModalBody className="h-full overflow-hidden py-5">
-          <div className="flex h-full min-h-0 flex-col gap-5">
+    <>
+      <Modal
+        isOpen={isOpen}
+        placement="center"
+        scrollBehavior="inside"
+        backdrop="blur"
+        onOpenChange={(open) => {
+          if (!open) onClose()
+        }}
+        size="5xl"
+        classNames={{
+          wrapper: 'z-[6000]',
+          base: 'z-[6001] h-[80vh] min-h-[80vh] max-h-[80vh]',
+          backdrop: 'z-[5999]',
+        }}
+      >
+        <ModalContent>
+          <ModalBody className="h-full overflow-hidden py-5">
+            <div className="flex h-full min-h-0 flex-col gap-5">
             <SectionTitle
               title={t('wizard.title')}
               description={t('wizard.subtitle')}
@@ -366,6 +676,59 @@ export default function FormModal({
                         title={entityLabels[singleEntity]}
                         description={t('wizard.select_entity_type')}
                       />
+
+                      {fullAccessDataSources.length > 0 ? (
+                        <Autocomplete
+                          label={t('wizard.data_source')}
+                          labelPlacement="inside"
+                          placeholder={t('wizard.data_source_placeholder')}
+                          variant="underlined"
+                          radius="sm"
+                          size="sm"
+                          isRequired
+                          selectedKey={singleDataSourceEndpoint || null}
+                          items={fullAccessDataSources}
+                          onSelectionChange={(key) =>
+                            setSingleDataSourceEndpoint(key ? String(key) : '')
+                          }
+                        >
+                          {(source) => (
+                            <AutocompleteItem
+                              key={source.endpoint}
+                              textValue={source.name}
+                            >
+                              <div className="flex flex-col">
+                                <span>{source.name}</span>
+                                <span className="line-clamp-1 text-xs text-default-500">
+                                  {source.endpoint}
+                                </span>
+                              </div>
+                            </AutocompleteItem>
+                          )}
+                        </Autocomplete>
+                      ) : (
+                        <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
+                          {t('wizard.no_full_access_data_sources')}
+                        </div>
+                      )}
+
+                      {selectedDataSourceRequiresLogin ? (
+                        <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
+                          <div className="mb-2">
+                            {t('wizard.data_source_login_required')}
+                          </div>
+                          <Button
+                            size="sm"
+                            color="warning"
+                            variant="flat"
+                            onPress={() =>
+                              openDataSourceLogin(selectedDataSource, false)
+                            }
+                          >
+                            {t('login.login')}
+                          </Button>
+                        </div>
+                      ) : null}
 
                       <EntityFields
                         entity={singleEntity}
@@ -672,9 +1035,95 @@ export default function FormModal({
                 </div>
               )}
             </div>
-          </div>
-        </ModalBody>
-      </ModalContent>
-    </Modal>
+            </div>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <Modal
+        isOpen={!!pendingDataSourceLogin}
+        onOpenChange={(open) => {
+          if (!open) closeDataSourceLogin()
+        }}
+        backdrop="blur"
+        placement="center"
+        classNames={{
+          wrapper: 'z-[6100]',
+          base: 'z-[6101]',
+          backdrop: 'z-[6099]',
+        }}
+      >
+        <ModalContent>
+          <form onSubmit={handleDataSourceLogin}>
+            <ModalHeader>{t('data_sources.login_form_title')}</ModalHeader>
+            <ModalBody className="flex flex-col gap-4">
+              <p className="text-sm text-default-500">
+                {t('data_sources.login_form_subtitle')}
+              </p>
+
+              {pendingDataSourceLogin ? (
+                <div className="rounded-xl border border-default-200 bg-default-50 px-3 py-2 text-xs text-default-600">
+                  <div>{pendingDataSourceLogin.name}</div>
+                  <div className="line-clamp-1">
+                    {pendingDataSourceLogin.endpoint}
+                  </div>
+                </div>
+              ) : null}
+
+              <Input
+                isRequired
+                label={t('data_sources.username')}
+                placeholder={t('data_sources.username_placeholder')}
+                value={dataSourceLoginForm.username}
+                onValueChange={(value) =>
+                  setDataSourceLoginForm((current) => ({
+                    ...current,
+                    username: value,
+                  }))
+                }
+                isInvalid={
+                  dataSourceLoginSubmitted &&
+                  !dataSourceLoginForm.username.trim()
+                }
+              />
+
+              <Input
+                isRequired
+                type="password"
+                label={t('data_sources.password')}
+                placeholder={t('data_sources.password_placeholder')}
+                value={dataSourceLoginForm.password}
+                onValueChange={(value) =>
+                  setDataSourceLoginForm((current) => ({
+                    ...current,
+                    password: value,
+                  }))
+                }
+                isInvalid={
+                  dataSourceLoginSubmitted &&
+                  !dataSourceLoginForm.password.trim()
+                }
+              />
+
+              {dataSourceLoginError ? (
+                <p className="text-sm text-danger">{dataSourceLoginError}</p>
+              ) : null}
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="light" onPress={closeDataSourceLogin}>
+                {t('general.cancel')}
+              </Button>
+              <Button
+                type="submit"
+                color="primary"
+                isLoading={isDataSourceLoginSaving}
+              >
+                {t('login.login')}
+              </Button>
+            </ModalFooter>
+          </form>
+        </ModalContent>
+      </Modal>
+    </>
   )
 }

@@ -4,6 +4,9 @@ import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 
+const resolveApiRoot = (apiRoot?: string) =>
+  apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
+
 export type CreateDatastreamPayload = {
   name: string
   description?: string
@@ -49,19 +52,21 @@ export async function getDatastreams(token?: string | null) {
 
 export async function createDatastream(
   payload: CreateDatastreamPayload,
-  token?: string | null
+  token?: string | null,
+  apiRoot?: string
 ) {
   try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
     const { commitMessage, ...datastreamPayload } = payload
     const headers = withAuthHeaders(token, {
       'Content-Type': 'application/json',
-    })
+    }, resolvedApiRoot)
 
-    if (siteConfig.authorizationEnabled && commitMessage?.trim()) {
+    if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
     }
 
-    const response = await fetch(`${siteConfig.api_root}/Datastreams`, {
+    const response = await fetch(`${resolvedApiRoot}/Datastreams`, {
       method: 'POST',
       headers,
       body: JSON.stringify(datastreamPayload),

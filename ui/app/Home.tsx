@@ -20,7 +20,7 @@ import { getObservationsByDatastream } from '@/services/observations'
 import { Card } from '@heroui/card'
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
 
@@ -40,12 +40,20 @@ type CreateFormState = {
   initialTab?: FormTabKey
 }
 
+type WritableDataSourceOption = {
+  id: string
+  name: string
+  endpoint: string
+}
+
 const LeafletMap = dynamic(() => import('@/features/map/components/LeafletMap'), {
   ssr: false,
 })
 
 const getThingKey = (thing: any) => {
-  const sourceId = String(thing?.__sourceId ?? '0')
+  const sourceId = String(
+    thing?.__sourceId ?? thing?.__sourceEndpoint ?? siteConfig.api_root
+  )
   const thingId = String(thing?.['@iot.id'] ?? thing?.id ?? thing?.name ?? '')
   return `${sourceId}::${thingId}`
 }
@@ -54,6 +62,7 @@ const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
 const normalizedBasePath =
   basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const mapThingsApiPath = `${normalizedBasePath}/api/data-sources/things`
+const normalizeEndpoint = (value: string) => value.trim().replace(/\/+$/, '')
 
 export default function Home({
   things,
@@ -62,6 +71,7 @@ export default function Home({
   observedProperties,
   datastreams,
   networks,
+  writableDataSources,
   selectedNetwork,
 }: {
   things: any[]
@@ -70,14 +80,99 @@ export default function Home({
   observedProperties: any[]
   datastreams: any[]
   networks: any[]
+  writableDataSources: WritableDataSourceOption[]
   selectedNetwork?: string
 }) {
   const { token } = useAuth()
-  const [localThings, setLocalThings] = useState<any[]>(things)
+  const primaryEndpoint = useMemo(
+    () => normalizeEndpoint(siteConfig.api_root),
+    []
+  )
+  const primarySourceName = useMemo(() => {
+    const source = writableDataSources.find(
+      (entry) => normalizeEndpoint(entry.endpoint) === primaryEndpoint
+    )
+    return source?.name?.trim() || 'Primary data source'
+  }, [primaryEndpoint, writableDataSources])
+
+  const enrichThingsWithSourceMetadata = useCallback(
+    (items: any[]) =>
+      items.map((thing) => {
+        const sourceEndpoint = normalizeEndpoint(
+          String(thing?.__sourceEndpoint ?? primaryEndpoint)
+        )
+        const datastreams = Array.isArray(thing?.Datastreams)
+          ? thing.Datastreams.map((datastream: any) => ({
+              ...datastream,
+              __sourceId: String(
+                datastream?.__sourceId ?? thing?.__sourceId ?? sourceEndpoint
+              ),
+              __sourceName: String(
+                datastream?.__sourceName ?? thing?.__sourceName ?? primarySourceName
+              ),
+              __sourceEndpoint: normalizeEndpoint(
+                String(datastream?.__sourceEndpoint ?? sourceEndpoint)
+              ),
+            }))
+          : thing?.Datastreams
+
+        return {
+          ...thing,
+          __sourceId: String(thing?.__sourceId ?? sourceEndpoint),
+          __sourceName: String(thing?.__sourceName ?? primarySourceName),
+          __sourceEndpoint: sourceEndpoint,
+          Datastreams: datastreams,
+        }
+      }),
+    [primaryEndpoint, primarySourceName]
+  )
+  const enrichEntitiesWithSourceMetadata = useCallback(
+    (items: any[]) =>
+      items.map((entity) => {
+        const sourceEndpoint = normalizeEndpoint(
+          String(entity?.__sourceEndpoint ?? primaryEndpoint)
+        )
+
+        return {
+          ...entity,
+          __sourceId: String(entity?.__sourceId ?? sourceEndpoint),
+          __sourceName: String(entity?.__sourceName ?? primarySourceName),
+          __sourceEndpoint: sourceEndpoint,
+        }
+      }),
+    [primaryEndpoint, primarySourceName]
+  )
+
+  const [localThings, setLocalThings] = useState<any[]>(() =>
+    enrichThingsWithSourceMetadata(things)
+  )
+  const [localSensors, setLocalSensors] = useState<any[]>(() =>
+    enrichEntitiesWithSourceMetadata(sensors)
+  )
+  const [localObservedProperties, setLocalObservedProperties] = useState<any[]>(
+    () => enrichEntitiesWithSourceMetadata(observedProperties)
+  )
+  const [localNetworks, setLocalNetworks] = useState<any[]>(() =>
+    enrichEntitiesWithSourceMetadata(networks)
+  )
+  const [createFormState, setCreateFormState] =
+    useState<CreateFormState | null>(null)
 
   useEffect(() => {
-    setLocalThings(things)
-  }, [things])
+    setLocalThings(enrichThingsWithSourceMetadata(things))
+    setLocalSensors(enrichEntitiesWithSourceMetadata(sensors))
+    setLocalObservedProperties(
+      enrichEntitiesWithSourceMetadata(observedProperties)
+    )
+    setLocalNetworks(enrichEntitiesWithSourceMetadata(networks))
+  }, [
+    things,
+    sensors,
+    observedProperties,
+    networks,
+    enrichThingsWithSourceMetadata,
+    enrichEntitiesWithSourceMetadata,
+  ])
 
   useEffect(() => {
     let mounted = true
@@ -97,19 +192,111 @@ export default function Home({
         const data = await response.json().catch(() => null)
         if (!mounted || !Array.isArray(data?.things)) return
 
-        setLocalThings(data.things)
+        setLocalThings(enrichThingsWithSourceMetadata(data.things))
+        if (Array.isArray(data?.sensors)) {
+          setLocalSensors(enrichEntitiesWithSourceMetadata(data.sensors))
+        }
+        if (Array.isArray(data?.observedProperties)) {
+          setLocalObservedProperties(
+            enrichEntitiesWithSourceMetadata(data.observedProperties)
+          )
+        }
+        if (Array.isArray(data?.networks)) {
+          setLocalNetworks(enrichEntitiesWithSourceMetadata(data.networks))
+        }
       } catch {}
     })()
 
     return () => {
       mounted = false
     }
-  }, [token])
+  }, [
+    token,
+    things,
+    createFormState,
+    enrichThingsWithSourceMetadata,
+    enrichEntitiesWithSourceMetadata,
+  ])
 
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
-  const [createFormState, setCreateFormState] =
-    useState<CreateFormState | null>(null)
+  const locationsForForm = useMemo(() => {
+    const primaryEndpoint = normalizeEndpoint(siteConfig.api_root)
+    const byKey = new Map<string, any>()
+
+    const addLocation = (location: any, sourceEndpoint: string) => {
+      const locationId = String(location?.['@iot.id'] ?? location?.id ?? '').trim()
+      if (!locationId) return
+
+      const normalizedSourceEndpoint =
+        normalizeEndpoint(sourceEndpoint || primaryEndpoint) || primaryEndpoint
+      const dedupKey = `${normalizedSourceEndpoint}::${locationId}`
+      if (byKey.has(dedupKey)) return
+
+      byKey.set(dedupKey, {
+        ...location,
+        __sourceEndpoint: normalizedSourceEndpoint,
+      })
+    }
+
+    for (const location of locations) {
+      addLocation(
+        location,
+        String((location as any)?.__sourceEndpoint ?? primaryEndpoint)
+      )
+    }
+
+    for (const thing of localThings) {
+      const sourceEndpoint = String(thing?.__sourceEndpoint ?? primaryEndpoint)
+      const thingLocations = Array.isArray(thing?.Locations) ? thing.Locations : []
+      for (const location of thingLocations) {
+        addLocation(location, sourceEndpoint)
+      }
+    }
+
+    return Array.from(byKey.values())
+  }, [locations, localThings])
+  const networksForForm = useMemo(() => {
+    const byKey = new Map<string, any>()
+
+    const addNetwork = (network: any, sourceEndpoint: string) => {
+      const networkId = String(network?.['@iot.id'] ?? network?.id ?? '').trim()
+      if (!networkId) return
+
+      const normalizedSourceEndpoint =
+        normalizeEndpoint(sourceEndpoint || primaryEndpoint) || primaryEndpoint
+      const dedupKey = `${normalizedSourceEndpoint}::${networkId}`
+      if (byKey.has(dedupKey)) return
+
+      byKey.set(dedupKey, {
+        ...network,
+        __sourceEndpoint: normalizedSourceEndpoint,
+      })
+    }
+
+    for (const network of localNetworks) {
+      addNetwork(
+        network,
+        String((network as any)?.__sourceEndpoint ?? primaryEndpoint)
+      )
+    }
+
+    for (const thing of localThings) {
+      const sourceEndpoint = String(thing?.__sourceEndpoint ?? primaryEndpoint)
+      const thingDatastreams = Array.isArray(thing?.Datastreams)
+        ? thing.Datastreams
+        : []
+      for (const datastream of thingDatastreams) {
+        if (!datastream?.Network) continue
+        addNetwork(
+          datastream.Network,
+          String(datastream?.__sourceEndpoint ?? sourceEndpoint)
+        )
+      }
+    }
+
+    return Array.from(byKey.values())
+  }, [localNetworks, localThings, primaryEndpoint])
 
   const [obsLoading, setObsLoading] = useState(false)
   const [obsError, setObsError] = useState<string | null>(null)
@@ -251,13 +438,14 @@ export default function Home({
           latitude={createFormState.latitude}
           longitude={createFormState.longitude}
           initialTab={createFormState.initialTab}
+          writableDataSources={writableDataSources}
           existingEntities={{
             things: localThings,
-            locations,
-            sensors,
-            observedProperties,
+            locations: locationsForForm,
+            sensors: localSensors,
+            observedProperties: localObservedProperties,
             datastreams,
-            networks,
+            networks: networksForForm,
           }}
           isOpen={!!createFormState}
           onClose={() => {
