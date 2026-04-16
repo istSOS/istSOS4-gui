@@ -18,18 +18,67 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
-import { BASEMAPS, siteConfig } from '@/config/site'
+import { BASEMAPS } from '@/config/site'
 
-import LayersControl, { ToggleItem } from './LayersControl'
+import LayersControl, { DataSourceLayerItem } from './LayersControl'
 import MapContextMenu from './MapContextMenu'
 import MapMenu from './MapMenu'
 
 import { createClusterGroup } from '../lib/leafletCluster'
-import { drawNetworkLayers, networkKey } from '../lib/leafletDraw'
+import {
+  UNSPECIFIED_NETWORK_KEY,
+  drawNetworkLayers,
+  networkKey,
+} from '../lib/leafletDraw'
 
 function getThingKey(thing: any) {
-  return String(thing?.['@iot.id'] ?? thing?.id ?? thing?.name ?? '')
+  const sourceKey = String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0')
+  const thingId = String(thing?.['@iot.id'] ?? thing?.id ?? thing?.name ?? '')
+  return `${sourceKey}::${thingId}`
+}
+
+function getThingSourceKey(thing: any) {
+  return String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0')
+}
+
+function getThingSourceLabel(thing: any) {
+  const sourceName = String(thing?.__sourceName ?? '').trim()
+  const sourceId = String(thing?.__sourceId ?? '').trim()
+  if (sourceName) {
+    return sourceName
+  }
+  return sourceId
+    ? `Data source ${sourceId}`
+    : `Data source ${getThingSourceKey(thing)}`
+}
+
+const OBSERVED_KEY_SEPARATOR = '||'
+
+function buildObservedPropertyKey(
+  sourceKey: string,
+  observedPropertyName: string
+) {
+  return `${sourceKey}${OBSERVED_KEY_SEPARATOR}${observedPropertyName.trim()}`
+}
+
+function parseObservedPropertyKey(key: string) {
+  const separatorIndex = key.indexOf(OBSERVED_KEY_SEPARATOR)
+  if (separatorIndex < 0) return { sourceKey: '0', observedPropertyName: key }
+
+  return {
+    sourceKey: key.slice(0, separatorIndex),
+    observedPropertyName: key.slice(
+      separatorIndex + OBSERVED_KEY_SEPARATOR.length
+    ),
+  }
+}
+
+type ObservedToggleItem = {
+  key: string
+  label?: string
+  enabled: boolean
 }
 
 export default function LeafletMap({
@@ -43,6 +92,7 @@ export default function LeafletMap({
   onThingSelect?: (thing: any) => void
   onCreateThingAt?: (point: { latitude: number; longitude: number }) => void
 }) {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const mapRef = useRef<any>(null)
@@ -60,12 +110,13 @@ export default function LeafletMap({
   const overlayWrappersRef = useRef<Map<string, any>>(new Map())
   const enabledRef = useRef<Map<string, boolean>>(new Map())
   const didInitVisibilityRef = useRef(false)
-  const [networksMeta, setNetworksMeta] = useState<ToggleItem[]>([])
 
   const observedOverlayRef = useRef<any>(null)
   const observedClusterRef = useRef<any>(null)
 
-  const [observedPropsMeta, setObservedPropsMeta] = useState<ToggleItem[]>([])
+  const [observedPropsMeta, setObservedPropsMeta] = useState<
+    ObservedToggleItem[]
+  >([])
   const observedEnabledRef = useRef<Map<string, boolean>>(new Map())
   const [thingEnabled, setThingEnabled] = useState<Record<string, boolean>>({})
   const [contextMenu, setContextMenu] = useState<{
@@ -96,20 +147,27 @@ export default function LeafletMap({
   }, [thingsArr])
 
   useEffect(() => {
-    const set = new Set<string>()
+    const keyToLabel = new Map<string, string>()
     for (const t of thingsArr) {
+      const sourceKey = getThingSourceKey(t)
       const dss = Array.isArray(t?.Datastreams) ? t.Datastreams : []
       for (const ds of dss) {
         const name = ds?.ObservedProperty?.name
-        if (typeof name === 'string' && name.trim()) set.add(name.trim())
+        if (typeof name !== 'string' || !name.trim()) continue
+
+        const observedKey = buildObservedPropertyKey(sourceKey, name)
+        keyToLabel.set(observedKey, name.trim())
       }
     }
-    const keys = Array.from(set).sort((a, b) => a.localeCompare(b))
+    const keys = Array.from(keyToLabel.keys()).sort((a, b) =>
+      a.localeCompare(b)
+    )
 
     setObservedPropsMeta((prev) => {
       const prevEnabled = new Map(prev.map((p) => [p.key, p.enabled] as const))
       const next = keys.map((k) => ({
         key: k,
+        label: keyToLabel.get(k),
         enabled: prevEnabled.get(k) ?? false,
       }))
       observedEnabledRef.current = new Map(next.map((p) => [p.key, p.enabled]))
@@ -179,21 +237,24 @@ export default function LeafletMap({
         return key ? thingEnabled[key] !== false : true
       },
 
-      selectedNetwork:
-        isObservedMode || !siteConfig.networkEnabled
-          ? undefined
-          : selectedNetwork,
+      selectedNetwork: isObservedMode ? undefined : selectedNetwork,
 
       networkLayers: networkLayersRef.current,
       overlayWrappersRef: { current: overlayWrappersRef.current },
       enabledRef,
       didInitVisibilityRef,
-      onNetworksMeta: setNetworksMeta,
 
       observedOverlay: observedOverlayRef.current,
       observedCluster: observedClusterRef.current,
       observedPropertyFilter: getActiveObservedProps(),
 
+      labels: {
+        unspecifiedNetwork: t('map.unspecified_network'),
+        sameLocation: t('map.same_location'),
+        dataSource: t('map.data_source'),
+        network: t('map.networks'),
+        things: t('map.things'),
+      },
       onThingSelect,
     })
   }
@@ -217,7 +278,7 @@ export default function LeafletMap({
       LRef.current = L
       proj4Ref.current = proj4
 
-      const map = L.map(el).setView([46.005, 8.956], 9)
+      const map = L.map(el).setView([46.005, 8.956], 10)
 
       const bm = BASEMAPS[basemap]
       tileLayerRef.current = L.tileLayer(bm.url, {
@@ -347,10 +408,11 @@ export default function LeafletMap({
     )
   }
 
-  const setAllNetworks = (nextEnabled: boolean) => {
+  const setSourceNetworks = (sourceKey: string, nextEnabled: boolean) => {
     setThingEnabled((prev) => {
       const next = { ...prev }
       for (const thing of thingsArr) {
+        if (getThingSourceKey(thing) !== sourceKey) continue
         const key = getThingKey(thing)
         if (!key) continue
         next[key] = nextEnabled
@@ -359,23 +421,50 @@ export default function LeafletMap({
     })
   }
 
-  const onToggleNetwork = (key: string, nextEnabled: boolean) => {
+  const setSourceObservedProps = (sourceKey: string, nextEnabled: boolean) => {
+    setObservedPropsMeta((prev) => {
+      const next = prev.map((item) => {
+        const parsed = parseObservedPropertyKey(item.key)
+        return parsed.sourceKey === sourceKey
+          ? { ...item, enabled: nextEnabled }
+          : item
+      })
+      observedEnabledRef.current = new Map(
+        next.map((item) => [item.key, item.enabled])
+      )
+      return next
+    })
+  }
+
+  const onToggleSource = (key: string, nextEnabled: boolean) => {
     if (nextEnabled && isObservedMode) {
       setAllObservedProps(false)
     }
 
-    if (!siteConfig.networkEnabled) {
-      setThingEnabled((prev) => ({
-        ...prev,
-        [key]: nextEnabled,
-      }))
-      return
+    if (!nextEnabled) {
+      setSourceObservedProps(key, false)
+    }
+
+    setSourceNetworks(key, nextEnabled)
+  }
+
+  const onToggleSourceNetwork = (
+    sourceKey: string,
+    networkKeyValue: string,
+    nextEnabled: boolean
+  ) => {
+    if (nextEnabled && isObservedMode) {
+      setAllObservedProps(false)
     }
 
     setThingEnabled((prev) => {
       const next = { ...prev }
       for (const thing of thingsArr) {
-        if (networkKey(thing?.Datastreams?.[0]?.Network?.name) !== key) continue
+        if (getThingSourceKey(thing) !== sourceKey) continue
+        const thingNetworkKey = networkKey(
+          thing?.Datastreams?.[0]?.Network?.name
+        )
+        if (thingNetworkKey !== networkKeyValue) continue
 
         const thingKey = getThingKey(thing)
         if (!thingKey) continue
@@ -385,32 +474,16 @@ export default function LeafletMap({
     })
   }
 
-  const onToggleAllNetworks = (nextEnabled: boolean) => {
-    if (nextEnabled && isObservedMode) {
-      setAllObservedProps(false)
-    }
-    setAllNetworks(nextEnabled)
-  }
-
-  const onToggleObservedProperty = (key: string, nextEnabled: boolean) => {
+  const onToggleObservedSource = (sourceKey: string, nextEnabled: boolean) => {
     if (nextEnabled) {
-      setAllNetworks(false)
+      setSourceNetworks(sourceKey, false)
     }
 
-    observedEnabledRef.current.set(key, nextEnabled)
-    setObservedPropsMeta((prev) =>
-      prev.map((it) => (it.key === key ? { ...it, enabled: nextEnabled } : it))
-    )
+    setSourceObservedProps(sourceKey, nextEnabled)
   }
 
-  const onToggleAllObservedProps = (nextEnabled: boolean) => {
-    if (nextEnabled) {
-      setAllNetworks(false)
-    }
-    setAllObservedProps(nextEnabled)
-  }
-
-  const onToggleNetworkThing = (
+  const onToggleSourceThing = (
+    _sourceKeyValue: string,
     _networkKeyValue: string,
     thingKey: string,
     nextEnabled: boolean
@@ -425,55 +498,161 @@ export default function LeafletMap({
     }))
   }
 
-  const networksForUI = networksMeta
-    .map((network) => {
-      const details: Array<{ key: string; label: string; enabled: boolean }> = []
+  const onToggleObservedPropertyDetail = (
+    sourceKey: string,
+    observedPropertyKey: string,
+    nextEnabled: boolean
+  ) => {
+    if (nextEnabled) {
+      setSourceNetworks(sourceKey, false)
+    }
 
-      for (const thing of thingsArr) {
-        const key = networkKey(thing?.Datastreams?.[0]?.Network?.name)
-        if (key !== network.key) continue
+    observedEnabledRef.current.set(observedPropertyKey, nextEnabled)
+    setObservedPropsMeta((prev) =>
+      prev.map((item) =>
+        item.key === observedPropertyKey
+          ? { ...item, enabled: nextEnabled }
+          : item
+      )
+    )
+  }
 
-        const thingKey = getThingKey(thing)
-        if (!thingKey) continue
+  const sourceLabelByKey = thingsArr.reduce<Map<string, string>>(
+    (acc, thing) => {
+      acc.set(getThingSourceKey(thing), getThingSourceLabel(thing))
+      return acc
+    },
+    new Map()
+  )
 
-        const label = String(thing?.name ?? '').trim() || 'Unnamed thing'
-        details.push({
-          key: thingKey,
-          label,
-          enabled: thingEnabled[thingKey] !== false,
-        })
+  const dataSourcesForUI = Array.from(
+    thingsArr.reduce<
+      Map<
+        string,
+        {
+          key: string
+          label: string
+          networks: Map<
+            string,
+            {
+              key: string
+              label: string
+              things: Array<{ key: string; label: string; enabled: boolean }>
+            }
+          >
+        }
+      >
+    >((acc, thing) => {
+      const sourceKey = getThingSourceKey(thing)
+      const sourceLabel = getThingSourceLabel(thing)
+      const thingKey = getThingKey(thing)
+      if (!thingKey) return acc
+
+      const sourceEntry = acc.get(sourceKey) ?? {
+        key: sourceKey,
+        label: sourceLabel,
+        networks: new Map(),
       }
 
-      details.sort((a, b) => a.label.localeCompare(b.label))
+      const thingLabel = String(thing?.name ?? '').trim() || 'Unnamed thing'
+      const thingNetworkKey = networkKey(thing?.Datastreams?.[0]?.Network?.name)
+      const thingNetworkLabel =
+        thingNetworkKey === UNSPECIFIED_NETWORK_KEY
+          ? t('map.unspecified_network')
+          : thingNetworkKey
 
-      return {
-        ...network,
-        enabled: details.length > 0 ? details.every((detail) => detail.enabled) : false,
-        details,
+      const networkEntry = sourceEntry.networks.get(thingNetworkKey) ?? {
+        key: thingNetworkKey,
+        label: thingNetworkLabel,
+        things: [],
       }
-    })
-    .sort((a, b) => a.key.localeCompare(b.key))
 
-  const thingsForUI: ToggleItem[] = thingsArr
-    .reduce<ToggleItem[]>((items, thing) => {
-      const key = getThingKey(thing)
-      if (!key) return items
-
-      items.push({
-        key,
-        label: String(thing?.name ?? '').trim() || 'Unnamed thing',
-        enabled: thingEnabled[key] !== false,
+      networkEntry.things.push({
+        key: thingKey,
+        label: thingLabel,
+        enabled: thingEnabled[thingKey] !== false,
       })
 
-      return items
-    }, [])
-    .sort((a, b) => a.label.localeCompare(b.label))
+      sourceEntry.networks.set(thingNetworkKey, networkEntry)
+      acc.set(sourceKey, sourceEntry)
+      return acc
+    }, new Map())
+  ).map(([, source]) => {
+    const networks = Array.from(source.networks.values())
+      .map((network) => {
+        const things = [...network.things].sort((a, b) =>
+          a.label.localeCompare(b.label)
+        )
+        return {
+          key: network.key,
+          label: network.label,
+          enabled:
+            things.length > 0 ? things.every((thing) => thing.enabled) : false,
+          things,
+        }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
 
-  const primaryItems = siteConfig.networkEnabled
-    ? networksForUI
-    : thingsForUI
+    return {
+      key: source.key,
+      label: source.label,
+      enabled:
+        networks.length > 0
+          ? networks.every((network) => network.enabled)
+          : false,
+      networks,
+      observedProperties: [],
+      observedEnabled: false,
+    } as DataSourceLayerItem
+  })
 
-  const networksTitle = siteConfig.networkEnabled ? 'Networks' : 'Things'
+  const dataSourcesByKey = new Map(
+    dataSourcesForUI.map((source) => [source.key, source])
+  )
+
+  for (const observedProperty of observedPropsMeta) {
+    const parsed = parseObservedPropertyKey(observedProperty.key)
+    const sourceLabel =
+      sourceLabelByKey.get(parsed.sourceKey) ??
+      `Data source ${parsed.sourceKey}`
+
+    const sourceEntry = dataSourcesByKey.get(parsed.sourceKey) ?? {
+      key: parsed.sourceKey,
+      label: sourceLabel,
+      enabled: false,
+      networks: [],
+      observedProperties: [],
+      observedEnabled: false,
+    }
+
+    sourceEntry.observedProperties.push({
+      key: observedProperty.key,
+      label: parsed.observedPropertyName,
+      enabled: observedProperty.enabled,
+    })
+
+    dataSourcesByKey.set(parsed.sourceKey, sourceEntry)
+  }
+
+  for (const source of dataSourcesByKey.values()) {
+    source.observedProperties = [...source.observedProperties].sort((a, b) =>
+      a.label.localeCompare(b.label)
+    )
+    const hasAnyObservedEnabled = source.observedProperties.some(
+      (property) => property.enabled
+    )
+    source.observedEnabled =
+      source.observedProperties.length > 0
+        ? source.observedProperties.every((property) => property.enabled)
+        : false
+    source.enabled =
+      hasAnyObservedEnabled ||
+      source.networks.some((network) => network.enabled)
+  }
+
+  const orderedDataSourcesForUI = Array.from(dataSourcesByKey.values()).sort(
+    (a, b) => a.label.localeCompare(b.label)
+  )
 
   return (
     <div className="relative w-full h-full">
@@ -486,7 +665,7 @@ export default function LeafletMap({
           onCenterHere={() => {
             mapRef.current?.setView(
               [contextMenu.latitude, contextMenu.longitude],
-              mapRef.current?.getZoom?.() ?? 9
+              mapRef.current?.getZoom?.() ?? 10
             )
             setContextMenu(null)
           }}
@@ -509,17 +688,13 @@ export default function LeafletMap({
       ) : null}
 
       <LayersControl
-        networks={primaryItems}
-        observedProps={observedPropsMeta}
-        networksTitle={networksTitle}
-        networksGrouped={siteConfig.networkEnabled}
-        onToggleNetwork={onToggleNetwork}
-        onToggleNetworkThing={onToggleNetworkThing}
-        onToggleObservedProperty={onToggleObservedProperty}
-        onToggleAllNetworks={onToggleAllNetworks}
-        onToggleAllObservedProps={onToggleAllObservedProps}
-        networksDisabled={false}
-        observedPropsDisabled={false}
+        title={t('data_sources.title')}
+        sources={orderedDataSourcesForUI}
+        onToggleSource={onToggleSource}
+        onToggleNetwork={onToggleSourceNetwork}
+        onToggleThing={onToggleSourceThing}
+        onToggleObservedGroup={onToggleObservedSource}
+        onToggleObservedProperty={onToggleObservedPropertyDetail}
       />
 
       <div className="absolute bottom-10 right-10 z-[2000]">

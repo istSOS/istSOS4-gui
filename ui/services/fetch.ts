@@ -11,17 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { siteConfig } from '@/config/site'
+import { getDataSourceToken } from '@/lib/dataSourceTokens'
+
+const resolveToken = (token?: string | null, endpoint?: string) => {
+  if (token) return token
+  if (!endpoint) return null
+  return getDataSourceToken(endpoint)
+}
 
 export function withAuthHeaders(
   token?: string | null,
-  headers: Record<string, string> = {}
+  headers: Record<string, string> = {},
+  endpoint?: string
 ) {
-  if (!siteConfig.authorizationEnabled || !token) return headers
+  const resolvedToken = resolveToken(token, endpoint)
+  if (!resolvedToken) return headers
 
   return {
     ...headers,
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${resolvedToken}`,
   }
 }
 
@@ -29,7 +37,7 @@ export const fetchData = async (endpoint: string, token?: string | null) => {
   try {
     const response = await fetch(endpoint, {
       method: 'GET',
-      headers: withAuthHeaders(token),
+      headers: withAuthHeaders(token, {}, endpoint),
     })
     if (!response.ok) {
       throw new Error(

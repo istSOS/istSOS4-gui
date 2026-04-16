@@ -19,6 +19,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
 import { decodeTokenPayload } from '@/lib/auth'
+import { removeDataSourceToken, setDataSourceToken } from '@/lib/dataSourceTokens'
 
 type AuthContextType = {
   token: string | null
@@ -70,7 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window !== 'undefined') {
       //take the token from local storage if it exists
       const storedToken = localStorage.getItem('token')
-      if (storedToken) setTokenState(storedToken)
+      if (storedToken) {
+        setTokenState(storedToken)
+        setDataSourceToken(siteConfig.api_root, storedToken)
+      }
       setLoading(false)
     }
   }, [])
@@ -85,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (newToken) {
       localStorage.setItem('token', newToken)
+      setDataSourceToken(siteConfig.api_root, newToken)
       const payload = decodeTokenPayload(newToken)
       const now = Math.floor(Date.now() / 1000)
       const maxAge =
@@ -99,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
     } else {
       localStorage.removeItem('token')
+      removeDataSourceToken(siteConfig.api_root)
       deleteCookie('token')
     }
   }

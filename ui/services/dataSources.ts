@@ -15,13 +15,17 @@
 // limitations under the License.
 import type { UiDataSource } from '@/types'
 
-import { dataSourcesConfig, isPrimaryDataSource } from '@/config/dataSources'
+import {
+  getPrimaryDataSource,
+  readDataSourcesConfigFile,
+} from '@/server/data-sources/config'
 
 type SourceToProbe = {
   id: string
   name: string
   apiRoot: string
   authorizationEnabled: boolean
+  networkEnabled: boolean
   isPrimary: boolean
   probeUrl: string
 }
@@ -38,12 +42,16 @@ const normalizeError = (value: unknown) => {
 export async function getDataSources(
   token?: string | null
 ): Promise<UiDataSource[]> {
-  const sources: SourceToProbe[] = dataSourcesConfig.map((source) => ({
+  const configuredSources = await readDataSourcesConfigFile()
+  const primaryDataSourceId = getPrimaryDataSource(configuredSources).id
+
+  const sources: SourceToProbe[] = configuredSources.map((source) => ({
     id: source.id,
     name: source.name,
     apiRoot: source.apiRoot,
     authorizationEnabled: source.authorizationEnabled,
-    isPrimary: isPrimaryDataSource(source.id),
+    networkEnabled: source.networkEnabled,
+    isPrimary: source.id === primaryDataSourceId,
     probeUrl: appendTopParam(`${source.apiRoot}/Things`),
   }))
 
@@ -72,6 +80,8 @@ export async function getDataSources(
             id: source.id,
             name: source.name,
             endpoint: source.apiRoot,
+            authorizationEnabled: source.authorizationEnabled,
+            networkEnabled: source.networkEnabled,
             status: 'offline',
             accessMode,
             error: `${response.status} ${response.statusText}`,
@@ -82,6 +92,8 @@ export async function getDataSources(
           id: source.id,
           name: source.name,
           endpoint: source.apiRoot,
+          authorizationEnabled: source.authorizationEnabled,
+          networkEnabled: source.networkEnabled,
           status: 'online',
           accessMode,
           error:
@@ -94,6 +106,8 @@ export async function getDataSources(
           id: source.id,
           name: source.name,
           endpoint: source.apiRoot,
+          authorizationEnabled: source.authorizationEnabled,
+          networkEnabled: source.networkEnabled,
           status: 'offline',
           accessMode,
           error: normalizeError(error),

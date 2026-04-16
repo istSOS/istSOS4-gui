@@ -30,10 +30,88 @@
     width: auto !important;
     height: auto !important;
     overflow: visible !important;
+    pointer-events: auto !important;
+    white-space: normal !important;
 }
 
 .leaflet-tooltip.thing-tooltip::before {
     display: none !important;
+}
+
+.thing-tooltip-card {
+    min-width: 220px;
+    max-width: 320px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+    padding: 6px;
+}
+
+.thing-tooltip-heading {
+    font-size: 11px;
+    font-weight: 600;
+    color: #334155;
+    padding: 2px 4px 6px;
+}
+
+.thing-tooltip-row {
+    display: block;
+    width: 100%;
+    border: none;
+    background: transparent;
+    text-align: left;
+    padding: 4px;
+    border-radius: 8px;
+    color: inherit;
+}
+
+.thing-tooltip-row + .thing-tooltip-row {
+    position: relative;
+    margin-top: 8px;
+    padding-top: 10px;
+}
+
+.thing-tooltip-row + .thing-tooltip-row::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: rgba(51, 65, 85, 0.4);
+}
+
+button.thing-tooltip-row {
+    cursor: pointer;
+}
+
+button.thing-tooltip-row:hover {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+.thing-tooltip-name {
+    font-size: 12px;
+    line-height: 1.2;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thing-tooltip-meta {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.thing-tooltip-meta-line + .thing-tooltip-meta-line {
+    margin-top: 2px;
 }
 
 .thing-value-icon {

@@ -2,14 +2,14 @@
   "sources": [
     {
       "id": "0",
-      "name": "SensorThings",
+      "name": "SensorThings1",
       "apiRoot": "http://api:5000/istsos4/v1.1",
       "authorizationEnabled": true,
       "networkEnabled": true
     },
     {
       "id": "1",
-      "name": "SensorThings",
+      "name": "SensorThings2",
       "apiRoot": "http://api2:5000/istsos4/v1.1",
       "authorizationEnabled": true,
       "networkEnabled": true

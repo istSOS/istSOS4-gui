@@ -22,239 +22,344 @@ import { useTranslation } from 'react-i18next'
 
 import { ChevronDownIcon } from '@/components/icons'
 
-const NETWORK_VISIBLE_THINGS = 3
-const NETWORK_SECTION_MAX_BODY_HEIGHT = 240
-const OBSERVED_SECTION_MAX_BODY_HEIGHT = 176
-
-export type ToggleItem = {
+export type ThingLayerItem = {
   key: string
-  label?: string
+  label: string
   enabled: boolean
-  color?: string
-  details?: Array<{
-    key: string
-    label: string
-    enabled: boolean
-  }>
 }
 
-function PillPreview({ color }: { color?: string }) {
-  if (!color) return null
+export type NetworkLayerItem = {
+  key: string
+  label: string
+  enabled: boolean
+  things: ThingLayerItem[]
+}
+
+export type ObservedPropertyLayerItem = {
+  key: string
+  label: string
+  enabled: boolean
+}
+
+export type DataSourceLayerItem = {
+  key: string
+  label: string
+  enabled: boolean
+  networks: NetworkLayerItem[]
+  observedProperties: ObservedPropertyLayerItem[]
+  observedEnabled: boolean
+}
+
+function ExpandButton({
+  expanded,
+  label,
+  onPress,
+}: {
+  expanded: boolean
+  label: string
+  onPress: () => void
+}) {
   return (
-    <span
-      className="inline-block w-3 h-3 rounded-full"
-      style={{ background: color }}
-    />
+    <Button
+      isIconOnly
+      size="sm"
+      variant="light"
+      aria-label={expanded ? `Collapse ${label}` : `Expand ${label}`}
+      onPress={onPress}
+      className="h-6 w-6 min-w-6"
+    >
+      <ChevronDownIcon
+        size={16}
+        className={
+          expanded ? 'rotate-180 transition-transform' : 'transition-transform'
+        }
+      />
+    </Button>
   )
 }
 
-function ScrollTable({
-  id,
-  title,
-  items,
-  disabled,
-  showDot,
-  onToggle,
-  onToggleDetail,
-  onToggleAll,
-  bodyMaxHeight,
+function SourceItem({
+  source,
+  onToggleSource,
+  onToggleNetwork,
+  onToggleThing,
+  onToggleObservedGroup,
+  onToggleObservedProperty,
 }: {
-  id: string
-  title: string
-  items: ToggleItem[]
-  disabled?: boolean
-  showDot?: boolean
-  onToggle: (key: string, nextEnabled: boolean) => void
-  onToggleDetail?: (
-    groupKey: string,
-    detailKey: string,
+  source: DataSourceLayerItem
+  onToggleSource: (sourceKey: string, nextEnabled: boolean) => void
+  onToggleNetwork: (
+    sourceKey: string,
+    networkKey: string,
     nextEnabled: boolean
   ) => void
-  onToggleAll: (nextEnabled: boolean) => void
-  bodyMaxHeight?: number
-}) {
-  const { t } = useTranslation()
-  const allEnabled = items.length > 0 && items.every((i) => i.enabled)
-  const [expanded, setExpanded] = useState(false)
-
-  return (
-    <div className={disabled ? 'opacity-60' : ''}>
-      <div className="rounded-md border border-default-200 overflow-hidden">
-        <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <Button
-              isIconOnly
-              size="sm"
-              variant="light"
-              aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}
-              onPress={() => setExpanded((value) => !value)}
-              className="h-6 w-6 min-w-6"
-            >
-              <ChevronDownIcon
-                size={16}
-                className={
-                  expanded
-                    ? 'rotate-180 transition-transform'
-                    : 'transition-transform'
-                }
-              />
-            </Button>
-
-            <div className="min-w-0 text-[10px] font-semibold">
-              {title} ({items.length})
-            </div>
-          </div>
-
-          <Checkbox
-            size="sm"
-            isSelected={allEnabled}
-            onValueChange={onToggleAll}
-            color="primary"
-            aria-label={`${title} all`}
-          />
-        </div>
-
-        {expanded ? (
-          <div
-            id={id}
-            className="overflow-x-hidden overflow-y-auto"
-            style={{
-              maxHeight: bodyMaxHeight,
-            }}
-          >
-            {items.map((it) => (
-              <div
-                key={it.key}
-                className="flex items-start justify-between gap-2 border-t border-default-200 px-2 py-1"
-              >
-                <div className="min-w-0 flex-1">
-                  {showDot ? (
-                    <NetworkGroup
-                      item={it}
-                      onToggle={onToggle}
-                      onToggleDetail={onToggleDetail}
-                    />
-                  ) : (
-                    <div className="text-xs truncate">
-                      {(it.label ?? it.key) === UNSPECIFIED_NETWORK_KEY
-                        ? t('map.unspecified_network')
-                        : it.label ?? it.key}
-                    </div>
-                  )}
-                </div>
-
-                {!showDot ? (
-                  <Checkbox
-                    size="sm"
-                    isSelected={it.enabled}
-                    isDisabled={false}
-                    onValueChange={(v) => onToggle(it.key, v)}
-                    color="primary"
-                    aria-label={
-                      (it.label ?? it.key) === UNSPECIFIED_NETWORK_KEY
-                        ? t('map.unspecified_network')
-                        : it.label ?? it.key
-                    }
-                  />
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
-
-function NetworkGroup({
-  item,
-  onToggle,
-  onToggleDetail,
-}: {
-  item: ToggleItem
-  onToggle: (key: string, nextEnabled: boolean) => void
-  onToggleDetail?: (
-    groupKey: string,
-    detailKey: string,
+  onToggleThing: (
+    sourceKey: string,
+    networkKey: string,
+    thingKey: string,
+    nextEnabled: boolean
+  ) => void
+  onToggleObservedGroup: (sourceKey: string, nextEnabled: boolean) => void
+  onToggleObservedProperty: (
+    sourceKey: string,
+    propertyKey: string,
     nextEnabled: boolean
   ) => void
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
-  const details = item.details ?? []
-  const title =
-    item.key === UNSPECIFIED_NETWORK_KEY
-      ? t('map.unspecified_network')
-      : item.key
-  const shouldScrollThings = details.length > NETWORK_VISIBLE_THINGS
+  const [networksExpanded, setNetworksExpanded] = useState(true)
+  const [expandedNetworks, setExpandedNetworks] = useState<
+    Record<string, boolean>
+  >({})
+  const [expandedThingsByNetwork, setExpandedThingsByNetwork] = useState<
+    Record<string, boolean>
+  >({})
+  const [observedExpanded, setObservedExpanded] = useState(false)
+  const networksEnabled =
+    source.networks.length > 0
+      ? source.networks.every((network) => network.enabled)
+      : false
 
   return (
     <div className="rounded-md border border-default-200 overflow-hidden">
       <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}
+        <div className="min-w-0 flex items-center gap-2">
+          <ExpandButton
+            expanded={expanded}
+            label={source.label}
             onPress={() => setExpanded((value) => !value)}
-            className="h-6 w-6 min-w-6"
-          >
-            <ChevronDownIcon
-              size={16}
-              className={
-                expanded
-                  ? 'rotate-180 transition-transform'
-                  : 'transition-transform'
-              }
-            />
-          </Button>
-
-          <PillPreview color={item.color} />
-
-          <span className="min-w-0 truncate text-[10px] font-semibold">
-            {title} - {t('map.things_count', { count: details.length })}
+          />
+          <span className="min-w-0 truncate text-xs font-semibold">
+            {source.label}
           </span>
         </div>
 
         <Checkbox
           size="sm"
-          isSelected={item.enabled}
-          onValueChange={(value) => onToggle(item.key, value)}
+          isSelected={source.enabled}
+          onValueChange={(value) => onToggleSource(source.key, value)}
           color="primary"
-          aria-label={title}
+          aria-label={source.label}
         />
       </div>
 
       {expanded ? (
-        <div
-          className="overflow-x-hidden"
-          style={{
-            maxHeight: shouldScrollThings
-              ? NETWORK_VISIBLE_THINGS * 29
-              : undefined,
-            overflowY: shouldScrollThings ? 'auto' : 'hidden',
-          }}
-        >
-          {details.map((detail, index) => (
-            <div
-              key={detail.key}
-              className={`flex items-center justify-between gap-2 px-2 py-1 ${
-                index > 0 ? 'border-t border-default-200' : ''
-              }`}
-            >
-              <span className="min-w-0 truncate text-xs">{detail.label}</span>
+        <div className="space-y-2 border-t border-default-200 p-2">
+          <div className="rounded-md border border-default-200 overflow-hidden">
+            <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex items-center gap-2">
+                <ExpandButton
+                  expanded={networksExpanded}
+                  label={t('map.networks')}
+                  onPress={() => setNetworksExpanded((value) => !value)}
+                />
+                <span className="min-w-0 truncate text-xs font-semibold">
+                  {t('map.networks')}
+                </span>
+              </div>
+
               <Checkbox
                 size="sm"
-                isSelected={detail.enabled}
+                isSelected={networksEnabled}
                 onValueChange={(value) =>
-                  onToggleDetail?.(item.key, detail.key, value)
+                  source.networks.forEach((network) =>
+                    onToggleNetwork(source.key, network.key, value)
+                  )
                 }
                 color="primary"
-                aria-label={detail.label}
               />
             </div>
-          ))}
+
+            {networksExpanded ? (
+              <div className="border-t border-default-200 space-y-1 p-1">
+                {source.networks.length === 0 ? (
+                  <div className="px-2 py-1 text-xs text-default-500">
+                    {t('data_sources.empty')}
+                  </div>
+                ) : (
+                  source.networks.map((network) => {
+                    const networkTitle =
+                      network.key === UNSPECIFIED_NETWORK_KEY
+                        ? t('map.unspecified_network')
+                        : network.label
+                    const networkGroupKey = `${source.key}::${network.key}`
+                    const isNetworkExpanded =
+                      expandedNetworks[networkGroupKey] ?? false
+                    const isThingsExpanded =
+                      expandedThingsByNetwork[networkGroupKey] ?? true
+
+                    return (
+                      <div
+                        key={`${source.key}-${network.key}`}
+                        className="rounded-md border border-default-200 overflow-hidden"
+                      >
+                        <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
+                          <div className="min-w-0 flex items-center gap-2">
+                            <ExpandButton
+                              expanded={isNetworkExpanded}
+                              label={networkTitle}
+                              onPress={() =>
+                                setExpandedNetworks((prev) => ({
+                                  ...prev,
+                                  [networkGroupKey]: !isNetworkExpanded,
+                                }))
+                              }
+                            />
+                            <span className="min-w-0 truncate text-xs">
+                              {networkTitle}
+                            </span>
+                          </div>
+
+                          <Checkbox
+                            size="sm"
+                            isSelected={network.enabled}
+                            onValueChange={(value) =>
+                              onToggleNetwork(source.key, network.key, value)
+                            }
+                            color="primary"
+                            aria-label={networkTitle}
+                          />
+                        </div>
+
+                        {isNetworkExpanded ? (
+                          <div className="border-t border-default-200 space-y-1 p-1">
+                            <div className="rounded-md border border-default-200 overflow-hidden">
+                              <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
+                                <div className="min-w-0 flex items-center gap-2">
+                                  <ExpandButton
+                                    expanded={isThingsExpanded}
+                                    label={t('map.things')}
+                                    onPress={() =>
+                                      setExpandedThingsByNetwork((prev) => ({
+                                        ...prev,
+                                        [networkGroupKey]: !isThingsExpanded,
+                                      }))
+                                    }
+                                  />
+                                  <span className="min-w-0 truncate text-xs font-semibold">
+                                    {t('map.things')}
+                                  </span>
+                                </div>
+
+                                <Checkbox
+                                  size="sm"
+                                  isSelected={network.enabled}
+                                  onValueChange={(value) =>
+                                    onToggleNetwork(
+                                      source.key,
+                                      network.key,
+                                      value
+                                    )
+                                  }
+                                  color="primary"
+                                  aria-label={t('map.things')}
+                                />
+                              </div>
+
+                              {isThingsExpanded ? (
+                                <div className="border-t border-default-200">
+                                  {network.things.map((thing, index) => (
+                                    <div
+                                      key={thing.key}
+                                      className={`px-2 py-1 flex items-center justify-between gap-2 ${
+                                        index > 0
+                                          ? 'border-t border-default-200'
+                                          : ''
+                                      }`}
+                                    >
+                                      <span className="min-w-0 truncate text-xs">
+                                        {thing.label}
+                                      </span>
+                                      <Checkbox
+                                        size="sm"
+                                        isSelected={thing.enabled}
+                                        onValueChange={(value) =>
+                                          onToggleThing(
+                                            source.key,
+                                            network.key,
+                                            thing.key,
+                                            value
+                                          )
+                                        }
+                                        color="primary"
+                                        aria-label={thing.label}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-md border border-default-200 overflow-hidden">
+            <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
+              <div className="min-w-0 flex items-center gap-2">
+                <ExpandButton
+                  expanded={observedExpanded}
+                  label={t('map.observed_properties')}
+                  onPress={() => setObservedExpanded((value) => !value)}
+                />
+                <span className="min-w-0 truncate text-xs font-semibold">
+                  {t('map.observed_properties')}
+                </span>
+              </div>
+
+              <Checkbox
+                size="sm"
+                isSelected={source.observedEnabled}
+                onValueChange={(value) =>
+                  onToggleObservedGroup(source.key, value)
+                }
+                color="primary"
+                aria-label={t('map.observed_properties')}
+              />
+            </div>
+
+            {observedExpanded ? (
+              <div className="border-t border-default-200">
+                {source.observedProperties.length === 0 ? (
+                  <div className="px-2 py-1 text-xs text-default-500">
+                    {t('data_sources.empty')}
+                  </div>
+                ) : (
+                  source.observedProperties.map((property, index) => (
+                    <div
+                      key={property.key}
+                      className={`px-2 py-1 flex items-center justify-between gap-2 ${
+                        index > 0 ? 'border-t border-default-200' : ''
+                      }`}
+                    >
+                      <span className="min-w-0 truncate text-xs">
+                        {property.label}
+                      </span>
+                      <Checkbox
+                        size="sm"
+                        isSelected={property.enabled}
+                        onValueChange={(value) =>
+                          onToggleObservedProperty(
+                            source.key,
+                            property.key,
+                            value
+                          )
+                        }
+                        color="primary"
+                        aria-label={property.label}
+                      />
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>
@@ -262,70 +367,66 @@ function NetworkGroup({
 }
 
 export default function LayersControl({
-  title = 'Layers',
-  networks,
-  observedProps,
-  networksTitle = 'Networks',
-  networksGrouped = true,
-
+  title = 'Data sources',
+  sources,
+  onToggleSource,
   onToggleNetwork,
-  onToggleNetworkThing,
+  onToggleThing,
+  onToggleObservedGroup,
   onToggleObservedProperty,
-  onToggleAllNetworks,
-  onToggleAllObservedProps,
 }: {
   title?: string
-  networks: ToggleItem[]
-  observedProps: ToggleItem[]
-  networksTitle?: string
-  networksGrouped?: boolean
-
-  networksDisabled?: boolean
-  observedPropsDisabled?: boolean
-
-  onToggleNetwork: (key: string, nextEnabled: boolean) => void
-  onToggleNetworkThing: (
+  sources: DataSourceLayerItem[]
+  onToggleSource: (sourceKey: string, nextEnabled: boolean) => void
+  onToggleNetwork: (
+    sourceKey: string,
+    networkKey: string,
+    nextEnabled: boolean
+  ) => void
+  onToggleThing: (
+    sourceKey: string,
     networkKey: string,
     thingKey: string,
     nextEnabled: boolean
   ) => void
-  onToggleObservedProperty: (key: string, nextEnabled: boolean) => void
-
-  onToggleAllNetworks: (nextEnabled: boolean) => void
-  onToggleAllObservedProps: (nextEnabled: boolean) => void
+  onToggleObservedGroup: (sourceKey: string, nextEnabled: boolean) => void
+  onToggleObservedProperty: (
+    sourceKey: string,
+    propertyKey: string,
+    nextEnabled: boolean
+  ) => void
 }) {
-  if (!networks.length && !observedProps.length) return null
+  const [expanded, setExpanded] = useState(true)
+
+  if (!sources.length) return null
 
   return (
     <div className="absolute inset-y-3 right-3 z-[2000] flex max-w-[calc(100vw-1.5rem)] items-start">
-      <Card className="max-h-full w-[320px] max-w-full overflow-hidden">
-        <div className="px-3 py-2 text-xs font-semibold">{title}</div>
-
-        <div className="space-y-4 px-3 py-2">
-          {networks.length ? (
-            <ScrollTable
-              id="networks-table"
-              title={networksTitle}
-              items={networks}
-              showDot={networksGrouped}
-              bodyMaxHeight={NETWORK_SECTION_MAX_BODY_HEIGHT}
-              onToggle={onToggleNetwork}
-              onToggleDetail={networksGrouped ? onToggleNetworkThing : undefined}
-              onToggleAll={onToggleAllNetworks}
-            />
-          ) : null}
-
-          {observedProps.length ? (
-            <ScrollTable
-              id="observed-table"
-              title="Observed properties"
-              items={observedProps}
-              bodyMaxHeight={OBSERVED_SECTION_MAX_BODY_HEIGHT}
-              onToggle={onToggleObservedProperty}
-              onToggleAll={onToggleAllObservedProps}
-            />
-          ) : null}
+      <Card className="max-h-full w-[360px] max-w-full overflow-hidden">
+        <div className="px-3 py-2 flex items-center gap-2">
+          <ExpandButton
+            expanded={expanded}
+            label={title}
+            onPress={() => setExpanded((value) => !value)}
+          />
+          <span className="text-xs font-semibold">{title}</span>
         </div>
+
+        {expanded ? (
+          <div className="space-y-2 overflow-y-auto px-3 py-2 border-t border-default-200">
+            {sources.map((source) => (
+              <SourceItem
+                key={source.key}
+                source={source}
+                onToggleSource={onToggleSource}
+                onToggleNetwork={onToggleNetwork}
+                onToggleThing={onToggleThing}
+                onToggleObservedGroup={onToggleObservedGroup}
+                onToggleObservedProperty={onToggleObservedProperty}
+              />
+            ))}
+          </div>
+        ) : null}
       </Card>
     </div>
   )

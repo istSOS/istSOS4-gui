@@ -15,16 +15,17 @@
 // limitations under the License.
 import DatastreamTable from '@/features/datastreams/components/DatastreamTable'
 import FormModal from '@/features/forms/components/FormModal'
-import LeafletMap from '@/features/map/components/LeafletMap'
 import ChartModal from '@/features/observations/components/ChartModal'
 import { getObservationsByDatastream } from '@/services/observations'
 import { Card } from '@heroui/card'
 import dayjs from 'dayjs'
+import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
+import { getAllDataSourceTokens, getDataSourceToken } from '@/lib/dataSourceTokens'
 
 type FormTabKey =
   | 'thing'
@@ -38,6 +39,21 @@ type CreateFormState = {
   longitude?: number
   initialTab?: FormTabKey
 }
+
+const LeafletMap = dynamic(() => import('@/features/map/components/LeafletMap'), {
+  ssr: false,
+})
+
+const getThingKey = (thing: any) => {
+  const sourceId = String(thing?.__sourceId ?? '0')
+  const thingId = String(thing?.['@iot.id'] ?? thing?.id ?? thing?.name ?? '')
+  return `${sourceId}::${thingId}`
+}
+
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
+const normalizedBasePath =
+  basePath === '/' ? '' : basePath.replace(/\/+$/, '')
+const mapThingsApiPath = `${normalizedBasePath}/api/data-sources/things`
 
 export default function Home({
   things,
@@ -63,6 +79,33 @@ export default function Home({
     setLocalThings(things)
   }, [things])
 
+  useEffect(() => {
+    let mounted = true
+
+    ;(async () => {
+      try {
+        const tokenMap = getAllDataSourceTokens()
+        const response = await fetch(mapThingsApiPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokens: tokenMap }),
+          cache: 'no-store',
+        })
+
+        if (!response.ok) return
+
+        const data = await response.json().catch(() => null)
+        if (!mounted || !Array.isArray(data?.things)) return
+
+        setLocalThings(data.things)
+      } catch {}
+    })()
+
+    return () => {
+      mounted = false
+    }
+  }, [token])
+
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
   const [createFormState, setCreateFormState] =
@@ -79,9 +122,7 @@ export default function Home({
   const selectedThing = useMemo(() => {
     if (!selectedThingId) return null
     return (
-      localThings.find(
-        (t) => String(t?.['@iot.id'] ?? t?.id ?? '') === selectedThingId
-      ) ?? null
+      localThings.find((thing) => getThingKey(thing) === selectedThingId) ?? null
     )
   }, [localThings, selectedThingId])
 
@@ -100,15 +141,13 @@ export default function Home({
   const loadObservations = async (
     datastreamId: string,
     phenomenonTime?: string,
-    range?: { start?: string | null; end?: string | null }
+    range?: { start?: string | null; end?: string | null },
+    sourceEndpoint?: string
   ) => {
-    if (siteConfig.authorizationEnabled && !token) {
-      setObsError('Missing token')
-      return
-    }
-
     let startIso = range?.start ?? null
     let endIso = range?.end ?? null
+    const resolvedEndpoint =
+      sourceEndpoint?.trim().replace(/\/+$/, '') ?? siteConfig.api_root
 
     if (!startIso || !endIso) {
       const [, endRaw] = phenomenonTime?.split('/') ?? []
@@ -119,7 +158,7 @@ export default function Home({
       startIso = start.toISOString()
     }
 
-    const cacheKey = `${datastreamId}|${startIso}|${endIso}`
+    const cacheKey = `${resolvedEndpoint}|${datastreamId}|${startIso}|${endIso}`
     const cached = obsCacheRef.current.get(cacheKey)
     if (cached) {
       setObservations(cached)
@@ -131,11 +170,13 @@ export default function Home({
     setObsLoading(true)
     setObsError(null)
     try {
+      const sourceToken = getDataSourceToken(resolvedEndpoint)
       const { observationData } = await getObservationsByDatastream(
-        token ?? undefined,
+        sourceToken ?? token ?? undefined,
         datastreamId,
         startIso ?? undefined,
-        endIso ?? undefined
+        endIso ?? undefined,
+        resolvedEndpoint
       )
       obsCacheRef.current.set(cacheKey, observationData)
       setObservations(observationData)
@@ -153,12 +194,15 @@ export default function Home({
     setSelectedDatastream(ds)
 
     const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
+    const sourceEndpoint = String(
+      ds?.__sourceEndpoint ?? selectedThing?.__sourceEndpoint ?? siteConfig.api_root
+    )
     if (!dsId) {
       setObsError('Missing datastream id')
       setObservations([])
       return
     }
-    await loadObservations(dsId, ds.phenomenonTime)
+    await loadObservations(dsId, ds.phenomenonTime, undefined, sourceEndpoint)
   }
 
   const applyObservationRange = async (
@@ -170,10 +214,16 @@ export default function Home({
     )
     if (!dsId) return
 
+    const sourceEndpoint = String(
+      selectedDatastream?.__sourceEndpoint ??
+        selectedThing?.__sourceEndpoint ??
+        siteConfig.api_root
+    )
+
     await loadObservations(dsId, selectedDatastream?.phenomenonTime, {
       start,
       end,
-    })
+    }, sourceEndpoint)
   }
 
   return (
@@ -182,7 +232,7 @@ export default function Home({
         things={localThings}
         selectedNetwork={selectedNetwork}
         onThingSelect={(thing) => {
-          setSelectedThingId(String(thing?.['@iot.id'] ?? thing?.id ?? ''))
+          setSelectedThingId(getThingKey(thing))
           setSelectedDatastream(null)
           setObservations([])
           setObsError(null)

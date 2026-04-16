@@ -102,7 +102,7 @@ function Strip({
             type="button"
             onClick={() => onChange(k)}
             className={[
-              'shrink-0 rounded-xl overflow-hidden focus:outline-none',
+              'shrink-0 rounded-xl overflow-hidden focus:outline-none cursor-pointer',
               k === active
                 ? 'ring-2 ring-[var(--color-primary)]'
                 : 'ring-1 ring-white/15 hover:ring-white/35',
@@ -143,7 +143,7 @@ export default function MapMenuHorizontal({
       <PopoverTrigger>
         <button
           type="button"
-          className="rounded-xl overflow-hidden focus:outline-none bg-black/25 backdrop-blur ring-2 ring-[var(--color-primary)]"
+          className="rounded-xl overflow-hidden focus:outline-none bg-black/25 backdrop-blur ring-2 ring-[var(--color-primary)] cursor-pointer"
           aria-label="Select basemap"
         >
           <Thumb k={active} />

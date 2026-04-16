@@ -21,21 +21,23 @@ export async function getObservationsByDatastream(
   token: string | null | undefined,
   datastreamId: string,
   start?: string,
-  end?: string
+  end?: string,
+  apiRoot?: string
 ) {
   const values: any[] = []
+  const baseRoot = (apiRoot ?? siteConfig.api_root).trim().replace(/\/+$/, '')
 
   const filters: string[] = []
   if (end) filters.push(`phenomenonTime le ${end}`)
   if (start) filters.push(`phenomenonTime ge ${start}`)
 
   let url =
-    `${siteConfig.api_root}/Datastreams(${datastreamId})/Observations` +
+    `${baseRoot}/Datastreams(${datastreamId})/Observations` +
     '?$orderby=phenomenonTime desc' +
     (filters.length ? `&$filter=${filters.join(' and ')}` : '') +
     '&$top=1440'
 
-  const apiBase = new URL(siteConfig.api_root)
+  const apiBase = new URL(baseRoot)
 
   while (url) {
     const data = await fetchData(url, token)
@@ -52,7 +54,7 @@ export async function getObservationsByDatastream(
       const parsed = new URL(nextLink)
       url = `${apiBase.origin}${parsed.pathname}${parsed.search}`
     } else {
-      url = new URL(nextLink, siteConfig.api_root).toString()
+      url = new URL(nextLink, baseRoot).toString()
     }
   }
 

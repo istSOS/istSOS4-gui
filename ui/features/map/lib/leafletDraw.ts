@@ -11,12 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import React from 'react'
-import { type Root, createRoot } from 'react-dom/client'
-
 import { createClusterGroup } from './leafletCluster'
-
-import Tooltip from '../components/Tooltip'
 
 const EPSG_2056 =
   '+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333333333 +k_0=1 +x_0=2600000 +y_0=1200000 +ellps=bessel +units=m +no_defs'
@@ -33,8 +28,23 @@ const PALETTE = [
   '#f59e0b',
   '#14b8a6',
 ]
+const TOOLTIP_VERTICAL_OFFSET = -14
 
 export const UNSPECIFIED_NETWORK_KEY = '__unspecified__'
+
+type TooltipLabels = {
+  unspecifiedNetwork: string
+  sameLocation: string
+  dataSource: string
+  network: string
+  things: string
+}
+
+type TooltipRow = {
+  source: string
+  name: string
+  network: string
+}
 
 export function networkKey(name: any) {
   return String(name ?? '').trim() || UNSPECIFIED_NETWORK_KEY
@@ -64,6 +74,92 @@ function buildNetworkColorMap(keys: string[]) {
   return colorMap
 }
 
+function thingSourceKey(thing: any) {
+  return String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0')
+}
+
+function thingSourceLabel(thing: any) {
+  const sourceName = String(thing?.__sourceName ?? '').trim()
+  const sourceId = String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0').trim()
+
+  if (sourceName) {
+    return sourceName
+  }
+
+  return sourceId || '0'
+}
+
+function thingDisplayName(thing: any) {
+  return String(thing?.name ?? '').trim() || 'Unnamed thing'
+}
+
+function resolveTooltipLabels(labels?: TooltipLabels): TooltipLabels {
+  return {
+    unspecifiedNetwork: labels?.unspecifiedNetwork ?? 'Unspecified',
+    sameLocation: labels?.sameLocation ?? 'Same location',
+    dataSource: labels?.dataSource ?? 'Data source',
+    network: labels?.network ?? 'Network',
+    things: labels?.things ?? 'Things',
+  }
+}
+
+function buildTooltipMount(
+  rows: TooltipRow[],
+  labels?: TooltipLabels,
+  options?: {
+    heading?: string
+    showSource?: boolean
+  }
+) {
+  const t = resolveTooltipLabels(labels)
+  const showSource = options?.showSource ?? false
+
+  const mount = document.createElement('div')
+  mount.className = 'thing-tooltip-card'
+
+  if (options?.heading) {
+    const heading = document.createElement('div')
+    heading.className = 'thing-tooltip-heading'
+    heading.textContent = options.heading
+    mount.appendChild(heading)
+  }
+
+  for (const rowData of rows) {
+    const networkLabel =
+      rowData.network === UNSPECIFIED_NETWORK_KEY || !rowData.network
+        ? t.unspecifiedNetwork
+        : rowData.network
+
+    const row = document.createElement('div')
+    row.className = 'thing-tooltip-row'
+
+    const title = document.createElement('div')
+    title.className = 'thing-tooltip-name'
+    title.textContent = rowData.name
+
+    const details = document.createElement('div')
+    details.className = 'thing-tooltip-meta'
+
+    if (showSource) {
+      const sourceLine = document.createElement('div')
+      sourceLine.className = 'thing-tooltip-meta-line'
+      sourceLine.textContent = `${t.dataSource}: ${rowData.source}`
+      details.appendChild(sourceLine)
+    }
+
+    const networkLine = document.createElement('div')
+    networkLine.className = 'thing-tooltip-meta-line'
+    networkLine.textContent = `${t.network}: ${networkLabel}`
+    details.appendChild(networkLine)
+
+    row.appendChild(title)
+    row.appendChild(details)
+    mount.appendChild(row)
+  }
+
+  return mount
+}
+
 function bindSelectThing(
   layer: any,
   thing: any,
@@ -77,46 +173,38 @@ function bindSelectThing(
   })
 }
 
-function bindHeroTooltip(layer: any, thing: any) {
-  const name = String(thing?.name ?? '').trim()
+function bindHeroTooltip(
+  layer: any,
+  thing: any,
+  options?: {
+    labels?: TooltipLabels
+  }
+) {
+  const name = thingDisplayName(thing)
   if (!name) return
 
-  const network = String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim()
-
-  const mount = document.createElement('div')
-  mount.style.display = 'inline-block'
-  mount.style.minWidth = '160px'
-
-  let root: Root | null = null
+  const mount = buildTooltipMount(
+    [
+      {
+        source: thingSourceLabel(thing),
+        name,
+        network: String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim(),
+      },
+    ],
+    options?.labels,
+    {
+      showSource: true,
+    }
+  )
 
   layer.bindTooltip(mount, {
-    sticky: true,
+    sticky: false,
+    interactive: false,
     direction: 'top',
+    offset: [0, TOOLTIP_VERTICAL_OFFSET],
     opacity: 1,
     className: 'thing-tooltip',
   })
-
-  const render = () => {
-    if (!root) root = createRoot(mount)
-    root.render(
-      React.createElement(Tooltip, {
-        name,
-        network: network,
-      })
-    )
-  }
-
-  const unmount = () => {
-    try {
-      root?.unmount()
-    } catch {}
-    root = null
-    mount.innerHTML = ''
-  }
-
-  layer.on('tooltipopen', render)
-  layer.on('tooltipclose', unmount)
-  layer.on('remove', unmount)
 }
 
 function makeTextMarker(L: any, latlng: [number, number], text: string) {
@@ -197,6 +285,7 @@ export function drawNetworkLayers(args: {
   observedCluster: any
   observedPropertyFilter?: Set<string>
 
+  labels?: TooltipLabels
   onThingSelect?: (thing: any) => void
 }) {
   const {
@@ -216,6 +305,7 @@ export function drawNetworkLayers(args: {
     observedCluster,
     observedPropertyFilter,
 
+    labels,
     onThingSelect,
   } = args
 
@@ -234,7 +324,6 @@ export function drawNetworkLayers(args: {
 
   if (isObservedMode) {
     for (const thing of things) {
-      if (isThingVisible && !isThingVisible(thing)) continue
       const geom = thing?.Locations?.[0]?.location
       if (!geom) continue
 
@@ -276,7 +365,11 @@ export function drawNetworkLayers(args: {
       for (const ds of dss) {
         const opName = ds?.ObservedProperty?.name
         if (typeof opName !== 'string') continue
-        if (!observedPropertyFilter!.has(opName)) continue
+        const sourceKey = String(
+          ds?.__sourceId ?? thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0'
+        )
+        const observedPropertyKey = `${sourceKey}||${opName.trim()}`
+        if (!observedPropertyFilter!.has(observedPropertyKey)) continue
 
         const text = valueTextForDatastream(ds)
         if (!text) continue
@@ -320,7 +413,55 @@ export function drawNetworkLayers(args: {
     cluster.on('clusterclick', (e: any) => {
       e.originalEvent?.preventDefault?.()
       e.originalEvent?.stopPropagation?.()
+      e.layer?.closeTooltip?.()
+      e.layer?.unbindTooltip?.()
       e.layer?.spiderfy?.()
+    })
+
+    cluster.on('clustermouseover', (e: any) => {
+      const clusterLayer = e.layer
+      const childMarkers = clusterLayer?.getAllChildMarkers?.() ?? []
+      const dedup = new Map<string, TooltipRow>()
+
+      for (const child of childMarkers) {
+        const row = (child as any)?.__tooltipRow as TooltipRow | undefined
+        if (!row) continue
+
+        const key = `${row.source}::${row.name}::${row.network}`
+        if (!dedup.has(key)) dedup.set(key, row)
+      }
+
+      if (!dedup.size) return
+
+      const rows = Array.from(dedup.values()).sort((a, b) => {
+        const sourceCompare = a.source.localeCompare(b.source)
+        if (sourceCompare !== 0) return sourceCompare
+        return a.name.localeCompare(b.name)
+      })
+
+      const resolvedLabels = resolveTooltipLabels(labels)
+      const showSource =
+        rows.length === 1 || new Set(rows.map((row) => row.source)).size > 1
+      const mount = buildTooltipMount(rows, resolvedLabels, {
+        showSource,
+      })
+
+      clusterLayer.unbindTooltip?.()
+      clusterLayer.bindTooltip(mount, {
+        sticky: false,
+        interactive: false,
+        direction: 'top',
+        offset: [0, TOOLTIP_VERTICAL_OFFSET],
+        opacity: 1,
+        className: 'thing-tooltip',
+      })
+      clusterLayer.openTooltip?.()
+    })
+
+    cluster.on('clustermouseout', (e: any) => {
+      const clusterLayer = e.layer
+      clusterLayer.closeTooltip?.()
+      clusterLayer.unbindTooltip?.()
     })
 
     networkLayers.set(netKey, { cluster, vectors })
@@ -385,7 +526,13 @@ export function drawNetworkLayers(args: {
         weight: 2,
       })
 
-      bindHeroTooltip(m, thing)
+      ;(m as any).__tooltipRow = {
+        source: thingSourceLabel(thing),
+        name: thingDisplayName(thing),
+        network: String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim(),
+      } as TooltipRow
+
+      bindHeroTooltip(m, thing, { labels })
       bindSelectThing(m, thing, onThingSelect)
       grp.cluster.addLayer(m)
       continue
@@ -404,7 +551,7 @@ export function drawNetworkLayers(args: {
         opacity: 0.8,
       })
 
-      bindHeroTooltip(l, thing)
+      bindHeroTooltip(l, thing, { labels })
       bindSelectThing(l, thing, onThingSelect)
       grp.vectors.addLayer(l)
       continue
@@ -427,7 +574,7 @@ export function drawNetworkLayers(args: {
         fillOpacity: 0.25,
       })
 
-      bindHeroTooltip(p, thing)
+      bindHeroTooltip(p, thing, { labels })
       bindSelectThing(p, thing, onThingSelect)
       grp.vectors.addLayer(p)
       continue

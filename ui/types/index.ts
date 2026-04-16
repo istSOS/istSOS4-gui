@@ -39,6 +39,8 @@ export type UiDataSource = {
   id: string
   name: string
   endpoint: string
+  authorizationEnabled: boolean
+  networkEnabled: boolean
   status: DataSourceStatus
   accessMode: DataSourceAccessMode
   error: string | null
