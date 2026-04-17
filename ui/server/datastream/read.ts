@@ -19,6 +19,7 @@ import { siteConfig } from '@/config/site'
 
 export async function getDatastreams(token: string) {
   const values: any[] = []
+  const apiBaseUrl = new URL(siteConfig.api_root)
 
   let url =
     `${siteConfig.api_root}` +
@@ -31,11 +32,15 @@ export async function getDatastreams(token: string) {
     values.push(...(data?.value ?? []))
 
     const nextLink: string | undefined = data?.['@iot.nextLink']
-    url = nextLink
-      ? nextLink.startsWith('http')
-        ? `${siteConfig.api_root}/${nextLink.split('/').at(-1)}`
-        : nextLink
-      : undefined
+    if (nextLink) {
+      const parsedNextLink = new URL(nextLink, apiBaseUrl)
+      url = new URL(
+        `${parsedNextLink.pathname}${parsedNextLink.search}`,
+        apiBaseUrl
+      ).toString()
+    } else {
+      url = undefined
+    }
   }
 
   return { datastreamData: values }
