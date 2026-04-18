@@ -24,9 +24,11 @@
     "next": "Avanti",
     "finish": "Conferma",
     "no_data": "Nessun dato disponibile.",
+    "select_datastream": "Seleziona un datastream per visualizzare il grafico",
+    "loading": "Caricamento...",
     "reset": "Reset"
   },
-    "wizard": {
+  "wizard": {
     "title": "Crea entità SensorThings",
     "subtitle": "Scegli se creare una sola entità o costruire un setup guidato di entità associate.",
     "single_mode": "Entità singola",
