@@ -26,9 +26,11 @@
     "no_data": "Nessun dato disponibile.",
     "reset": "Reset"
   },
-    "wizard": {
+  "wizard": {
     "title": "Crea entità SensorThings",
     "subtitle": "Scegli se creare una sola entità o costruire un setup guidato di entità associate.",
+    "edit_title": "Aggiorna entità SensorThings",
+    "edit_subtitle": "Scegli l'entità collegata che vuoi aggiornare nel data source selezionato.",
     "single_mode": "Entità singola",
     "single_mode_description": "Crea una Thing, Location, Sensor, Observed Property o Datastream alla volta.",
     "associated_mode": "Entità associate",
@@ -94,6 +96,7 @@
   "map": {
     "unspecified_network": "Non specificata",
     "networks": "Networks",
+    "network": "Network",
     "things": "Things",
     "observed_properties": "Proprietà osservate",
     "same_location": "Stessa posizione",

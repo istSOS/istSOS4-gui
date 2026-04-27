@@ -20,6 +20,19 @@ export type CreateDatastreamPayload = {
   commitMessage?: string
 }
 
+export type UpdateDatastreamPayload = {
+  name: string
+  description?: string
+  observationType: string
+  Thing?: { '@iot.id': number | string }
+  Sensor?: { '@iot.id': number | string }
+  ObservedProperty?: { '@iot.id': number | string }
+  Network?: { '@iot.id': number | string }
+  unitOfMeasurement?: Record<string, string>
+  properties?: Record<string, string>
+  commitMessage?: string
+}
+
 export async function getDatastreams(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
@@ -84,6 +97,48 @@ export async function createDatastream(
     return text ? JSON.parse(text) : true
   } catch (error) {
     console.error('Error creating Datastream:', error)
+    return null
+  }
+}
+
+export async function updateDatastream(
+  datastreamId: string | number,
+  payload: UpdateDatastreamPayload,
+  token?: string | null,
+  apiRoot?: string
+) {
+  try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
+    const id = String(datastreamId).trim()
+    if (!id) return null
+
+    const { commitMessage, ...datastreamPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    }, resolvedApiRoot)
+
+    if (commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(`${resolvedApiRoot}/Datastreams(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(datastreamPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Datastream failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Datastream:', error)
     return null
   }
 }

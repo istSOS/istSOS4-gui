@@ -35,9 +35,14 @@ type FormTabKey =
   | 'datastream'
 
 type CreateFormState = {
+  mode: 'create' | 'edit'
   latitude?: number
   longitude?: number
   initialTab?: FormTabKey
+  initialSingleDraft?: Record<string, any>
+  initialSingleDataSourceEndpoint?: string
+  lockedSingleEntity?: FormTabKey
+  editTargets?: Partial<Record<FormTabKey, string>>
 }
 
 type WritableDataSourceOption = {
@@ -63,6 +68,34 @@ const normalizedBasePath =
   basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const mapThingsApiPath = `${normalizedBasePath}/api/data-sources/things`
 const normalizeEndpoint = (value: string) => value.trim().replace(/\/+$/, '')
+const toKeyValueItems = (value: any) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+
+  return Object.entries(value)
+    .filter(([key]) => String(key).trim().length > 0)
+    .map(([key, entryValue]) => ({
+      key: String(key),
+      value: String(entryValue ?? ''),
+    }))
+}
+const toEntityId = (value: any) =>
+  String(value?.['@iot.id'] ?? value?.id ?? '').trim()
+const toLocationValue = (value: any) => {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+
+  const coordinates = Array.isArray(value?.coordinates) ? value.coordinates : null
+  if (
+    coordinates &&
+    coordinates.length >= 2 &&
+    Number.isFinite(Number(coordinates[0])) &&
+    Number.isFinite(Number(coordinates[1]))
+  ) {
+    return `${Number(coordinates[0]).toFixed(2)}, ${Number(coordinates[1]).toFixed(2)}`
+  }
+
+  return ''
+}
 
 export default function Home({
   things,
@@ -426,6 +459,7 @@ export default function Home({
         }}
         onCreateThingAt={(point) => {
           setCreateFormState({
+            mode: 'create',
             latitude: point.latitude,
             longitude: point.longitude,
             initialTab: 'thing',
@@ -434,10 +468,16 @@ export default function Home({
       />
       {createFormState ? (
         <FormModal
-          operation="create"
+          operation={createFormState.mode}
           latitude={createFormState.latitude}
           longitude={createFormState.longitude}
           initialTab={createFormState.initialTab}
+          initialSingleDraft={createFormState.initialSingleDraft}
+          initialSingleDataSourceEndpoint={
+            createFormState.initialSingleDataSourceEndpoint
+          }
+          lockedSingleEntity={createFormState.lockedSingleEntity}
+          editTargets={createFormState.editTargets}
           writableDataSources={writableDataSources}
           existingEntities={{
             things: localThings,
@@ -484,10 +524,106 @@ export default function Home({
                 onClose={closePanel}
                 onCreateDatastream={() => {
                   setCreateFormState({
+                    mode: 'create',
                     initialTab: 'datastream',
                   })
                 }}
                 onOpenDetails={openChartForDatastream}
+                onEditDatastream={(datastream) => {
+                  const datastreamId = toEntityId(datastream)
+                  if (!datastreamId) return
+
+                  const sourceEndpoint = normalizeEndpoint(
+                    String(
+                      datastream?.__sourceEndpoint ??
+                        selectedThing?.__sourceEndpoint ??
+                      siteConfig.api_root
+                    )
+                  )
+                  const selectedThingLocation = Array.isArray(
+                    selectedThing?.Locations
+                  )
+                    ? selectedThing.Locations[0]
+                    : null
+                  const thingId = toEntityId(selectedThing)
+                  const locationId = toEntityId(selectedThingLocation)
+                  const sensorId = toEntityId(datastream?.Sensor)
+                  const observedPropertyId = toEntityId(
+                    datastream?.ObservedProperty
+                  )
+                  const networkId = toEntityId(datastream?.Network)
+
+                  const datastreamDraft = {
+                    name: String(datastream?.name ?? ''),
+                    description: String(datastream?.description ?? ''),
+                    observationType: String(datastream?.observationType ?? ''),
+                    thingId,
+                    sensorId,
+                    observedPropertyId,
+                    networkId,
+                    unitOfMeasurement: toKeyValueItems(
+                      datastream?.unitOfMeasurement
+                    ),
+                    properties: toKeyValueItems(datastream?.properties),
+                  }
+                  const thingDraft = {
+                    name: String(selectedThing?.name ?? ''),
+                    description: String(selectedThing?.description ?? ''),
+                    locationId,
+                    properties: toKeyValueItems(selectedThing?.properties),
+                  }
+                  const locationDraft = {
+                    name: String(selectedThingLocation?.name ?? ''),
+                    description: String(selectedThingLocation?.description ?? ''),
+                    encodingType: String(
+                      selectedThingLocation?.encodingType ?? 'application/geo+json'
+                    ),
+                    location: toLocationValue(selectedThingLocation?.location),
+                    properties: toKeyValueItems(selectedThingLocation?.properties),
+                  }
+                  const sensorDraft = {
+                    name: String(datastream?.Sensor?.name ?? ''),
+                    description: String(datastream?.Sensor?.description ?? ''),
+                    encodingType: String(datastream?.Sensor?.encodingType ?? ''),
+                    metadata: String(datastream?.Sensor?.metadata ?? ''),
+                    properties: toKeyValueItems(datastream?.Sensor?.properties),
+                  }
+                  const observedPropertyDraft = {
+                    name: String(datastream?.ObservedProperty?.name ?? ''),
+                    definition: String(
+                      datastream?.ObservedProperty?.definition ?? ''
+                    ),
+                    description: String(
+                      datastream?.ObservedProperty?.description ?? ''
+                    ),
+                    properties: toKeyValueItems(
+                      datastream?.ObservedProperty?.properties
+                    ),
+                  }
+                  const editTargets: Partial<Record<FormTabKey, string>> = {
+                    datastream: datastreamId,
+                    ...(thingId ? { thing: thingId } : {}),
+                    ...(locationId ? { location: locationId } : {}),
+                    ...(sensorId ? { sensor: sensorId } : {}),
+                    ...(observedPropertyId
+                      ? { observedProperty: observedPropertyId }
+                      : {}),
+                  }
+
+                  setCreateFormState({
+                    mode: 'edit',
+                    initialTab: 'datastream',
+                    initialSingleDataSourceEndpoint: sourceEndpoint,
+                    initialSingleDraft: {
+                      thing: thingDraft,
+                      location: locationDraft,
+                      sensor: sensorDraft,
+                      observedProperty: observedPropertyDraft,
+                      datastream: datastreamDraft,
+                    },
+                    editTargets,
+                  })
+                }}
               />
             </div>
           </Card>

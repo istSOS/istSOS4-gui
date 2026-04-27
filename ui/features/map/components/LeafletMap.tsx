@@ -26,9 +26,13 @@ import LayersControl, { DataSourceLayerItem } from './LayersControl'
 import MapContextMenu from './MapContextMenu'
 import MapMenu from './MapMenu'
 
-import { createClusterGroup } from '../lib/leafletCluster'
+import {
+  createClusterGroup,
+  showClusterHullPreview,
+} from '../lib/leafletCluster'
 import {
   UNSPECIFIED_NETWORK_KEY,
+  buildSourceColorMapWithOverrides,
   drawNetworkLayers,
   networkKey,
 } from '../lib/leafletDraw'
@@ -104,9 +108,9 @@ export default function LeafletMap({
   const tileLayerRef = useRef<any>(null)
   const [basemap, setBasemap] = useState<BasemapKey>('pixelGray')
 
-  const networkLayersRef = useRef<Map<string, { cluster: any; vectors: any }>>(
-    new Map()
-  )
+  const networkLayersRef = useRef<
+    Map<string, { cluster: any; vectors: any; color: string }>
+  >(new Map())
   const overlayWrappersRef = useRef<Map<string, any>>(new Map())
   const enabledRef = useRef<Map<string, boolean>>(new Map())
   const didInitVisibilityRef = useRef(false)
@@ -119,6 +123,9 @@ export default function LeafletMap({
   >([])
   const observedEnabledRef = useRef<Map<string, boolean>>(new Map())
   const [thingEnabled, setThingEnabled] = useState<Record<string, boolean>>({})
+  const [sourceColorByKey, setSourceColorByKey] = useState<
+    Record<string, string>
+  >({})
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
@@ -244,15 +251,15 @@ export default function LeafletMap({
       enabledRef,
       didInitVisibilityRef,
 
-      observedOverlay: observedOverlayRef.current,
       observedCluster: observedClusterRef.current,
       observedPropertyFilter: getActiveObservedProps(),
+      sourceColorByKey,
 
       labels: {
         unspecifiedNetwork: t('map.unspecified_network'),
         sameLocation: t('map.same_location'),
         dataSource: t('map.data_source'),
-        network: t('map.networks'),
+        network: t('map.network'),
         things: t('map.things'),
       },
       onThingSelect,
@@ -278,28 +285,96 @@ export default function LeafletMap({
       LRef.current = L
       proj4Ref.current = proj4
 
-      const map = L.map(el).setView([46.005, 8.956], 10)
-      if (!map.getPane('thing-points-pane')) {
-        const thingPointsPane = map.createPane('thing-points-pane')
-        thingPointsPane.style.zIndex = '650'
-      }
-
       const bm = BASEMAPS[basemap]
+      const map = L.map(el, {
+        minZoom: bm.minZoom,
+        maxZoom: bm.maxZoom,
+        maxBounds: bm.bounds,
+        maxBoundsViscosity: 1.0,
+      }).setView([46.005, 8.956], 10)
       tileLayerRef.current = L.tileLayer(bm.url, {
         attribution: bm.attribution,
+        minZoom: bm.minZoom,
+        maxZoom: bm.maxZoom,
+        bounds: bm.bounds,
+        noWrap: true,
       })
       tileLayerRef.current.addTo(map)
 
       observedOverlayRef.current = L.layerGroup()
       observedClusterRef.current = createClusterGroup({
         L,
-        color: '#ff0000',
+        color: (cluster: any) => {
+          const children = cluster?.getAllChildMarkers?.() ?? []
+          const counts = new Map<string, number>()
+
+          for (const child of children) {
+            const c = String((child as any)?.__sourceColor ?? '').trim()
+            if (!c) continue
+            counts.set(c, (counts.get(c) ?? 0) + 1)
+          }
+
+          let bestColor = '#ff0000'
+          let bestCount = 0
+          for (const [c, count] of counts.entries()) {
+            if (count > bestCount) {
+              bestColor = c
+              bestCount = count
+            }
+          }
+          return bestColor
+        },
+        borderColor: (cluster: any) => {
+          const children = cluster?.getAllChildMarkers?.() ?? []
+          let hasFresh = false
+          let hasStale = false
+          let hasUnknown = false
+
+          for (const child of children) {
+            const status = String(
+              (child as any)?.__freshnessStatus ?? ''
+            ).trim()
+            if (status === 'fresh') hasFresh = true
+            else if (status === 'stale') hasStale = true
+            else if (status === 'mixed') {
+              hasFresh = true
+              hasStale = true
+            } else hasUnknown = true
+          }
+
+          if (hasFresh && hasStale) return '#f59e0b'
+          if (hasStale) return '#dc2626'
+          if (hasFresh && hasUnknown) return '#f59e0b'
+          if (hasFresh) return '#16a34a'
+          return '#64748b'
+        },
         options: { spiderfyDistanceMultiplier: 2.6 },
       })
 
       observedClusterRef.current.on('clusterclick', (e: any) => {
         e.originalEvent?.preventDefault?.()
         e.originalEvent?.stopPropagation?.()
+        const children = e.layer?.getAllChildMarkers?.() ?? []
+        const counts = new Map<string, number>()
+        for (const child of children) {
+          const c = String((child as any)?.__sourceColor ?? '').trim()
+          if (!c) continue
+          counts.set(c, (counts.get(c) ?? 0) + 1)
+        }
+        let previewColor = '#ff0000'
+        let bestCount = 0
+        for (const [c, count] of counts.entries()) {
+          if (count > bestCount) {
+            previewColor = c
+            bestCount = count
+          }
+        }
+        showClusterHullPreview({
+          L,
+          map,
+          clusterLayer: e.layer,
+          color: previewColor,
+        })
         e.layer?.spiderfy?.()
       })
 
@@ -363,6 +438,18 @@ export default function LeafletMap({
       } catch {}
       tileLayerRef.current = null
 
+      const mapState = mapRef.current as any
+      if (mapState?.__clusterHullPreviewTimer) {
+        clearTimeout(mapState.__clusterHullPreviewTimer)
+        mapState.__clusterHullPreviewTimer = null
+      }
+      if (mapState?.__clusterHullPreviewLayer) {
+        try {
+          mapRef.current?.removeLayer?.(mapState.__clusterHullPreviewLayer)
+        } catch {}
+        mapState.__clusterHullPreviewLayer = null
+      }
+
       try {
         mapRef.current?.off?.()
         mapRef.current?.stop?.()
@@ -379,7 +466,7 @@ export default function LeafletMap({
 
   useEffect(() => {
     redraw()
-  }, [thingsArr, selectedNetwork, thingEnabled])
+  }, [thingsArr, selectedNetwork, thingEnabled, sourceColorByKey])
 
   useEffect(() => {
     redraw()
@@ -395,11 +482,28 @@ export default function LeafletMap({
     if (!map || !L) return
 
     const bm = BASEMAPS[basemap]
+    map.setMinZoom(bm.minZoom)
+    map.setMaxZoom(bm.maxZoom)
+    map.setMaxBounds(bm.bounds)
+    map.panInsideBounds(bm.bounds, { animate: false })
+
+    if (map.getZoom() < bm.minZoom) {
+      map.setZoom(bm.minZoom)
+    }
+    if (map.getZoom() > bm.maxZoom) {
+      map.setZoom(bm.maxZoom)
+    }
     try {
       if (tileLayerRef.current) map.removeLayer(tileLayerRef.current)
     } catch {}
 
-    tileLayerRef.current = L.tileLayer(bm.url, { attribution: bm.attribution })
+    tileLayerRef.current = L.tileLayer(bm.url, {
+      attribution: bm.attribution,
+      minZoom: bm.minZoom,
+      maxZoom: bm.maxZoom,
+      bounds: bm.bounds,
+      noWrap: true,
+    })
     tileLayerRef.current.addTo(map)
   }, [basemap])
 
@@ -521,6 +625,13 @@ export default function LeafletMap({
     )
   }
 
+  const onChangeSourceColor = (sourceKey: string, color: string) => {
+    setSourceColorByKey((prev) => ({
+      ...prev,
+      [sourceKey]: color,
+    }))
+  }
+
   const sourceLabelByKey = thingsArr.reduce<Map<string, string>>(
     (acc, thing) => {
       acc.set(getThingSourceKey(thing), getThingSourceLabel(thing))
@@ -528,6 +639,13 @@ export default function LeafletMap({
     },
     new Map()
   )
+
+  const resolvedSourceColorByKey = useMemo(() => {
+    const sourceKeys = Array.from(
+      new Set(thingsArr.map((thing) => getThingSourceKey(thing)))
+    )
+    return buildSourceColorMapWithOverrides(sourceKeys, sourceColorByKey)
+  }, [thingsArr, sourceColorByKey])
 
   const dataSourcesForUI = Array.from(
     thingsArr.reduce<
@@ -600,6 +718,7 @@ export default function LeafletMap({
     return {
       key: source.key,
       label: source.label,
+      color: resolvedSourceColorByKey.get(source.key),
       enabled:
         networks.length > 0
           ? networks.every((network) => network.enabled)
@@ -623,6 +742,7 @@ export default function LeafletMap({
     const sourceEntry = dataSourcesByKey.get(parsed.sourceKey) ?? {
       key: parsed.sourceKey,
       label: sourceLabel,
+      color: resolvedSourceColorByKey.get(parsed.sourceKey),
       enabled: false,
       networks: [],
       observedProperties: [],
@@ -695,6 +815,7 @@ export default function LeafletMap({
         title={t('data_sources.title')}
         sources={orderedDataSourcesForUI}
         onToggleSource={onToggleSource}
+        onSourceColorChange={onChangeSourceColor}
         onToggleNetwork={onToggleSourceNetwork}
         onToggleThing={onToggleSourceThing}
         onToggleObservedGroup={onToggleObservedSource}

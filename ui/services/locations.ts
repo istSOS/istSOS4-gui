@@ -21,6 +21,20 @@ export type CreateLocationPayload = {
   commitMessage?: string
 }
 
+export type UpdateLocationPayload = {
+  name: string
+  description?: string
+  encodingType: string
+  location:
+    | string
+    | {
+        type: 'Point'
+        coordinates: [number, number]
+      }
+  properties?: Record<string, string>
+  commitMessage?: string
+}
+
 export async function getLocations(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
@@ -56,9 +70,13 @@ export async function createLocation(
   try {
     const resolvedApiRoot = resolveApiRoot(apiRoot)
     const { commitMessage, ...locationPayload } = payload
-    const headers = withAuthHeaders(token, {
-      'Content-Type': 'application/json',
-    }, resolvedApiRoot)
+    const headers = withAuthHeaders(
+      token,
+      {
+        'Content-Type': 'application/json',
+      },
+      resolvedApiRoot
+    )
 
     if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
@@ -82,6 +100,52 @@ export async function createLocation(
     return text ? JSON.parse(text) : true
   } catch (error) {
     console.error('Error creating Location:', error)
+    return null
+  }
+}
+
+export async function updateLocation(
+  locationId: string | number,
+  payload: UpdateLocationPayload,
+  token?: string | null,
+  apiRoot?: string
+) {
+  try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
+    const id = String(locationId).trim()
+    if (!id) return null
+
+    const { commitMessage, ...locationPayload } = payload
+    const headers = withAuthHeaders(
+      token,
+      {
+        'Content-Type': 'application/json',
+      },
+      resolvedApiRoot
+    )
+
+    if (commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(`${resolvedApiRoot}/Locations(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(locationPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Location failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Location:', error)
     return null
   }
 }

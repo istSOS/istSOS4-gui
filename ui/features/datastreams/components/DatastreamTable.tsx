@@ -33,7 +33,7 @@ import {
   CloseIcon,
   DeleteIcon,
   EditIcon,
-  PlusIcon,
+  LocationIcon,
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
 
@@ -98,6 +98,7 @@ type Props = {
   onClose: () => void
   onCreateDatastream?: () => void
   onOpenDetails?: (datastream: any) => void
+  onEditDatastream?: (datastream: any) => void
 }
 
 export default function DatastreamTable({
@@ -105,6 +106,7 @@ export default function DatastreamTable({
   onClose,
   onCreateDatastream,
   onOpenDetails,
+  onEditDatastream,
 }: Props) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? i18n.language
@@ -208,7 +210,11 @@ export default function DatastreamTable({
           onOpenDetails(item)
         }
       }
-      const handleEdit = () => console.log('Edit datastream:', item)
+      const handleEdit = () => {
+        if (onEditDatastream) {
+          onEditDatastream(item)
+        }
+      }
       const handleDelete = () => console.log('Delete datastream:', item)
 
       switch (columnKey) {
@@ -266,7 +272,6 @@ export default function DatastreamTable({
                 <Button
                   isIconOnly
                   className="h-6 w-6 min-w-6"
-                  radius="none"
                   size="sm"
                   variant="light"
                   color="primary"
@@ -279,7 +284,6 @@ export default function DatastreamTable({
                 <Button
                   isIconOnly
                   className="h-6 w-6 min-w-6"
-                  radius="none"
                   size="sm"
                   variant="light"
                   color="primary"
@@ -292,7 +296,6 @@ export default function DatastreamTable({
                 <Button
                   isIconOnly
                   className="h-6 w-6 min-w-6"
-                  radius="none"
                   size="sm"
                   variant="light"
                   color="danger"
@@ -308,7 +311,7 @@ export default function DatastreamTable({
           return <span>{''}</span>
       }
     },
-    [lang]
+    [lang, onEditDatastream, onOpenDetails]
   )
 
   if (!thing) return null
@@ -350,7 +353,7 @@ export default function DatastreamTable({
           topRight={
             <div className="flex gap-2">
               <Button
-                endContent={<PlusIcon size={18} />}
+                startContent={<LocationIcon size={18} />}
                 size="sm"
                 color="primary"
                 onPress={onCreateDatastream}

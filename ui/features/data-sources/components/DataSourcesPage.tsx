@@ -38,6 +38,7 @@ import {
   EditIcon,
   MapIcon,
 } from '@/components/icons'
+
 import {
   removeDataSourceToken,
   setDataSourceToken,
@@ -59,13 +60,11 @@ type LoginFormState = {
   password: string
 }
 
-type EditorState =
-  | {
-      mode: 'create' | 'edit'
-      sourceId?: string
-      previousEndpoint?: string
-    }
-  | null
+type EditorState = {
+  mode: 'create' | 'edit'
+  sourceId?: string
+  previousEndpoint?: string
+} | null
 
 type PendingAuthenticatedSave = {
   mode: 'create' | 'edit'
@@ -104,7 +103,10 @@ type DataSourceInspectResponse =
       errorCode: string
     }
 
-type DataSourceInspectFailure = Extract<DataSourceInspectResponse, { ok: false }>
+type DataSourceInspectFailure = Extract<
+  DataSourceInspectResponse,
+  { ok: false }
+>
 
 type DataSourceConfigSource = {
   id: string
@@ -127,8 +129,7 @@ type DataSourceConfigResponse =
 const normalizeApiRoot = (value: string) => value.trim().replace(/\/+$/, '')
 const normalizeSourceName = (value: string) => value.trim().toLowerCase()
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
-const normalizedBasePath =
-  basePath === '/' ? '' : basePath.replace(/\/+$/, '')
+const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
 const configApiPath = `${normalizedBasePath}/api/data-sources/config`
 
@@ -151,7 +152,9 @@ const toEditableDataSource = (source: UiDataSource): EditableDataSource => {
   }
 }
 
-const withDerivedAccessMode = (sources: UiDataSource[]): EditableDataSource[] => {
+const withDerivedAccessMode = (
+  sources: UiDataSource[]
+): EditableDataSource[] => {
   return sources.map(
     (source): EditableDataSource => toEditableDataSource(source)
   )
@@ -180,12 +183,12 @@ async function inspectDataSource(
       cache: 'no-store',
     })
 
-    const data = await response
-      .json()
-      .catch((): DataSourceInspectResponse => ({
+    const data = await response.json().catch(
+      (): DataSourceInspectResponse => ({
         ok: false,
         errorCode: 'validation_probe_failed',
-      }))
+      })
+    )
 
     if (typeof data !== 'object' || data === null || !('ok' in data)) {
       return { ok: false, errorCode: 'validation_probe_failed' }
@@ -201,7 +204,9 @@ const isInspectFailure = (
   result: DataSourceInspectResponse
 ): result is DataSourceInspectFailure => result.ok === false
 
-const toConfigSource = (source: EditableDataSource): DataSourceConfigSource => ({
+const toConfigSource = (
+  source: EditableDataSource
+): DataSourceConfigSource => ({
   id: source.id,
   name: source.name,
   apiRoot: normalizeApiRoot(source.endpoint),
@@ -222,12 +227,12 @@ async function persistSourcesConfiguration(
       cache: 'no-store',
     })
 
-    const data = await response
-      .json()
-      .catch((): DataSourceConfigResponse => ({
+    const data = await response.json().catch(
+      (): DataSourceConfigResponse => ({
         ok: false,
         errorCode: 'validation_config_write_failed',
-      }))
+      })
+    )
 
     if (!response.ok) {
       return {
@@ -535,7 +540,9 @@ export default function DataSourcesPage({
     }
   }
 
-  const handleDatasourceLogin = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleDatasourceLogin = async (
+    event: React.FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault()
 
     if (!pendingAuthenticatedSave || isLoginSaving) return
@@ -574,7 +581,10 @@ export default function DataSourcesPage({
       }
 
       if (inspection.accessToken) {
-        setDataSourceToken(pendingAuthenticatedSave.endpoint, inspection.accessToken)
+        setDataSourceToken(
+          pendingAuthenticatedSave.endpoint,
+          inspection.accessToken
+        )
       }
 
       await persistSource(
@@ -653,12 +663,16 @@ export default function DataSourcesPage({
           </div>
         </div>
 
-        {pageError ? <p className="mb-4 text-sm text-danger">{pageError}</p> : null}
+        {pageError ? (
+          <p className="mb-4 text-sm text-danger">{pageError}</p>
+        ) : null}
 
         {sources.length === 0 ? (
           <Card className="bg-white">
             <CardBody>
-              <p className="text-sm text-slate-600">{t('data_sources.empty')}</p>
+              <p className="text-sm text-slate-600">
+                {t('data_sources.empty')}
+              </p>
             </CardBody>
           </Card>
         ) : (
@@ -667,11 +681,13 @@ export default function DataSourcesPage({
               <Card key={source.id} className="bg-white">
                 <CardHeader className="flex items-start justify-between gap-3">
                   <div className="flex flex-col">
-                    <p className="text-lg font-semibold text-slate-900">{source.name}</p>
+                    <p className="text-lg font-semibold text-slate-900">
+                      {source.name}
+                    </p>
                     <p className="text-xs text-slate-500">{source.endpoint}</p>
                   </div>
                   <div className="flex items-center justify-center gap-1">
-                    <Tooltip color="primary" offset={-5} content={t('general.edit')}>
+                    <Tooltip color="primary" content={t('general.edit')}>
                       <Button
                         isIconOnly
                         className="h-6 w-6 min-w-6"
@@ -683,7 +699,7 @@ export default function DataSourcesPage({
                         <EditIcon size={18} />
                       </Button>
                     </Tooltip>
-                    <Tooltip color="danger" offset={-5} content={t('general.delete')}>
+                    <Tooltip color="danger" content={t('general.delete')}>
                       <Button
                         isIconOnly
                         className="h-6 w-6 min-w-6"
@@ -700,7 +716,9 @@ export default function DataSourcesPage({
                 <CardBody className="pt-0">
                   <div className="mb-2 flex flex-row items-center gap-2">
                     <Chip
-                      color={source.authorizationEnabled ? 'primary' : 'default'}
+                      color={
+                        source.authorizationEnabled ? 'primary' : 'default'
+                      }
                       variant="flat"
                     >
                       {source.authorizationEnabled
@@ -720,8 +738,12 @@ export default function DataSourcesPage({
                   <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
                     {source.error ? (
                       <>
-                        <span className="font-medium text-slate-600">{t('data_sources.error')}</span>
-                        <span className="break-words text-slate-900">{source.error}</span>
+                        <span className="font-medium text-slate-600">
+                          {t('data_sources.error')}
+                        </span>
+                        <span className="break-words text-slate-900">
+                          {source.error}
+                        </span>
                       </>
                     ) : null}
                   </div>
@@ -754,7 +776,9 @@ export default function DataSourcesPage({
                 }
                 isInvalid={submitted && !form.name.trim()}
                 errorMessage={
-                  submitted && !form.name.trim() ? t('data_sources.validation_required') : ''
+                  submitted && !form.name.trim()
+                    ? t('data_sources.validation_required')
+                    : ''
                 }
               />
 
@@ -786,14 +810,18 @@ export default function DataSourcesPage({
                 {t('data_sources.anonymous')}
               </Switch>
 
-              {formError ? <p className="text-danger text-sm">{formError}</p> : null}
+              {formError ? (
+                <p className="text-danger text-sm">{formError}</p>
+              ) : null}
             </ModalBody>
             <ModalFooter>
               <Button variant="light" onPress={closeEditor}>
                 {t('general.cancel')}
               </Button>
               <Button type="submit" color="primary" isLoading={isSaving}>
-                {editor?.mode === 'create' ? t('general.create') : t('general.save')}
+                {editor?.mode === 'create'
+                  ? t('general.create')
+                  : t('general.save')}
               </Button>
             </ModalFooter>
           </form>
@@ -839,7 +867,9 @@ export default function DataSourcesPage({
                 isInvalid={loginSubmitted && !loginForm.password.trim()}
               />
 
-              {loginError ? <p className="text-danger text-sm">{loginError}</p> : null}
+              {loginError ? (
+                <p className="text-danger text-sm">{loginError}</p>
+              ) : null}
             </ModalBody>
             <ModalFooter>
               <Button variant="light" onPress={closeLoginForm}>

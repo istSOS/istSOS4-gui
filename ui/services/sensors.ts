@@ -16,6 +16,15 @@ export type CreateSensorPayload = {
   commitMessage?: string
 }
 
+export type UpdateSensorPayload = {
+  name: string
+  description?: string
+  encodingType: string
+  metadata: string
+  properties?: Record<string, string>
+  commitMessage?: string
+}
+
 export async function getSensors(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
@@ -77,6 +86,48 @@ export async function createSensor(
     return text ? JSON.parse(text) : true
   } catch (error) {
     console.error('Error creating Sensor:', error)
+    return null
+  }
+}
+
+export async function updateSensor(
+  sensorId: string | number,
+  payload: UpdateSensorPayload,
+  token?: string | null,
+  apiRoot?: string
+) {
+  try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
+    const id = String(sensorId).trim()
+    if (!id) return null
+
+    const { commitMessage, ...sensorPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    }, resolvedApiRoot)
+
+    if (commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(`${resolvedApiRoot}/Sensors(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(sensorPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Sensor failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Sensor:', error)
     return null
   }
 }

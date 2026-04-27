@@ -11,13 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { createClusterGroup } from './leafletCluster'
+import {
+  createClusterGroup,
+  createThingMarkerIcon,
+  showClusterHullPreview,
+} from './leafletCluster'
+import dayjs from 'dayjs'
+import duration from 'dayjs/plugin/duration'
+import utc from 'dayjs/plugin/utc'
+
+dayjs.extend(duration)
+dayjs.extend(utc)
 
 const EPSG_2056 =
   '+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333333333 +k_0=1 +x_0=2600000 +y_0=1200000 +ellps=bessel +units=m +no_defs'
 const WGS84 = '+proj=longlat +datum=WGS84 +no_defs'
 
-const PALETTE = [
+export const SOURCE_COLOR_PALETTE = [
   '#2563eb',
   '#16a34a',
   '#f97316',
@@ -29,7 +39,6 @@ const PALETTE = [
   '#14b8a6',
 ]
 const TOOLTIP_VERTICAL_OFFSET = -14
-const THING_POINT_PANE = 'thing-points-pane'
 
 export const UNSPECIFIED_NETWORK_KEY = '__unspecified__'
 
@@ -47,32 +56,41 @@ type TooltipRow = {
   network: string
 }
 
+type FreshnessStatus = 'fresh' | 'stale' | 'mixed' | 'unknown'
+
+const FRESHNESS_BORDER_COLOR: Record<FreshnessStatus, string> = {
+  fresh: '#16a34a',
+  stale: '#dc2626',
+  mixed: '#f59e0b',
+  unknown: '#64748b',
+}
+
 export function networkKey(name: any) {
   return String(name ?? '').trim() || UNSPECIFIED_NETWORK_KEY
 }
 
-function buildNetworkColorMap(keys: string[]) {
-  const sortedKeys = [...keys].sort((a, b) => {
-    if (a === UNSPECIFIED_NETWORK_KEY) return 1
-    if (b === UNSPECIFIED_NETWORK_KEY) return -1
-    return a.localeCompare(b)
-  })
-
-  const availableColors = PALETTE.filter((color) => color !== '#f59e0b')
+export function buildSourceColorMapWithOverrides(
+  keys: string[],
+  overrides?: Record<string, string>
+) {
+  const sortedKeys = [...keys].sort((a, b) => a.localeCompare(b))
   const colorMap = new Map<string, string>()
-  let nextColorIndex = 0
-
-  for (const key of sortedKeys) {
-    if (key === UNSPECIFIED_NETWORK_KEY) {
-      colorMap.set(key, '#f59e0b')
-      continue
-    }
-
-    colorMap.set(key, availableColors[nextColorIndex % availableColors.length])
-    nextColorIndex += 1
+  for (const [index, key] of sortedKeys.entries()) {
+    colorMap.set(key, SOURCE_COLOR_PALETTE[index % SOURCE_COLOR_PALETTE.length])
   }
 
+  if (!overrides) return colorMap
+
+  for (const key of sortedKeys) {
+    const override = overrides[key]
+    if (typeof override !== 'string' || !override.trim()) continue
+    colorMap.set(key, override)
+  }
   return colorMap
+}
+
+function groupKeyFor(sourceKey: string, netKey: string) {
+  return `${sourceKey}||${netKey}`
 }
 
 function thingSourceKey(thing: any) {
@@ -194,7 +212,7 @@ function bindHeroTooltip(
     ],
     options?.labels,
     {
-      showSource: true,
+      showSource: false,
     }
   )
 
@@ -206,23 +224,6 @@ function bindHeroTooltip(
     opacity: 1,
     className: 'thing-tooltip',
   })
-}
-
-function makeTextMarker(L: any, latlng: [number, number], text: string) {
-  const html = `<div class="thing-value-wrap"><span class="thing-value-text">${escapeHtml(
-    text
-  )}</span></div>`
-
-  const icon = L.divIcon({
-    className: 'thing-value-icon',
-    html,
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
-  })
-
-  const m = L.marker(latlng, { icon, interactive: true })
-  m.setZIndexOffset?.(1000)
-  return m
 }
 
 function escapeHtml(s: string) {
@@ -266,6 +267,71 @@ function valueTextForDatastream(ds: any): string | null {
   return uom ? `${v} ${uom}` : v
 }
 
+function parsePhenomenonEndRaw(phenomenonTime?: string | null) {
+  if (!phenomenonTime) return undefined
+  const [, endRaw] = phenomenonTime.split('/')
+  return endRaw
+}
+
+function isoDurationToMs(iso?: string) {
+  if (!iso) return 0
+  const ms = dayjs.duration(iso).asMilliseconds()
+  return Number.isFinite(ms) && ms > 0 ? ms : 0
+}
+
+function datastreamFreshness(ds: any): 'fresh' | 'stale' | 'unknown' {
+  const hasObservations = Array.isArray(ds?.Observations)
+    ? ds.Observations.length > 0
+    : false
+  if (!hasObservations) return 'unknown'
+
+  const endRaw = parsePhenomenonEndRaw(ds?.phenomenonTime)
+  if (!endRaw) return 'unknown'
+
+  const endMs = dayjs.utc(endRaw).valueOf()
+  if (!Number.isFinite(endMs)) return 'unknown'
+
+  const thresholdMs = isoDurationToMs(ds?.properties?.acquisitionFrequency) * 2
+  if (thresholdMs <= 0) return 'unknown'
+
+  return Date.now() - endMs < thresholdMs ? 'fresh' : 'stale'
+}
+
+function thingFreshnessStatus(thing: any): FreshnessStatus {
+  const dss = Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
+  const statuses = dss
+    .map((ds: any) => datastreamFreshness(ds))
+    .filter((status) => status !== 'unknown') as Array<'fresh' | 'stale'>
+
+  if (!statuses.length) return 'unknown'
+  if (statuses.every((status) => status === 'fresh')) return 'fresh'
+  if (statuses.every((status) => status === 'stale')) return 'stale'
+  return 'mixed'
+}
+
+function clusterFreshnessStatus(clusterLayer: any): FreshnessStatus {
+  const childMarkers = clusterLayer?.getAllChildMarkers?.() ?? []
+  let hasFresh = false
+  let hasStale = false
+  let hasUnknown = false
+
+  for (const marker of childMarkers) {
+    const status = (marker as any)?.__freshnessStatus as FreshnessStatus | undefined
+    if (status === 'fresh') hasFresh = true
+    else if (status === 'stale') hasStale = true
+    else if (status === 'mixed') {
+      hasFresh = true
+      hasStale = true
+    } else hasUnknown = true
+  }
+
+  if (hasFresh && hasStale) return 'mixed'
+  if (hasStale) return 'stale'
+  if (hasFresh && hasUnknown) return 'mixed'
+  if (hasFresh) return 'fresh'
+  return 'unknown'
+}
+
 export function drawNetworkLayers(args: {
   L: any
   proj4: any
@@ -274,17 +340,14 @@ export function drawNetworkLayers(args: {
   isThingVisible?: (thing: any) => boolean
   selectedNetwork?: string
 
-  networkLayers: Map<string, { cluster: any; vectors: any }>
+  networkLayers: Map<string, { cluster: any; vectors: any; color: string }>
   overlayWrappersRef: { current: Map<string, any> }
   enabledRef: { current: Map<string, boolean> }
   didInitVisibilityRef: { current: boolean }
-  onNetworksMeta?: (
-    items: Array<{ key: string; color: string; enabled: boolean }>
-  ) => void
 
-  observedOverlay: any
   observedCluster: any
   observedPropertyFilter?: Set<string>
+  sourceColorByKey?: Record<string, string>
 
   labels?: TooltipLabels
   onThingSelect?: (thing: any) => void
@@ -301,10 +364,10 @@ export function drawNetworkLayers(args: {
     overlayWrappersRef,
     enabledRef,
     didInitVisibilityRef,
-    onNetworksMeta,
 
     observedCluster,
     observedPropertyFilter,
+    sourceColorByKey,
 
     labels,
     onThingSelect,
@@ -318,11 +381,24 @@ export function drawNetworkLayers(args: {
 
   const isObservedMode =
     !!observedPropertyFilter && observedPropertyFilter.size > 0
-  const hasThingPointPane = !!map?.getPane?.(THING_POINT_PANE)
-
   try {
     observedCluster?.clearLayers?.()
   } catch {}
+
+  const sourceKeys = new Set<string>()
+  for (const thing of things) sourceKeys.add(thingSourceKey(thing))
+  const sourceColorMap = buildSourceColorMapWithOverrides(
+    Array.from(sourceKeys),
+    sourceColorByKey
+  )
+  const markerIconByColor = new Map<string, any>()
+  const markerIconFor = (fillColor: string, borderColor: string) => {
+    const key = `${fillColor}|${borderColor}`
+    if (!markerIconByColor.has(key)) {
+      markerIconByColor.set(key, createThingMarkerIcon(L, fillColor, borderColor))
+    }
+    return markerIconByColor.get(key)
+  }
 
   if (isObservedMode) {
     for (const thing of things) {
@@ -376,46 +452,91 @@ export function drawNetworkLayers(args: {
         const text = valueTextForDatastream(ds)
         if (!text) continue
 
-        const t = makeTextMarker(L, centerLL, text)
-        bindSelectThing(t, thing, onThingSelect)
-        observedCluster.addLayer(t)
+        const sourceColor = sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
+        const freshnessStatus = thingFreshnessStatus(thing)
+        const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
+        const marker = L.marker(centerLL, {
+          icon: markerIconFor(sourceColor, borderColor),
+        })
+        ;(marker as any).__sourceColor = sourceColor
+        ;(marker as any).__freshnessStatus = freshnessStatus
+        bindSelectThing(marker, thing, onThingSelect)
+        marker.bindTooltip(escapeHtml(text), {
+          sticky: false,
+          interactive: false,
+          direction: 'top',
+          offset: [0, TOOLTIP_VERTICAL_OFFSET],
+          opacity: 1,
+          className: 'thing-tooltip',
+        })
+        observedCluster.addLayer(marker)
       }
     }
 
     return
   }
 
-  const networks = new Set<string>()
-  for (const t of things)
-    networks.add(networkKey(t?.Datastreams?.[0]?.Network?.name))
-  const networkKeys = Array.from(networks)
-  const networkColors = buildNetworkColorMap(networkKeys)
+  const groupMetaByKey = new Map<
+    string,
+    { sourceKey: string; networkKey: string }
+  >()
+  for (const t of things) {
+    const sourceKey = thingSourceKey(t)
+    const netKey = networkKey(t?.Datastreams?.[0]?.Network?.name)
+    const key = groupKeyFor(sourceKey, netKey)
+    groupMetaByKey.set(key, { sourceKey, networkKey: netKey })
+  }
 
-  for (const [netKey, grp] of networkLayers) {
-    if (networks.has(netKey)) continue
+  for (const [key, grp] of networkLayers) {
+    if (groupMetaByKey.has(key)) continue
     grp.cluster?.clearLayers?.()
     grp.cluster?.off?.()
     grp.cluster?.remove?.()
     grp.vectors?.clearLayers?.()
     grp.vectors?.remove?.()
-    networkLayers.delete(netKey)
+    networkLayers.delete(key)
 
-    overlayWrappersRef.current.get(netKey)?.remove?.()
-    overlayWrappersRef.current.delete(netKey)
-    enabledRef.current.delete(netKey)
+    overlayWrappersRef.current.get(key)?.remove?.()
+    overlayWrappersRef.current.delete(key)
+    enabledRef.current.delete(key)
   }
 
-  for (const netKey of networks) {
-    if (networkLayers.has(netKey)) continue
+  for (const [groupKey, meta] of groupMetaByKey.entries()) {
+    const color = sourceColorMap.get(meta.sourceKey) ?? SOURCE_COLOR_PALETTE[0]
+    const existingGroup = networkLayers.get(groupKey)
 
-    const color = networkColors.get(netKey) ?? PALETTE[0]
-    const cluster = createClusterGroup({ L, color })
+    if (existingGroup && existingGroup.color !== color) {
+      existingGroup.cluster?.clearLayers?.()
+      existingGroup.cluster?.off?.()
+      existingGroup.cluster?.remove?.()
+      existingGroup.vectors?.clearLayers?.()
+      existingGroup.vectors?.remove?.()
+      networkLayers.delete(groupKey)
+      overlayWrappersRef.current.get(groupKey)?.remove?.()
+      overlayWrappersRef.current.delete(groupKey)
+      enabledRef.current.delete(groupKey)
+    }
+
+    if (networkLayers.has(groupKey)) continue
+
+    const cluster = createClusterGroup({
+      L,
+      color,
+      borderColor: (clusterLayer: any) =>
+        FRESHNESS_BORDER_COLOR[clusterFreshnessStatus(clusterLayer)],
+    })
     const vectors = L.layerGroup()
 
     cluster.on('clusterclick', (e: any) => {
       e.originalEvent?.preventDefault?.()
       e.originalEvent?.stopPropagation?.()
       e.layer?.closeTooltip?.()
+      showClusterHullPreview({
+        L,
+        map,
+        clusterLayer: e.layer,
+        color,
+      })
       e.layer?.spiderfy?.()
     })
 
@@ -471,13 +592,13 @@ export function drawNetworkLayers(args: {
       clusterLayer.closeTooltip?.()
     })
 
-    networkLayers.set(netKey, { cluster, vectors })
+    networkLayers.set(groupKey, { cluster, vectors, color })
   }
 
-  for (const [netKey, grp] of networkLayers) {
-    if (!overlayWrappersRef.current.has(netKey)) {
+  for (const [key, grp] of networkLayers) {
+    if (!overlayWrappersRef.current.has(key)) {
       const wrapper = L.layerGroup([grp.cluster, grp.vectors])
-      overlayWrappersRef.current.set(netKey, wrapper)
+      overlayWrappersRef.current.set(key, wrapper)
     }
   }
 
@@ -486,20 +607,20 @@ export function drawNetworkLayers(args: {
       ? networkKey(selectedNetwork)
       : undefined
 
-    for (const netKey of networks) {
-      const shouldOn = selectedKey ? netKey === selectedKey : true
-      enabledRef.current.set(netKey, shouldOn)
+    for (const [key, meta] of groupMetaByKey.entries()) {
+      const shouldOn = selectedKey ? meta.networkKey === selectedKey : true
+      enabledRef.current.set(key, shouldOn)
 
-      const wrapper = overlayWrappersRef.current.get(netKey)
+      const wrapper = overlayWrappersRef.current.get(key)
       if (!wrapper) continue
       shouldOn ? map.addLayer(wrapper) : map.removeLayer(wrapper)
     }
     didInitVisibilityRef.current = true
   } else {
-    for (const netKey of networks) {
-      if (enabledRef.current.has(netKey)) continue
-      enabledRef.current.set(netKey, true)
-      const wrapper = overlayWrappersRef.current.get(netKey)
+    for (const key of groupMetaByKey.keys()) {
+      if (enabledRef.current.has(key)) continue
+      enabledRef.current.set(key, true)
+      const wrapper = overlayWrappersRef.current.get(key)
       if (wrapper) map.addLayer(wrapper)
     }
   }
@@ -514,25 +635,25 @@ export function drawNetworkLayers(args: {
     const geom = thing?.Locations?.[0]?.location
     if (!geom) continue
 
+    const sourceKey = thingSourceKey(thing)
     const netKey = networkKey(thing?.Datastreams?.[0]?.Network?.name)
-    const grp = networkLayers.get(netKey)
+    const key = groupKeyFor(sourceKey, netKey)
+    const grp = networkLayers.get(key)
     if (!grp) continue
 
-    const base = networkColors.get(netKey) ?? PALETTE[0]
+    const base = sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
+    const freshnessStatus = thingFreshnessStatus(thing)
+    const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
 
     if (geom.type === 'Point') {
       const [x, y] = geom.coordinates ?? []
       const ll = toLatLng(x, y)
       if (!ll) continue
 
-      const m = L.circleMarker(ll, {
-        radius: 8,
-        color: base,
-        fillColor: base,
-        fillOpacity: 0.85,
-        weight: 2,
-        ...(hasThingPointPane ? { pane: THING_POINT_PANE } : {}),
+      const m = L.marker(ll, {
+        icon: markerIconFor(base, borderColor),
       })
+      ;(m as any).__freshnessStatus = freshnessStatus
 
       ;(m as any).__tooltipRow = {
         source: thingSourceLabel(thing),
@@ -589,16 +710,8 @@ export function drawNetworkLayers(args: {
     }
   }
 
-  for (const [netKey, grp] of networkLayers) {
-    const enabled = enabledRef.current.get(netKey) !== false
+  for (const [key, grp] of networkLayers) {
+    const enabled = enabledRef.current.get(key) !== false
     if (enabled) grp.cluster.refreshClusters?.()
   }
-
-  onNetworksMeta?.(
-    networkKeys.map((key) => ({
-      key,
-      color: networkColors.get(key) ?? PALETTE[0],
-      enabled: enabledRef.current.get(key) !== false,
-    }))
-  )
 }

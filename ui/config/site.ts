@@ -11,27 +11,53 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { primaryDataSource } from '@/config/dataSources'
 import type { BasemapKey } from '@/types'
+
+import { primaryDataSource } from '@/config/dataSources'
 
 export const BASEMAPS: Record<
   BasemapKey,
-  { label: string; url: string; attribution: string }
+  {
+    label: string
+    url: string
+    attribution: string
+    minZoom: number
+    maxZoom: number
+    bounds: [[number, number], [number, number]]
+  }
 > = {
   pixelGray: {
     label: 'Gray map',
     url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-grau/default/current/3857/{z}/{x}/{y}.jpeg',
     attribution: '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: [
+      [45.7, 5.7],
+      [47.95, 10.7],
+    ],
   },
   pixelColor: {
     label: 'Color map',
     url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
     attribution: '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: [
+      [45.7, 5.7],
+      [47.95, 10.7],
+    ],
   },
   satellite: {
     label: 'Aerial imagery',
     url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
     attribution: '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
+    minZoom: 10,
+    maxZoom: 16,
+    bounds: [
+      [45.7, 5.7],
+      [47.95, 10.7],
+    ],
   },
 }
 

@@ -15,6 +15,14 @@ export type CreateObservedPropertyPayload = {
   commitMessage?: string
 }
 
+export type UpdateObservedPropertyPayload = {
+  name: string
+  definition: string
+  description?: string
+  properties?: Record<string, string>
+  commitMessage?: string
+}
+
 export async function getObservedProperties(token?: string | null) {
   const values: any[] = []
   const apiBase = new URL(siteConfig.api_root)
@@ -78,6 +86,48 @@ export async function createObservedProperty(
     return text ? JSON.parse(text) : true
   } catch (error) {
     console.error('Error creating Observed Property:', error)
+    return null
+  }
+}
+
+export async function updateObservedProperty(
+  observedPropertyId: string | number,
+  payload: UpdateObservedPropertyPayload,
+  token?: string | null,
+  apiRoot?: string
+) {
+  try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
+    const id = String(observedPropertyId).trim()
+    if (!id) return null
+
+    const { commitMessage, ...observedPropertyPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    }, resolvedApiRoot)
+
+    if (commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(`${resolvedApiRoot}/ObservedProperties(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(observedPropertyPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Observed Property failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Observed Property:', error)
     return null
   }
 }

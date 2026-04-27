@@ -25,7 +25,7 @@ export function StepCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full border-l-2 px-3 py-2 text-left transition ${tone}`}
+      className={`w-full cursor-pointer border-l-2 px-3 py-2 text-left transition ${tone}`}
     >
       <div className="flex items-center gap-2">
         {icon ? <span className="shrink-0">{icon}</span> : null}
@@ -50,7 +50,7 @@ export function ModeCard({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl border p-4 text-left transition ${
+      className={`cursor-pointer rounded-2xl border p-4 text-left transition ${
         active
           ? 'border-primary bg-primary/10 shadow-sm'
           : 'border-default-200 hover:border-default-300'

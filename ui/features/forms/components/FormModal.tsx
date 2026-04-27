@@ -16,17 +16,32 @@
 import {
   type CreateDatastreamPayload,
   createDatastream,
+  updateDatastream,
 } from '@/services/datastreams'
 import {
   type CreateLocationPayload,
   createLocation,
+  type UpdateLocationPayload,
+  updateLocation,
 } from '@/services/locations'
 import {
   type CreateObservedPropertyPayload,
   createObservedProperty,
+  type UpdateObservedPropertyPayload,
+  updateObservedProperty,
 } from '@/services/observedProperties'
-import { type CreateSensorPayload, createSensor } from '@/services/sensors'
-import { type CreateThingPayload, createThing } from '@/services/things'
+import {
+  type CreateSensorPayload,
+  createSensor,
+  type UpdateSensorPayload,
+  updateSensor,
+} from '@/services/sensors'
+import {
+  type CreateThingPayload,
+  createThing,
+  type UpdateThingPayload,
+  updateThing,
+} from '@/services/things'
 import { Autocomplete, AutocompleteItem } from '@heroui/autocomplete'
 import { Button } from '@heroui/button'
 import { Form as HeroForm } from '@heroui/form'
@@ -89,6 +104,10 @@ interface FormProps {
   latitude?: number
   longitude?: number
   initialTab?: FormTabKey
+  initialSingleDraft?: Partial<FormDataMap>
+  initialSingleDataSourceEndpoint?: string
+  lockedSingleEntity?: EntityKey
+  editTargets?: Partial<Record<EntityKey, string>>
   isOpen: boolean
   onClose: () => void
   existingEntities?: ExistingEntities
@@ -134,6 +153,10 @@ export default function FormModal({
   latitude,
   longitude,
   initialTab = 'thing',
+  initialSingleDraft,
+  initialSingleDataSourceEndpoint,
+  lockedSingleEntity,
+  editTargets,
   isOpen,
   onClose,
   existingEntities = {
@@ -208,14 +231,24 @@ export default function FormModal({
   )
   const defaultSingleDataSourceEndpoint =
     fullAccessDataSources[0]?.endpoint ?? normalizeEndpoint(siteConfig.api_root)
+  const initialSingleDataSource = normalizeEndpoint(
+    initialSingleDataSourceEndpoint || defaultSingleDataSourceEndpoint
+  )
 
-  const [wizardMode, setWizardMode] = useState<WizardMode>('associated')
-  const [singleEntity, setSingleEntity] = useState<EntityKey>(initialTab)
+  const [wizardMode, setWizardMode] = useState<WizardMode>(
+    operation === 'edit' ? 'single' : 'associated'
+  )
+  const [singleEntity, setSingleEntity] = useState<EntityKey>(
+    lockedSingleEntity ?? initialTab
+  )
   const [singleDataSourceEndpoint, setSingleDataSourceEndpoint] = useState(
-    defaultSingleDataSourceEndpoint
+    initialSingleDataSource
   )
   const [singleDraft, setSingleDraft] = useState<FormDataMap>(
-    createInitialSingleDraft(latitude, longitude)
+    () => ({
+      ...createInitialSingleDraft(latitude, longitude),
+      ...(initialSingleDraft ?? {}),
+    })
   )
   const [associatedDraft, setAssociatedDraft] = useState<AssociatedDraft>(
     createInitialAssociatedDraft(latitude, longitude)
@@ -296,17 +329,47 @@ export default function FormModal({
   useEffect(() => {
     if (!isOpen) return
 
-    setSingleDataSourceEndpoint((current) => {
+    const nextEntity = lockedSingleEntity ?? initialTab
+    const draftBase = createInitialSingleDraft(latitude, longitude)
+
+    setWizardMode(operation === 'edit' ? 'single' : 'associated')
+    setSingleEntity(nextEntity)
+    setSingleDraft({
+      ...draftBase,
+      ...(initialSingleDraft ?? {}),
+    })
+
+    setSingleDataSourceEndpoint(() => {
+      const preferredEndpoint = normalizeEndpoint(
+        initialSingleDataSourceEndpoint || defaultSingleDataSourceEndpoint
+      )
+
       if (
-        current &&
-        fullAccessDataSources.some((source) => source.endpoint === current)
+        preferredEndpoint &&
+        fullAccessDataSources.some((source) => source.endpoint === preferredEndpoint)
       ) {
-        return current
+        return preferredEndpoint
       }
 
       return defaultSingleDataSourceEndpoint
     })
-  }, [defaultSingleDataSourceEndpoint, fullAccessDataSources, isOpen])
+
+    setAssociatedDraft(createInitialAssociatedDraft(latitude, longitude))
+    setAssociatedStepIndex(0)
+    setCommitMessage('')
+    setSubmitError(null)
+  }, [
+    isOpen,
+    operation,
+    initialTab,
+    initialSingleDraft,
+    initialSingleDataSourceEndpoint,
+    lockedSingleEntity,
+    latitude,
+    longitude,
+    defaultSingleDataSourceEndpoint,
+    fullAccessDataSources,
+  ])
 
   const selectedDataSource = useMemo(
     () =>
@@ -361,6 +424,7 @@ export default function FormModal({
     !!selectedDataSource &&
     siteConfig.authorizationEnabled &&
     !resolveRequestToken(selectedDataSource.endpoint)
+  const isSingleFormLocked = wizardMode === 'single' && selectedDataSourceRequiresLogin
 
   const updateAssociatedEntity = <K extends EntityKey>(
     entity: K,
@@ -381,7 +445,100 @@ export default function FormModal({
     try {
       let result = null
 
-      if (singleEntity === 'thing') {
+      if (operation === 'edit') {
+        const editTargetId = String(editTargets?.[singleEntity] ?? '').trim()
+        if (!editTargetId) {
+          setSubmitError(
+            `No linked ${entityLabels[singleEntity]} is available for editing`
+          )
+          return
+        }
+
+        if (singleEntity === 'thing') {
+          const thingPayload = normalizeEntityPayload(
+            'thing',
+            singleDraft.thing
+          ) as UpdateThingPayload
+          result = await updateThing(
+            editTargetId,
+            {
+              ...thingPayload,
+              ...(requiresCommitMessage
+                ? { commitMessage: commitMessage.trim() }
+                : {}),
+            },
+            requestToken,
+            selectedEndpoint
+          )
+        } else if (singleEntity === 'location') {
+          const locationPayload = normalizeEntityPayload(
+            'location',
+            singleDraft.location
+          ) as UpdateLocationPayload
+          result = await updateLocation(
+            editTargetId,
+            {
+              ...locationPayload,
+              ...(requiresCommitMessage
+                ? { commitMessage: commitMessage.trim() }
+                : {}),
+            },
+            requestToken,
+            selectedEndpoint
+          )
+        } else if (singleEntity === 'sensor') {
+          const sensorPayload = normalizeEntityPayload(
+            'sensor',
+            singleDraft.sensor
+          ) as UpdateSensorPayload
+          result = await updateSensor(
+            editTargetId,
+            {
+              ...sensorPayload,
+              ...(requiresCommitMessage
+                ? { commitMessage: commitMessage.trim() }
+                : {}),
+            },
+            requestToken,
+            selectedEndpoint
+          )
+        } else if (singleEntity === 'observedProperty') {
+          const observedPropertyPayload = normalizeEntityPayload(
+            'observedProperty',
+            singleDraft.observedProperty
+          ) as UpdateObservedPropertyPayload
+          result = await updateObservedProperty(
+            editTargetId,
+            {
+              ...observedPropertyPayload,
+              ...(requiresCommitMessage
+                ? { commitMessage: commitMessage.trim() }
+                : {}),
+            },
+            requestToken,
+            selectedEndpoint
+          )
+        } else if (singleEntity === 'datastream') {
+          const datastreamPayload = normalizeEntityPayload(
+            'datastream',
+            singleDraft.datastream
+          ) as CreateDatastreamPayload
+          result = await updateDatastream(
+            editTargetId,
+            {
+              ...datastreamPayload,
+              ...(requiresCommitMessage
+                ? { commitMessage: commitMessage.trim() }
+                : {}),
+            },
+            requestToken,
+            selectedEndpoint
+          )
+        } else {
+          setSubmitError('Unable to resolve edit payload for this entity')
+          return
+        }
+      } else if (singleEntity === 'thing') {
         const thingPayload = normalizeEntityPayload(
           'thing',
           singleDraft.thing
@@ -459,17 +616,25 @@ export default function FormModal({
       }
 
       if (!result) {
-        setSubmitError(
-          singleEntity === 'thing'
-            ? 'Unable to create Thing'
-            : singleEntity === 'location'
-              ? 'Unable to create Location'
-              : singleEntity === 'sensor'
-                ? 'Unable to create Sensor'
-                : singleEntity === 'datastream'
-                  ? 'Unable to create Datastream'
-                  : 'Unable to create Observed Property'
-        )
+        if (operation === 'edit') {
+          setSubmitError(
+            singleEntity === 'datastream'
+              ? 'Unable to update Datastream'
+              : 'Unable to update entity'
+          )
+        } else {
+          setSubmitError(
+            singleEntity === 'thing'
+              ? 'Unable to create Thing'
+              : singleEntity === 'location'
+                ? 'Unable to create Location'
+                : singleEntity === 'sensor'
+                  ? 'Unable to create Sensor'
+                  : singleEntity === 'datastream'
+                    ? 'Unable to create Datastream'
+                    : 'Unable to create Observed Property'
+          )
+        }
         return
       }
 
@@ -620,30 +785,41 @@ export default function FormModal({
           wrapper: 'z-[6000]',
           base: 'z-[6001] h-[80vh] min-h-[80vh] max-h-[80vh]',
           backdrop: 'z-[5999]',
+          closeButton: 'cursor-pointer',
         }}
       >
         <ModalContent>
           <ModalBody className="h-full overflow-hidden py-5">
             <div className="flex h-full min-h-0 flex-col gap-5">
             <SectionTitle
-              title={t('wizard.title')}
-              description={t('wizard.subtitle')}
+              title={
+                operation === 'edit'
+                  ? t('wizard.edit_title')
+                  : t('wizard.title')
+              }
+              description={
+                operation === 'edit'
+                  ? t('wizard.edit_subtitle')
+                  : t('wizard.subtitle')
+              }
             />
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <ModeCard
-                active={wizardMode === 'associated'}
-                title={t('wizard.associated_mode')}
-                description={t('wizard.associated_mode_description')}
-                onClick={() => setWizardMode('associated')}
-              />
-              <ModeCard
-                active={wizardMode === 'single'}
-                title={t('wizard.single_mode')}
-                description={t('wizard.single_mode_description')}
-                onClick={() => setWizardMode('single')}
-              />
-            </div>
+            {operation === 'create' ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                <ModeCard
+                  active={wizardMode === 'associated'}
+                  title={t('wizard.associated_mode')}
+                  description={t('wizard.associated_mode_description')}
+                  onClick={() => setWizardMode('associated')}
+                />
+                <ModeCard
+                  active={wizardMode === 'single'}
+                  title={t('wizard.single_mode')}
+                  description={t('wizard.single_mode_description')}
+                  onClick={() => setWizardMode('single')}
+                />
+              </div>
+            ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto pr-1">
               {wizardMode === 'single' ? (
@@ -665,7 +841,10 @@ export default function FormModal({
                             complete={hasDraftData}
                             label={entityLabels[entity]}
                             icon={entityIcons[entity]}
-                            onClick={() => setSingleEntity(entity)}
+                            onClick={() => {
+                              if (lockedSingleEntity || isSingleFormLocked) return
+                              setSingleEntity(entity)
+                            }}
                           />
                         )
                       })}
@@ -674,7 +853,6 @@ export default function FormModal({
                     <div className="min-w-0 space-y-4">
                       <SectionTitle
                         title={entityLabels[singleEntity]}
-                        description={t('wizard.select_entity_type')}
                       />
 
                       {fullAccessDataSources.length > 0 ? (
@@ -686,10 +864,13 @@ export default function FormModal({
                           radius="sm"
                           size="sm"
                           isRequired
+                          isDisabled={operation === 'edit' || isSingleFormLocked}
                           selectedKey={singleDataSourceEndpoint || null}
                           items={fullAccessDataSources}
                           onSelectionChange={(key) =>
-                            setSingleDataSourceEndpoint(key ? String(key) : '')
+                            operation === 'edit' || isSingleFormLocked
+                              ? undefined
+                              : setSingleDataSourceEndpoint(key ? String(key) : '')
                           }
                         >
                           {(source) => (
@@ -730,19 +911,27 @@ export default function FormModal({
                         </div>
                       ) : null}
 
-                      <EntityFields
-                        entity={singleEntity}
-                        data={singleDraft[singleEntity]}
-                        onChange={(value) =>
-                          setSingleDraft((current) => ({
-                            ...current,
-                            [singleEntity]: value,
-                          }))
+                      <div
+                        className={
+                          isSingleFormLocked
+                            ? 'pointer-events-none select-none opacity-60'
+                            : ''
                         }
-                        labels={entityLabels}
-                        existingOptions={existingOptions}
-                        showSingleAssociations
-                      />
+                      >
+                        <EntityFields
+                          entity={singleEntity}
+                          data={singleDraft[singleEntity]}
+                          onChange={(value) =>
+                            setSingleDraft((current) => ({
+                              ...current,
+                              [singleEntity]: value,
+                            }))
+                          }
+                          labels={entityLabels}
+                          existingOptions={existingOptions}
+                          showSingleAssociations
+                        />
+                      </div>
 
                       {requiresCommitMessage ? (
                         <Textarea
@@ -755,6 +944,7 @@ export default function FormModal({
                           radius="sm"
                           minRows={3}
                           isRequired
+                          isDisabled={isSingleFormLocked}
                           startContent={<StepIcon icon={CommitIcon} />}
                           size="sm"
                         />
@@ -775,7 +965,7 @@ export default function FormModal({
                           <Button
                             color="primary"
                             type="submit"
-                            isDisabled={isSubmitting}
+                            isDisabled={isSubmitting || isSingleFormLocked}
                           >
                             {isSubmitting
                               ? `${
@@ -1051,6 +1241,7 @@ export default function FormModal({
           wrapper: 'z-[6100]',
           base: 'z-[6101]',
           backdrop: 'z-[6099]',
+          closeButton: 'cursor-pointer',
         }}
       >
         <ModalContent>

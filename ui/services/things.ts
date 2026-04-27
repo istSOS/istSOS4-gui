@@ -28,6 +28,14 @@ export type CreateThingPayload = {
   commitMessage?: string
 }
 
+export type UpdateThingPayload = {
+  name: string
+  description?: string
+  Locations?: Array<{ '@iot.id': number | string }>
+  properties?: Record<string, string>
+  commitMessage?: string
+}
+
 export async function getThings(token?: string | null) {
   const expand = `
     Datastreams(
@@ -110,6 +118,48 @@ export async function createThing(
     return text ? JSON.parse(text) : true
   } catch (error) {
     console.error('Error creating Thing:', error)
+    return null
+  }
+}
+
+export async function updateThing(
+  thingId: string | number,
+  payload: UpdateThingPayload,
+  token?: string | null,
+  apiRoot?: string
+) {
+  try {
+    const resolvedApiRoot = resolveApiRoot(apiRoot)
+    const id = String(thingId).trim()
+    if (!id) return null
+
+    const { commitMessage, ...thingPayload } = payload
+    const headers = withAuthHeaders(token, {
+      'Content-Type': 'application/json',
+    }, resolvedApiRoot)
+
+    if (commitMessage?.trim()) {
+      headers['commit-message'] = commitMessage.trim()
+    }
+
+    const response = await fetch(`${resolvedApiRoot}/Things(${id})`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(thingPayload),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(
+        errorText ||
+          `Update Thing failed: ${response.status} ${response.statusText}`
+      )
+    }
+
+    const text = await response.text()
+    return text ? JSON.parse(text) : true
+  } catch (error) {
+    console.error('Error updating Thing:', error)
     return null
   }
 }

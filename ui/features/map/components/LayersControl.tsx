@@ -17,7 +17,8 @@ import { UNSPECIFIED_NETWORK_KEY } from '@/features/map/lib/leafletDraw'
 import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Checkbox } from '@heroui/checkbox'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { HexColorPicker } from 'react-colorful'
 import { useTranslation } from 'react-i18next'
 
 import { ChevronDownIcon } from '@/components/icons'
@@ -44,6 +45,7 @@ export type ObservedPropertyLayerItem = {
 export type DataSourceLayerItem = {
   key: string
   label: string
+  color?: string
   enabled: boolean
   networks: NetworkLayerItem[]
   observedProperties: ObservedPropertyLayerItem[]
@@ -81,6 +83,7 @@ function ExpandButton({
 function SourceItem({
   source,
   onToggleSource,
+  onSourceColorChange,
   onToggleNetwork,
   onToggleThing,
   onToggleObservedGroup,
@@ -88,6 +91,7 @@ function SourceItem({
 }: {
   source: DataSourceLayerItem
   onToggleSource: (sourceKey: string, nextEnabled: boolean) => void
+  onSourceColorChange: (sourceKey: string, color: string) => void
   onToggleNetwork: (
     sourceKey: string,
     networkKey: string,
@@ -108,6 +112,8 @@ function SourceItem({
 }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const colorPickerRef = useRef<HTMLDivElement | null>(null)
   const [networksExpanded, setNetworksExpanded] = useState(true)
   const [expandedNetworks, setExpandedNetworks] = useState<
     Record<string, boolean>
@@ -120,9 +126,32 @@ function SourceItem({
     source.networks.length > 0
       ? source.networks.every((network) => network.enabled)
       : false
+  const sourceColor = source.color ?? '#2563eb'
+
+  useEffect(() => {
+    if (!colorPickerOpen) return
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (colorPickerRef.current?.contains(target)) return
+      setColorPickerOpen(false)
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setColorPickerOpen(false)
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [colorPickerOpen])
 
   return (
-    <div className="rounded-md border border-default-200 overflow-hidden">
+    <div className="rounded-md border border-default-200">
       <div className="px-2 py-1 bg-default-50 flex items-center justify-between gap-2">
         <div className="min-w-0 flex items-center gap-2">
           <ExpandButton
@@ -135,13 +164,32 @@ function SourceItem({
           </span>
         </div>
 
-        <Checkbox
-          size="sm"
-          isSelected={source.enabled}
-          onValueChange={(value) => onToggleSource(source.key, value)}
-          color="primary"
-          aria-label={source.label}
-        />
+        <div className="relative flex items-center gap-1" ref={colorPickerRef}>
+          <button
+            type="button"
+            aria-label={`${source.label} color`}
+            onClick={() => setColorPickerOpen((value) => !value)}
+            className="h-4 w-4 rounded-sm border border-default-300 cursor-pointer"
+            style={{ backgroundColor: sourceColor }}
+          />
+
+          {colorPickerOpen ? (
+            <div className="absolute right-0 top-6 z-[2100] rounded-md border border-default-200 bg-content1 p-2 shadow-lg">
+              <HexColorPicker
+                color={sourceColor}
+                onChange={(color) => onSourceColorChange(source.key, color)}
+              />
+            </div>
+          ) : null}
+
+          <Checkbox
+            size="sm"
+            isSelected={source.enabled}
+            onValueChange={(value) => onToggleSource(source.key, value)}
+            color="primary"
+            aria-label={source.label}
+          />
+        </div>
       </div>
 
       {expanded ? (
@@ -370,6 +418,7 @@ export default function LayersControl({
   title = 'Data sources',
   sources,
   onToggleSource,
+  onSourceColorChange,
   onToggleNetwork,
   onToggleThing,
   onToggleObservedGroup,
@@ -378,6 +427,7 @@ export default function LayersControl({
   title?: string
   sources: DataSourceLayerItem[]
   onToggleSource: (sourceKey: string, nextEnabled: boolean) => void
+  onSourceColorChange: (sourceKey: string, color: string) => void
   onToggleNetwork: (
     sourceKey: string,
     networkKey: string,
@@ -419,6 +469,7 @@ export default function LayersControl({
                 key={source.key}
                 source={source}
                 onToggleSource={onToggleSource}
+                onSourceColorChange={onSourceColorChange}
                 onToggleNetwork={onToggleNetwork}
                 onToggleThing={onToggleThing}
                 onToggleObservedGroup={onToggleObservedGroup}
