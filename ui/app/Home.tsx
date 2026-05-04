@@ -21,6 +21,7 @@ import { Card } from '@heroui/card'
 import dayjs from 'dayjs'
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as XLSX from 'xlsx'
 
 import { siteConfig } from '@/config/site'
 
@@ -49,6 +50,11 @@ type WritableDataSourceOption = {
   id: string
   name: string
   endpoint: string
+}
+
+type CsvDownloadPayload = {
+  filename: string
+  bytes: ArrayBuffer
 }
 
 const LeafletMap = dynamic(() => import('@/features/map/components/LeafletMap'), {
@@ -253,6 +259,9 @@ export default function Home({
 
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
+  const [comparisonDatastream, setComparisonDatastream] = useState<any | null>(
+    null
+  )
   const locationsForForm = useMemo(() => {
     const primaryEndpoint = normalizeEndpoint(siteConfig.api_root)
     const byKey = new Map<string, any>()
@@ -338,6 +347,7 @@ export default function Home({
 
   const obsCacheRef = useRef<Map<string, any[]>>(new Map())
   const [observations, setObservations] = useState<any[]>([])
+  const [comparisonObservations, setComparisonObservations] = useState<any[]>([])
 
   const selectedThing = useMemo(() => {
     if (!selectedThingId) return null
@@ -351,14 +361,16 @@ export default function Home({
   const closePanel = () => {
     setSelectedThingId(null)
     setSelectedDatastream(null)
+    setComparisonDatastream(null)
     setObservations([])
+    setComparisonObservations([])
     setObsError(null)
     setObsLoading(false)
     setObsStart(null)
     setObsEnd(null)
   }
 
-  const loadObservations = async (
+  const fetchObservations = async (
     datastreamId: string,
     phenomenonTime?: string,
     range?: { start?: string | null; end?: string | null },
@@ -381,27 +393,39 @@ export default function Home({
     const cacheKey = `${resolvedEndpoint}|${datastreamId}|${startIso}|${endIso}`
     const cached = obsCacheRef.current.get(cacheKey)
     if (cached) {
-      setObservations(cached)
-      setObsStart(startIso)
-      setObsEnd(endIso)
-      return
+      return { data: cached, startIso, endIso }
     }
 
+    const sourceToken = getDataSourceToken(resolvedEndpoint)
+    const { observationData } = await getObservationsByDatastream(
+      sourceToken ?? token ?? undefined,
+      datastreamId,
+      startIso ?? undefined,
+      endIso ?? undefined,
+      resolvedEndpoint
+    )
+    obsCacheRef.current.set(cacheKey, observationData)
+    return { data: observationData, startIso, endIso }
+  }
+
+  const loadPrimaryObservations = async (
+    datastreamId: string,
+    phenomenonTime?: string,
+    range?: { start?: string | null; end?: string | null },
+    sourceEndpoint?: string
+  ) => {
     setObsLoading(true)
     setObsError(null)
     try {
-      const sourceToken = getDataSourceToken(resolvedEndpoint)
-      const { observationData } = await getObservationsByDatastream(
-        sourceToken ?? token ?? undefined,
+      const result = await fetchObservations(
         datastreamId,
-        startIso ?? undefined,
-        endIso ?? undefined,
-        resolvedEndpoint
+        phenomenonTime,
+        range,
+        sourceEndpoint
       )
-      obsCacheRef.current.set(cacheKey, observationData)
-      setObservations(observationData)
-      setObsStart(startIso)
-      setObsEnd(endIso)
+      setObservations(result.data)
+      setObsStart(result.startIso)
+      setObsEnd(result.endIso)
     } catch (e: any) {
       setObsError(e?.message ?? 'Failed to load observations')
       setObservations([])
@@ -410,8 +434,37 @@ export default function Home({
     }
   }
 
+  const loadComparisonObservations = async (
+    ds: any | null,
+    range?: { start?: string | null; end?: string | null }
+  ) => {
+    if (!ds) {
+      setComparisonObservations([])
+      return
+    }
+
+    const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
+    if (!dsId) {
+      setComparisonObservations([])
+      return
+    }
+
+    const sourceEndpoint = String(
+      ds?.__sourceEndpoint ?? selectedThing?.__sourceEndpoint ?? siteConfig.api_root
+    )
+    const result = await fetchObservations(
+      dsId,
+      ds?.phenomenonTime,
+      range,
+      sourceEndpoint
+    )
+    setComparisonObservations(result.data)
+  }
+
   const openChartForDatastream = async (ds: any) => {
     setSelectedDatastream(ds)
+    setComparisonDatastream(null)
+    setComparisonObservations([])
 
     const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
     const sourceEndpoint = String(
@@ -422,7 +475,7 @@ export default function Home({
       setObservations([])
       return
     }
-    await loadObservations(dsId, ds.phenomenonTime, undefined, sourceEndpoint)
+    await loadPrimaryObservations(dsId, ds.phenomenonTime, undefined, sourceEndpoint)
   }
 
   const applyObservationRange = async (
@@ -440,10 +493,119 @@ export default function Home({
         siteConfig.api_root
     )
 
-    await loadObservations(dsId, selectedDatastream?.phenomenonTime, {
-      start,
-      end,
-    }, sourceEndpoint)
+    await loadPrimaryObservations(
+      dsId,
+      selectedDatastream?.phenomenonTime,
+      {
+        start,
+        end,
+      },
+      sourceEndpoint
+    )
+
+    if (comparisonDatastream) {
+      try {
+        await loadComparisonObservations(comparisonDatastream, { start, end })
+      } catch (e: any) {
+        setObsError(e?.message ?? 'Failed to load observations')
+      }
+    }
+  }
+
+  const changeComparisonDatastream = async (nextDatastreamId: string | null) => {
+    if (!nextDatastreamId || !selectedThing) {
+      setComparisonDatastream(null)
+      setComparisonObservations([])
+      return
+    }
+
+    const thingDatastreams = Array.isArray(selectedThing?.Datastreams)
+      ? selectedThing.Datastreams
+      : []
+    const nextDatastream =
+      thingDatastreams.find(
+        (ds: any) => String(ds?.['@iot.id'] ?? ds?.id ?? '') === nextDatastreamId
+      ) ?? null
+
+    setComparisonDatastream(nextDatastream)
+    if (!nextDatastream) {
+      setComparisonObservations([])
+      return
+    }
+
+    try {
+      await loadComparisonObservations(nextDatastream, {
+        start: obsStart,
+        end: obsEnd,
+      })
+    } catch (e: any) {
+      setObsError(e?.message ?? 'Failed to load observations')
+      setComparisonObservations([])
+    }
+  }
+
+  const downloadAllDatastreamsCsv = async (): Promise<CsvDownloadPayload | null> => {
+    if (!selectedThing) return null
+
+    const thingDatastreams = Array.isArray(selectedThing?.Datastreams)
+      ? selectedThing.Datastreams
+      : []
+    if (thingDatastreams.length === 0) return null
+
+    const sanitizeSheetName = (value: string, fallback: string) => {
+      const base = value.trim() || fallback
+      const sanitized = base.replace(/[\\/*?:[\]]/g, '_').slice(0, 31)
+      return sanitized || fallback
+    }
+
+    const workbook = XLSX.utils.book_new()
+
+    await Promise.all(
+      thingDatastreams.map(async (ds: any, index: number) => {
+        const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '').trim()
+        if (!dsId) return
+
+        const sourceEndpoint = String(
+          ds?.__sourceEndpoint ??
+            selectedThing?.__sourceEndpoint ??
+            siteConfig.api_root
+        )
+        const streamName = String(ds?.name ?? dsId)
+
+        const result = await fetchObservations(
+          dsId,
+          ds?.phenomenonTime,
+          { start: obsStart, end: obsEnd },
+          sourceEndpoint
+        )
+
+        const rows = (Array.isArray(result.data) ? result.data : []).map((obs: any) => ({
+          phenomenonTime: String(obs?.phenomenonTime ?? ''),
+          result: obs?.result ?? '',
+        }))
+        const sheet = XLSX.utils.json_to_sheet(rows, {
+          header: ['phenomenonTime', 'result'],
+        })
+        const sheetName = sanitizeSheetName(streamName, `Datastream_${index + 1}`)
+        XLSX.utils.book_append_sheet(workbook, sheet, sheetName)
+      })
+    )
+
+    if (workbook.SheetNames.length === 0) return null
+
+    const thingName = String(selectedThing?.name ?? 'thing')
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]+/g, '_')
+    const filename = `${thingName || 'thing'}.xlsx`
+    const bytes = XLSX.write(workbook, {
+      bookType: 'xlsx',
+      type: 'array',
+    }) as ArrayBuffer
+
+    return {
+      filename,
+      bytes,
+    }
   }
 
   return (
@@ -454,7 +616,9 @@ export default function Home({
         onThingSelect={(thing) => {
           setSelectedThingId(getThingKey(thing))
           setSelectedDatastream(null)
+          setComparisonDatastream(null)
           setObservations([])
+          setComparisonObservations([])
           setObsError(null)
         }}
         onCreateThingAt={(point) => {
@@ -497,7 +661,9 @@ export default function Home({
         isOpen={!!selectedDatastream}
         onClose={() => {
           setSelectedDatastream(null)
+          setComparisonDatastream(null)
           setObservations([])
+          setComparisonObservations([])
           setObsError(null)
           setObsLoading(false)
           setObsStart(null)
@@ -506,11 +672,15 @@ export default function Home({
         thing={selectedThing}
         datastream={selectedDatastream}
         observations={observations}
+        comparisonDatastream={comparisonDatastream}
+        comparisonObservations={comparisonObservations}
         loading={obsLoading}
         error={obsError}
         start={obsStart}
         end={obsEnd}
         onApplyRange={applyObservationRange}
+        onDownloadAllDatastreams={downloadAllDatastreamsCsv}
+        onComparisonDatastreamChange={changeComparisonDatastream}
         onResetRange={() => {
           applyObservationRange(null, null)
         }}

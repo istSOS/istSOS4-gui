@@ -91,7 +91,10 @@
   },
   "chart": {
     "data_view": "View data",
-    "time_range": "Time range"
+    "time_range": "Time range",
+    "compare_datastream": "Compare datastream",
+    "none": "None",
+    "download_xlsx": "Download Excel"
   },
   "map": {
     "unspecified_network": "Unspecified",

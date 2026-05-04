@@ -91,7 +91,10 @@
   },
   "chart": {
     "data_view": "Visualizza dati",
-    "time_range": "Intervallo temporale"
+    "time_range": "Intervallo temporale",
+    "compare_datastream": "Confronta datastream",
+    "none": "Nessuno",
+    "download_xlsx": "Scarica Excel"
   },
   "map": {
     "unspecified_network": "Non specificata",

@@ -1,5 +1,6 @@
 'use client'
 
+import { Autocomplete, AutocompleteItem } from '@heroui/autocomplete'
 import { Button } from '@heroui/button'
 import { DateRangePicker } from '@heroui/date-picker'
 import { Modal, ModalBody, ModalContent, ModalHeader } from '@heroui/modal'
@@ -20,12 +21,16 @@ type ChartModalProps = {
   thing?: any | null
   datastream?: any | null
   observations?: any[]
+  comparisonDatastream?: any | null
+  comparisonObservations?: any[]
   loading?: boolean
   error?: string | null
   start?: string | null
   end?: string | null
   onApplyRange?: (start?: string | null, end?: string | null) => void
   onResetRange?: () => void
+  onDownloadAllDatastreams?: () => Promise<{ filename: string; bytes: ArrayBuffer } | null>
+  onComparisonDatastreamChange?: (datastreamId: string | null) => void
 }
 
 type PickerDateLike = {
@@ -52,16 +57,32 @@ export default function ChartModal({
   thing = null,
   datastream = null,
   observations = [],
+  comparisonDatastream = null,
+  comparisonObservations = [],
   loading = false,
   error = null,
   start = null,
   end = null,
   onApplyRange,
   onResetRange,
+  onDownloadAllDatastreams,
+  onComparisonDatastreamChange,
 }: ChartModalProps) {
   const { t } = useTranslation()
   const rangeValue = toRangeValue(start, end)
   const timeZone = getLocalTimeZone()
+  const selectedDatastreamId = String(
+    datastream?.['@iot.id'] ?? datastream?.id ?? ''
+  )
+  const comparisonDatastreamId = String(
+    comparisonDatastream?.['@iot.id'] ?? comparisonDatastream?.id ?? ''
+  )
+  const datastreamOptions = Array.isArray(thing?.Datastreams)
+    ? thing.Datastreams.filter(
+        (entry: any) =>
+          String(entry?.['@iot.id'] ?? entry?.id ?? '') !== selectedDatastreamId
+      )
+    : []
 
   return (
     <Modal
@@ -101,40 +122,70 @@ export default function ChartModal({
           </Button>
         </ModalHeader>
         <ModalBody className="h-full overflow-hidden p-4 pt-2">
-          <div className="pb-3">
-            <label className="flex flex-col gap-2">
-              <span className="text-sm font-medium">
-                {t('chart.time_range', 'Time range')}
-              </span>
-              <DateRangePicker<any>
-                aria-label={t('chart.time_range', 'Time range')}
-                value={rangeValue as any}
-                onChange={(value) => {
-                  const nextValue = value as PickerRangeLike
+          <div className="mb-6 flex w-full flex-wrap items-end gap-4 md:mb-0">
+            <DateRangePicker<any>
+              value={rangeValue as any}
+              onChange={(value) => {
+                const nextValue = value as PickerRangeLike
 
-                  if (!nextValue) {
-                    onResetRange?.()
-                    return
-                  }
+                if (!nextValue) {
+                  onResetRange?.()
+                  return
+                }
 
-                  if (nextValue.start && nextValue.end) {
-                    onApplyRange?.(
-                      nextValue.start.toDate(timeZone).toISOString(),
-                      nextValue.end.toDate(timeZone).toISOString()
-                    )
-                  }
-                }}
-                maxValue={now(timeZone) as any}
-                granularity="minute"
-              />
-            </label>
+                if (nextValue.start && nextValue.end) {
+                  onApplyRange?.(
+                    nextValue.start.toDate(timeZone).toISOString(),
+                    nextValue.end.toDate(timeZone).toISOString()
+                  )
+                }
+              }}
+              variant="bordered"
+              label={t('chart.time_range')}
+              className="w-full md:max-w-xl"
+              showMonthAndYearPickers
+              hideTimeZone
+              visibleMonths={2}
+              selectorButtonPlacement="start"
+              color="primary"
+              size="sm"
+            />
+            <Autocomplete
+              label={t('chart.compare_datastream')}
+              labelPlacement="inside"
+              placeholder={t('chart.none') ?? 'None'}
+              variant="bordered"
+              radius="sm"
+              size="sm"
+              color="primary"
+              className="w-full max-w-md"
+              selectedKey={comparisonDatastreamId || null}
+              defaultItems={datastreamOptions}
+              onSelectionChange={(key) => {
+                const nextId = key ? String(key) : null
+                onComparisonDatastreamChange?.(nextId)
+              }}
+            >
+              {(entry: any) => {
+                const optionId = String(entry?.['@iot.id'] ?? entry?.id ?? '')
+                const optionName = String(entry?.name ?? optionId)
+                return (
+                  <AutocompleteItem key={optionId} textValue={optionName}>
+                    {optionName}
+                  </AutocompleteItem>
+                )
+              }}
+            </Autocomplete>
           </div>
           <ObservationGraph
             thing={thing}
             datastream={datastream}
             observations={observations}
+            comparisonDatastream={comparisonDatastream}
+            comparisonObservations={comparisonObservations}
             loading={loading}
             error={error}
+            onDownloadAllDatastreams={onDownloadAllDatastreams}
             height="100%"
           />
         </ModalBody>
