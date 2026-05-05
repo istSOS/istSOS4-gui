@@ -7,6 +7,12 @@ import { siteConfig } from '@/config/site'
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
 
+function extractIotIdFromLocationHeader(headerValue: string | null) {
+  if (!headerValue) return ''
+  const match = headerValue.match(/\(([^)]+)\)\s*$/)
+  return match?.[1]?.trim() ?? ''
+}
+
 export type CreateLocationPayload = {
   name: string
   description?: string
@@ -97,7 +103,9 @@ export async function createLocation(
     }
 
     const text = await response.text()
-    return text ? JSON.parse(text) : true
+    if (text) return JSON.parse(text)
+    const id = extractIotIdFromLocationHeader(response.headers.get('location'))
+    return id ? { '@iot.id': id } : true
   } catch (error) {
     console.error('Error creating Location:', error)
     return null

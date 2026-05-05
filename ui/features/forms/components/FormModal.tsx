@@ -20,26 +20,26 @@ import {
 } from '@/services/datastreams'
 import {
   type CreateLocationPayload,
-  createLocation,
   type UpdateLocationPayload,
+  createLocation,
   updateLocation,
 } from '@/services/locations'
 import {
   type CreateObservedPropertyPayload,
-  createObservedProperty,
   type UpdateObservedPropertyPayload,
+  createObservedProperty,
   updateObservedProperty,
 } from '@/services/observedProperties'
 import {
   type CreateSensorPayload,
-  createSensor,
   type UpdateSensorPayload,
+  createSensor,
   updateSensor,
 } from '@/services/sensors'
 import {
   type CreateThingPayload,
-  createThing,
   type UpdateThingPayload,
+  createThing,
   updateThing,
 } from '@/services/things'
 import { Autocomplete, AutocompleteItem } from '@heroui/autocomplete'
@@ -75,8 +75,10 @@ import {
   ThingIcon,
 } from '@/components/icons'
 
-import { useAuth } from '@/context/AuthContext'
 import { siteConfig } from '@/config/site'
+
+import { useAuth } from '@/context/AuthContext'
+
 import { getDataSourceToken, setDataSourceToken } from '@/lib/dataSourceTokens'
 
 import { EntityFields, ExistingEntitySelect } from './wizard/fields'
@@ -120,8 +122,7 @@ interface FormProps {
 
 const normalizeEndpoint = (value: string) => value.trim().replace(/\/+$/, '')
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
-const normalizedBasePath =
-  basePath === '/' ? '' : basePath.replace(/\/+$/, '')
+const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
 
 type DataSourceInspectResponse =
@@ -244,12 +245,10 @@ export default function FormModal({
   const [singleDataSourceEndpoint, setSingleDataSourceEndpoint] = useState(
     initialSingleDataSource
   )
-  const [singleDraft, setSingleDraft] = useState<FormDataMap>(
-    () => ({
-      ...createInitialSingleDraft(latitude, longitude),
-      ...(initialSingleDraft ?? {}),
-    })
-  )
+  const [singleDraft, setSingleDraft] = useState<FormDataMap>(() => ({
+    ...createInitialSingleDraft(latitude, longitude),
+    ...(initialSingleDraft ?? {}),
+  }))
   const [associatedDraft, setAssociatedDraft] = useState<AssociatedDraft>(
     createInitialAssociatedDraft(latitude, longitude)
   )
@@ -271,11 +270,10 @@ export default function FormModal({
   const [dataSourceLoginError, setDataSourceLoginError] = useState<
     string | null
   >(null)
-  const [isDataSourceLoginSaving, setIsDataSourceLoginSaving] =
-    useState(false)
+  const [isDataSourceLoginSaving, setIsDataSourceLoginSaving] = useState(false)
 
   const requiresCommitMessage =
-    wizardMode === 'single' &&
+    (wizardMode === 'associated' || wizardMode === 'single') &&
     (singleEntity === 'thing' ||
       singleEntity === 'location' ||
       singleEntity === 'sensor' ||
@@ -298,8 +296,9 @@ export default function FormModal({
     if (wizardMode !== 'single') return existingEntities
 
     const selectedEndpoint =
-      normalizeEndpoint(singleDataSourceEndpoint || defaultSingleDataSourceEndpoint) ||
-      normalizeEndpoint(siteConfig.api_root)
+      normalizeEndpoint(
+        singleDataSourceEndpoint || defaultSingleDataSourceEndpoint
+      ) || normalizeEndpoint(siteConfig.api_root)
 
     const resolveEntityEndpoint = (entity: any) =>
       normalizeEndpoint(String(entity?.__sourceEndpoint ?? siteConfig.api_root))
@@ -346,7 +345,9 @@ export default function FormModal({
 
       if (
         preferredEndpoint &&
-        fullAccessDataSources.some((source) => source.endpoint === preferredEndpoint)
+        fullAccessDataSources.some(
+          (source) => source.endpoint === preferredEndpoint
+        )
       ) {
         return preferredEndpoint
       }
@@ -374,7 +375,8 @@ export default function FormModal({
   const selectedDataSource = useMemo(
     () =>
       fullAccessDataSources.find(
-        (source) => source.endpoint === normalizeEndpoint(singleDataSourceEndpoint)
+        (source) =>
+          source.endpoint === normalizeEndpoint(singleDataSourceEndpoint)
       ) ?? null,
     [fullAccessDataSources, singleDataSourceEndpoint]
   )
@@ -424,7 +426,8 @@ export default function FormModal({
     !!selectedDataSource &&
     siteConfig.authorizationEnabled &&
     !resolveRequestToken(selectedDataSource.endpoint)
-  const isSingleFormLocked = wizardMode === 'single' && selectedDataSourceRequiresLogin
+  const isSingleFormLocked =
+    wizardMode === 'single' && selectedDataSourceRequiresLogin
 
   const updateAssociatedEntity = <K extends EntityKey>(
     entity: K,
@@ -747,13 +750,17 @@ export default function FormModal({
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === 'validation_credentials_required') {
-          setDataSourceLoginError(t('data_sources.validation_credentials_required'))
+          setDataSourceLoginError(
+            t('data_sources.validation_credentials_required')
+          )
         } else if (error.message === 'validation_login_missing') {
           setDataSourceLoginError(t('data_sources.validation_login_missing'))
         } else if (error.message === 'validation_login_failed') {
           setDataSourceLoginError(t('data_sources.validation_login_failed'))
         } else if (error.message === 'validation_login_check_failed') {
-          setDataSourceLoginError(t('data_sources.validation_login_check_failed'))
+          setDataSourceLoginError(
+            t('data_sources.validation_login_check_failed')
+          )
         } else {
           setDataSourceLoginError(t('data_sources.validation_probe_failed'))
         }
@@ -765,9 +772,226 @@ export default function FormModal({
     }
   }
 
-  const handleAssociatedSubmit = () => {
-    console.log('associated entity draft', associatedDraft)
-    onClose()
+  const parseCreatedEntityId = (value: any): string => {
+    const raw = value?.['@iot.id'] ?? value?.id
+    if (raw === undefined || raw === null) return ''
+    return String(raw).trim()
+  }
+
+  const toEntityReferenceId = (id: string) => {
+    const trimmed = id.trim()
+    if (!trimmed) return trimmed
+    const numericId = Number(trimmed)
+    return Number.isFinite(numericId) ? numericId : trimmed
+  }
+
+  const handleAssociatedSubmit = async () => {
+    setSubmitError(null)
+
+    if (!commitMessage.trim()) {
+      setSubmitError(t('commit.message_required'))
+      return
+    }
+
+    if (!fullAccessDataSources.length) {
+      setSubmitError(t('wizard.no_full_access_data_sources'))
+      return
+    }
+
+    const hasAtLeastOneNew = ENTITY_ORDER.some(
+      (entity) => associatedDraft[entity].source === 'new'
+    )
+    if (!hasAtLeastOneNew) {
+      setSubmitError('At least one entity must be created as new')
+      return
+    }
+
+    const selectedEndpoint = normalizeEndpoint(defaultSingleDataSourceEndpoint)
+    const currentSource = fullAccessDataSources.find(
+      (source) => source.endpoint === selectedEndpoint
+    )
+
+    if (!currentSource) {
+      setSubmitError(t('wizard.invalid_data_source_selection'))
+      return
+    }
+
+    const requestToken = resolveRequestToken(selectedEndpoint)
+    if (siteConfig.authorizationEnabled && !requestToken) {
+      openDataSourceLogin(currentSource, false)
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      const ids: Record<EntityKey, string> = {
+        thing:
+          associatedDraft.thing.source === 'existing'
+            ? associatedDraft.thing.existingId.trim()
+            : '',
+        location:
+          associatedDraft.location.source === 'existing'
+            ? associatedDraft.location.existingId.trim()
+            : '',
+        sensor:
+          associatedDraft.sensor.source === 'existing'
+            ? associatedDraft.sensor.existingId.trim()
+            : '',
+        observedProperty:
+          associatedDraft.observedProperty.source === 'existing'
+            ? associatedDraft.observedProperty.existingId.trim()
+            : '',
+        datastream:
+          associatedDraft.datastream.source === 'existing'
+            ? associatedDraft.datastream.existingId.trim()
+            : '',
+      }
+
+      if (associatedDraft.location.source === 'new') {
+        const payload = normalizeEntityPayload(
+          'location',
+          associatedDraft.location.formData
+        ) as CreateLocationPayload
+        const created = await createLocation(
+          { ...payload, commitMessage: commitMessage.trim() },
+          requestToken,
+          selectedEndpoint
+        )
+        const id = parseCreatedEntityId(created)
+        if (!id) throw new Error('Location created without id')
+        ids.location = id
+      }
+
+      if (associatedDraft.sensor.source === 'new') {
+        const payload = normalizeEntityPayload(
+          'sensor',
+          associatedDraft.sensor.formData
+        ) as CreateSensorPayload
+        const created = await createSensor(
+          { ...payload, commitMessage: commitMessage.trim() },
+          requestToken,
+          selectedEndpoint
+        )
+        const id = parseCreatedEntityId(created)
+        if (!id) throw new Error('Sensor created without id')
+        ids.sensor = id
+      }
+
+      if (associatedDraft.observedProperty.source === 'new') {
+        const payload = normalizeEntityPayload(
+          'observedProperty',
+          associatedDraft.observedProperty.formData
+        ) as CreateObservedPropertyPayload
+        const created = await createObservedProperty(
+          { ...payload, commitMessage: commitMessage.trim() },
+          requestToken,
+          selectedEndpoint
+        )
+        const id = parseCreatedEntityId(created)
+        if (!id) throw new Error('ObservedProperty created without id')
+        ids.observedProperty = id
+      }
+
+      if (associatedDraft.thing.source === 'new') {
+        const payload = normalizeEntityPayload(
+          'thing',
+          associatedDraft.thing.formData
+        ) as CreateThingPayload
+        const mergedPayload = {
+          ...payload,
+          ...(ids.location
+            ? { Locations: [{ '@iot.id': toEntityReferenceId(ids.location) }] }
+            : {}),
+        }
+        const created = await createThing(
+          { ...mergedPayload, commitMessage: commitMessage.trim() },
+          requestToken,
+          selectedEndpoint
+        )
+        const id = parseCreatedEntityId(created)
+        if (!id) throw new Error('Thing created without id')
+        ids.thing = id
+      } else if (ids.thing && ids.location) {
+        await updateThing(
+          ids.thing,
+          {
+            Locations: [{ '@iot.id': toEntityReferenceId(ids.location) }],
+            commitMessage: commitMessage.trim(),
+          } as any,
+          requestToken,
+          selectedEndpoint
+        )
+      }
+
+      if (associatedDraft.datastream.source === 'new') {
+        const payload = normalizeEntityPayload(
+          'datastream',
+          associatedDraft.datastream.formData
+        ) as CreateDatastreamPayload
+        if (siteConfig.networkEnabled && !payload.Network) {
+          throw new Error('Datastream Network is required')
+        }
+        const mergedPayload = {
+          ...payload,
+          ...(ids.thing
+            ? { Thing: { '@iot.id': toEntityReferenceId(ids.thing) } }
+            : {}),
+          ...(ids.sensor
+            ? { Sensor: { '@iot.id': toEntityReferenceId(ids.sensor) } }
+            : {}),
+          ...(ids.observedProperty
+            ? {
+                ObservedProperty: {
+                  '@iot.id': toEntityReferenceId(ids.observedProperty),
+                },
+              }
+            : {}),
+        }
+        const created = await createDatastream(
+          { ...mergedPayload, commitMessage: commitMessage.trim() },
+          requestToken,
+          selectedEndpoint
+        )
+        const id = parseCreatedEntityId(created)
+        if (!id) throw new Error('Datastream created without id')
+        ids.datastream = id
+      } else if (ids.datastream) {
+        const patchPayload: Record<string, unknown> = {}
+        if (ids.thing) {
+          patchPayload.Thing = { '@iot.id': toEntityReferenceId(ids.thing) }
+        }
+        if (ids.sensor) {
+          patchPayload.Sensor = { '@iot.id': toEntityReferenceId(ids.sensor) }
+        }
+        if (ids.observedProperty) {
+          patchPayload.ObservedProperty = {
+            '@iot.id': toEntityReferenceId(ids.observedProperty),
+          }
+        }
+        if (Object.keys(patchPayload).length > 0) {
+          await updateDatastream(
+            ids.datastream,
+            {
+              ...(patchPayload as any),
+              commitMessage: commitMessage.trim(),
+            },
+            requestToken,
+            selectedEndpoint
+          )
+        }
+      }
+
+      router.refresh()
+      onClose()
+    } catch (error) {
+      if (error instanceof Error) {
+        setSubmitError(error.message)
+      } else {
+        setSubmitError('Unable to create associated entities')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -791,440 +1015,471 @@ export default function FormModal({
         <ModalContent>
           <ModalBody className="h-full overflow-hidden py-5">
             <div className="flex h-full min-h-0 flex-col gap-5">
-            <SectionTitle
-              title={
-                operation === 'edit'
-                  ? t('wizard.edit_title')
-                  : t('wizard.title')
-              }
-              description={
-                operation === 'edit'
-                  ? t('wizard.edit_subtitle')
-                  : t('wizard.subtitle')
-              }
-            />
+              <SectionTitle
+                title={
+                  operation === 'edit'
+                    ? t('wizard.edit_title')
+                    : t('wizard.title')
+                }
+                description={
+                  operation === 'edit'
+                    ? t('wizard.edit_subtitle')
+                    : t('wizard.subtitle')
+                }
+              />
 
-            {operation === 'create' ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                <ModeCard
-                  active={wizardMode === 'associated'}
-                  title={t('wizard.associated_mode')}
-                  description={t('wizard.associated_mode_description')}
-                  onClick={() => setWizardMode('associated')}
-                />
-                <ModeCard
-                  active={wizardMode === 'single'}
-                  title={t('wizard.single_mode')}
-                  description={t('wizard.single_mode_description')}
-                  onClick={() => setWizardMode('single')}
-                />
-              </div>
-            ) : null}
+              {operation === 'create' ? (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <ModeCard
+                    active={wizardMode === 'associated'}
+                    title={t('wizard.associated_mode')}
+                    description={t('wizard.associated_mode_description')}
+                    onClick={() => setWizardMode('associated')}
+                  />
+                  <ModeCard
+                    active={wizardMode === 'single'}
+                    title={t('wizard.single_mode')}
+                    description={t('wizard.single_mode_description')}
+                    onClick={() => setWizardMode('single')}
+                  />
+                </div>
+              ) : null}
 
-            <div className="min-h-0 flex-1 overflow-auto pr-1">
-              {wizardMode === 'single' ? (
-                <HeroForm
-                  className="block w-full min-w-0 space-y-4"
-                  onSubmit={handleSingleSubmit}
-                >
-                  <div className="grid w-full min-w-0 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="min-h-0 flex-1 overflow-auto pr-1">
+                {wizardMode === 'single' ? (
+                  <HeroForm
+                    className="block w-full min-w-0 space-y-4"
+                    onSubmit={handleSingleSubmit}
+                  >
+                    <div className="grid w-full min-w-0 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
+                      <div className="space-y-2">
+                        {ENTITY_ORDER.map((entity) => {
+                          const active = singleEntity === entity
+                          const hasDraftData =
+                            singleDraft[entity].name.trim().length > 0
+
+                          return (
+                            <StepCard
+                              key={entity}
+                              active={active}
+                              complete={hasDraftData}
+                              label={entityLabels[entity]}
+                              icon={entityIcons[entity]}
+                              onClick={() => {
+                                if (lockedSingleEntity || isSingleFormLocked)
+                                  return
+                                setSingleEntity(entity)
+                              }}
+                            />
+                          )
+                        })}
+                      </div>
+
+                      <div className="min-w-0 space-y-4">
+                        <SectionTitle title={entityLabels[singleEntity]} />
+
+                        {fullAccessDataSources.length > 0 ? (
+                          <Autocomplete
+                            label={t('wizard.data_source')}
+                            labelPlacement="inside"
+                            placeholder={t('wizard.data_source_placeholder')}
+                            variant="underlined"
+                            radius="sm"
+                            size="sm"
+                            isRequired
+                            isDisabled={
+                              operation === 'edit' || isSingleFormLocked
+                            }
+                            selectedKey={singleDataSourceEndpoint || null}
+                            items={fullAccessDataSources}
+                            onSelectionChange={(key) =>
+                              operation === 'edit' || isSingleFormLocked
+                                ? undefined
+                                : setSingleDataSourceEndpoint(
+                                    key ? String(key) : ''
+                                  )
+                            }
+                          >
+                            {(source) => (
+                              <AutocompleteItem
+                                key={source.endpoint}
+                                textValue={source.name}
+                              >
+                                <div className="flex flex-col">
+                                  <span>{source.name}</span>
+                                  <span className="line-clamp-1 text-xs text-default-500">
+                                    {source.endpoint}
+                                  </span>
+                                </div>
+                              </AutocompleteItem>
+                            )}
+                          </Autocomplete>
+                        ) : (
+                          <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
+                            {t('wizard.no_full_access_data_sources')}
+                          </div>
+                        )}
+
+                        {selectedDataSourceRequiresLogin ? (
+                          <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
+                            <div className="mb-2">
+                              {t('wizard.data_source_login_required')}
+                            </div>
+                            <Button
+                              size="sm"
+                              color="warning"
+                              variant="flat"
+                              onPress={() =>
+                                openDataSourceLogin(selectedDataSource, false)
+                              }
+                            >
+                              {t('login.login')}
+                            </Button>
+                          </div>
+                        ) : null}
+
+                        <div
+                          className={
+                            isSingleFormLocked
+                              ? 'pointer-events-none select-none opacity-60'
+                              : ''
+                          }
+                        >
+                          <EntityFields
+                            entity={singleEntity}
+                            data={singleDraft[singleEntity]}
+                            onChange={(value) =>
+                              setSingleDraft((current) => ({
+                                ...current,
+                                [singleEntity]: value,
+                              }))
+                            }
+                            labels={entityLabels}
+                            existingOptions={existingOptions}
+                            showSingleAssociations
+                          />
+                        </div>
+
+                        {requiresCommitMessage ? (
+                          <Textarea
+                            label={t('commit.message')}
+                            labelPlacement="inside"
+                            value={commitMessage}
+                            onValueChange={setCommitMessage}
+                            placeholder={t('commit.message_placeholder')}
+                            variant="underlined"
+                            radius="sm"
+                            minRows={3}
+                            isRequired
+                            isDisabled={isSingleFormLocked}
+                            startContent={<StepIcon icon={CommitIcon} />}
+                            size="sm"
+                          />
+                        ) : null}
+
+                        {submitError ? (
+                          <div className="rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                            {submitError}
+                          </div>
+                        ) : null}
+
+                        <div className="flex justify-between gap-2">
+                          <div />
+                          <div className="flex gap-2">
+                            <Button variant="light" onPress={onClose}>
+                              {t('general.cancel')}
+                            </Button>
+                            <Button
+                              color="primary"
+                              type="submit"
+                              isDisabled={isSubmitting || isSingleFormLocked}
+                            >
+                              {isSubmitting
+                                ? `${
+                                    operation === 'edit'
+                                      ? t('general.edit')
+                                      : t('general.create')
+                                  }...`
+                                : operation === 'edit'
+                                  ? t('general.edit')
+                                  : t('general.create')}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </HeroForm>
+                ) : (
+                  <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
                     <div className="space-y-2">
-                      {ENTITY_ORDER.map((entity) => {
-                        const active = singleEntity === entity
+                      {ENTITY_ORDER.map((entity, index) => {
+                        const item = associatedDraft[entity]
                         const hasDraftData =
-                          singleDraft[entity].name.trim().length > 0
+                          item.source === 'existing'
+                            ? item.existingId.trim().length > 0
+                            : item.formData.name.trim().length > 0
 
                         return (
                           <StepCard
                             key={entity}
-                            active={active}
+                            active={associatedStepIndex === index}
                             complete={hasDraftData}
                             label={entityLabels[entity]}
                             icon={entityIcons[entity]}
-                            onClick={() => {
-                              if (lockedSingleEntity || isSingleFormLocked) return
-                              setSingleEntity(entity)
-                            }}
+                            onClick={() => setAssociatedStepIndex(index)}
                           />
                         )
                       })}
-                    </div>
-
-                    <div className="min-w-0 space-y-4">
-                      <SectionTitle
-                        title={entityLabels[singleEntity]}
-                      />
-
-                      {fullAccessDataSources.length > 0 ? (
-                        <Autocomplete
-                          label={t('wizard.data_source')}
-                          labelPlacement="inside"
-                          placeholder={t('wizard.data_source_placeholder')}
-                          variant="underlined"
-                          radius="sm"
-                          size="sm"
-                          isRequired
-                          isDisabled={operation === 'edit' || isSingleFormLocked}
-                          selectedKey={singleDataSourceEndpoint || null}
-                          items={fullAccessDataSources}
-                          onSelectionChange={(key) =>
-                            operation === 'edit' || isSingleFormLocked
-                              ? undefined
-                              : setSingleDataSourceEndpoint(key ? String(key) : '')
-                          }
-                        >
-                          {(source) => (
-                            <AutocompleteItem
-                              key={source.endpoint}
-                              textValue={source.name}
-                            >
-                              <div className="flex flex-col">
-                                <span>{source.name}</span>
-                                <span className="line-clamp-1 text-xs text-default-500">
-                                  {source.endpoint}
-                                </span>
-                              </div>
-                            </AutocompleteItem>
-                          )}
-                        </Autocomplete>
-                      ) : (
-                        <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
-                          {t('wizard.no_full_access_data_sources')}
-                        </div>
-                      )}
-
-                      {selectedDataSourceRequiresLogin ? (
-                        <div className="rounded-xl border border-warning/20 bg-warning/10 px-3 py-2 text-sm text-warning">
-                          <div className="mb-2">
-                            {t('wizard.data_source_login_required')}
-                          </div>
-                          <Button
-                            size="sm"
-                            color="warning"
-                            variant="flat"
-                            onPress={() =>
-                              openDataSourceLogin(selectedDataSource, false)
-                            }
-                          >
-                            {t('login.login')}
-                          </Button>
-                        </div>
-                      ) : null}
-
-                      <div
-                        className={
-                          isSingleFormLocked
-                            ? 'pointer-events-none select-none opacity-60'
-                            : ''
+                      <StepCard
+                        active={isReviewStep}
+                        complete={false}
+                        label={t('wizard.review_title')}
+                        icon={<StepIcon icon={ReviewIcon} />}
+                        onClick={() =>
+                          setAssociatedStepIndex(ENTITY_ORDER.length)
                         }
-                      >
-                        <EntityFields
-                          entity={singleEntity}
-                          data={singleDraft[singleEntity]}
-                          onChange={(value) =>
-                            setSingleDraft((current) => ({
-                              ...current,
-                              [singleEntity]: value,
-                            }))
-                          }
-                          labels={entityLabels}
-                          existingOptions={existingOptions}
-                          showSingleAssociations
-                        />
-                      </div>
+                      />
+                    </div>
 
-                      {requiresCommitMessage ? (
-                        <Textarea
-                          label={t('commit.message')}
-                          labelPlacement="inside"
-                          value={commitMessage}
-                          onValueChange={setCommitMessage}
-                          placeholder={t('commit.message_placeholder')}
-                          variant="underlined"
-                          radius="sm"
-                          minRows={3}
-                          isRequired
-                          isDisabled={isSingleFormLocked}
-                          startContent={<StepIcon icon={CommitIcon} />}
-                          size="sm"
-                        />
-                      ) : null}
-
-                      {submitError ? (
-                        <div className="rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
-                          {submitError}
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-3 text-xs text-default-500">
+                          <span>
+                            {t(
+                              'wizard.progress_label',
+                              `Step ${associatedCurrentStep} of ${associatedTotalSteps}`,
+                              {
+                                current: associatedCurrentStep,
+                                total: associatedTotalSteps,
+                              }
+                            )}
+                          </span>
+                          <span>{associatedProgress}%</span>
                         </div>
-                      ) : null}
-
-                      <div className="flex justify-between gap-2">
-                        <div />
-                        <div className="flex gap-2">
-                          <Button variant="light" onPress={onClose}>
-                            {t('general.cancel')}
-                          </Button>
-                          <Button
+                        <div className="h-2 overflow-hidden rounded-full bg-default-100">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${associatedProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                      {!isReviewStep &&
+                      currentAssociatedEntity &&
+                      currentAssociatedDraft ? (
+                        <>
+                          <Tabs
+                            selectedKey={currentAssociatedDraft.source}
+                            onSelectionChange={(key) =>
+                              updateAssociatedEntity(
+                                currentAssociatedEntity,
+                                (current) => ({
+                                  ...current,
+                                  source: String(key) as 'new' | 'existing',
+                                })
+                              )
+                            }
                             color="primary"
-                            type="submit"
-                            isDisabled={isSubmitting || isSingleFormLocked}
+                            variant="underlined"
+                            classNames={{
+                              tabList: 'gap-4',
+                              cursor: 'bg-primary',
+                            }}
                           >
-                            {isSubmitting
-                              ? `${
-                                  operation === 'edit'
-                                    ? t('general.edit')
-                                    : t('general.create')
-                                }...`
-                              : operation === 'edit'
-                                ? t('general.edit')
-                                : t('general.create')}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </HeroForm>
-              ) : (
-                <div className="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-                  <div className="space-y-2">
-                    {ENTITY_ORDER.map((entity, index) => {
-                      const item = associatedDraft[entity]
-                      const hasDraftData =
-                        item.source === 'existing'
-                          ? item.existingId.trim().length > 0
-                          : item.formData.name.trim().length > 0
+                            <Tab
+                              key="existing"
+                              title={
+                                existingEntityTabLabels[currentAssociatedEntity]
+                              }
+                            />
+                            <Tab
+                              key="new"
+                              title={
+                                newEntityTabLabels[currentAssociatedEntity]
+                              }
+                            />
+                          </Tabs>
 
-                      return (
-                        <StepCard
-                          key={entity}
-                          active={associatedStepIndex === index}
-                          complete={hasDraftData}
-                          label={entityLabels[entity]}
-                          icon={entityIcons[entity]}
-                          onClick={() => setAssociatedStepIndex(index)}
-                        />
-                      )
-                    })}
-                    <StepCard
-                      active={isReviewStep}
-                      complete={false}
-                      label={t('wizard.review_title')}
-                      icon={<StepIcon icon={ReviewIcon} />}
-                      onClick={() =>
-                        setAssociatedStepIndex(ENTITY_ORDER.length)
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-3 text-xs text-default-500">
-                        <span>
-                          {t(
-                            'wizard.progress_label',
-                            `Step ${associatedCurrentStep} of ${associatedTotalSteps}`,
-                            {
-                              current: associatedCurrentStep,
-                              total: associatedTotalSteps,
-                            }
-                          )}
-                        </span>
-                        <span>{associatedProgress}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-default-100">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${associatedProgress}%` }}
-                        />
-                      </div>
-                    </div>
-                    {!isReviewStep &&
-                    currentAssociatedEntity &&
-                    currentAssociatedDraft ? (
-                      <>
-                        <Tabs
-                          selectedKey={currentAssociatedDraft.source}
-                          onSelectionChange={(key) =>
-                            updateAssociatedEntity(
-                              currentAssociatedEntity,
-                              (current) => ({
-                                ...current,
-                                source: String(key) as 'new' | 'existing',
-                              })
-                            )
-                          }
-                          color="primary"
-                          variant="underlined"
-                          classNames={{
-                            tabList: 'gap-4',
-                            cursor: 'bg-primary',
-                          }}
-                        >
-                          <Tab
-                            key="existing"
-                            title={
-                              existingEntityTabLabels[currentAssociatedEntity]
-                            }
-                          />
-                          <Tab
-                            key="new"
-                            title={newEntityTabLabels[currentAssociatedEntity]}
-                          />
-                        </Tabs>
-
-                        {currentAssociatedDraft.source === 'existing' ? (
-                          <div className="space-y-3">
-                            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                              <div className="space-y-4">
-                                <ExistingEntitySelect
-                                  entity={currentAssociatedEntity}
-                                  label={t('wizard.select_existing_entity', {
-                                    entity:
-                                      entityLabels[currentAssociatedEntity],
-                                  })}
-                                  placeholder={t(
-                                    'wizard.select_existing_entity_placeholder'
-                                  )}
-                                  value={currentAssociatedDraft.existingId}
-                                  options={
-                                    existingOptions[currentAssociatedEntity]
-                                  }
-                                  onChange={(value) =>
-                                    updateAssociatedEntity(
-                                      currentAssociatedEntity,
-                                      (current) => ({
-                                        ...current,
-                                        existingId: value,
-                                      })
-                                    )
-                                  }
-                                  emptyText={t('wizard.no_existing_entities')}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-3">
-                            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
-                              <div className="flex justify-center">
-                                <div className="w-full max-w-3xl">
-                                  <EntityFields
+                          {currentAssociatedDraft.source === 'existing' ? (
+                            <div className="space-y-3">
+                              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                <div className="space-y-4">
+                                  <ExistingEntitySelect
                                     entity={currentAssociatedEntity}
-                                    data={currentAssociatedDraft.formData}
+                                    label={t('wizard.select_existing_entity', {
+                                      entity:
+                                        entityLabels[currentAssociatedEntity],
+                                    })}
+                                    placeholder={t(
+                                      'wizard.select_existing_entity_placeholder'
+                                    )}
+                                    value={currentAssociatedDraft.existingId}
+                                    options={
+                                      existingOptions[currentAssociatedEntity]
+                                    }
                                     onChange={(value) =>
                                       updateAssociatedEntity(
                                         currentAssociatedEntity,
                                         (current) => ({
                                           ...current,
-                                          formData: value as any,
+                                          existingId: value,
                                         })
                                       )
                                     }
-                                    labels={entityLabels}
-                                    existingOptions={existingOptions}
-                                    showSingleAssociations={false}
+                                    emptyText={t('wizard.no_existing_entities')}
                                   />
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between gap-2">
-                          <Button
-                            variant="light"
-                            onPress={() =>
-                              setAssociatedStepIndex((current) =>
-                                Math.max(0, current - 1)
-                              )
-                            }
-                            isDisabled={associatedStepIndex === 0}
-                          >
-                            {t('general.back')}
-                          </Button>
-
-                          <div className="flex gap-2">
-                            <Button variant="light" onPress={onClose}>
-                              {t('general.cancel')}
-                            </Button>
-                            <Button
-                              color="primary"
-                              onPress={() =>
-                                setAssociatedStepIndex((current) =>
-                                  Math.min(ENTITY_ORDER.length, current + 1)
-                                )
-                              }
-                            >
-                              {t('general.next', 'Next')}
-                            </Button>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <SectionTitle
-                          title={t('wizard.review_title')}
-                          description={t('wizard.review_description')}
-                        />
-
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {ENTITY_ORDER.map((entity) => {
-                            const item = associatedDraft[entity]
-                            const summary =
-                              item.source === 'existing'
-                                ? existingOptions[entity].find(
-                                    (option) => option.value === item.existingId
-                                  )?.label || 'Missing selection'
-                                : item.formData.name ||
-                                  t('wizard.ready_to_submit')
-
-                            return (
-                              <div
-                                key={entity}
-                                className="rounded-2xl border border-default-200 p-4"
-                              >
-                                <div className="text-sm font-semibold">
-                                  {entityLabels[entity]}
-                                </div>
-                                <div className="mt-1 text-xs uppercase tracking-wide text-default-400">
-                                  {item.source === 'new'
-                                    ? t('wizard.create_new')
-                                    : t('wizard.use_existing')}
-                                </div>
-                                <div className="mt-2 text-sm text-default-600">
-                                  {summary}
+                          ) : (
+                            <div className="space-y-3">
+                              <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                                <div className="flex justify-center">
+                                  <div className="w-full max-w-3xl">
+                                    <EntityFields
+                                      entity={currentAssociatedEntity}
+                                      data={currentAssociatedDraft.formData}
+                                      onChange={(value) =>
+                                        updateAssociatedEntity(
+                                          currentAssociatedEntity,
+                                          (current) => ({
+                                            ...current,
+                                            formData: value as any,
+                                          })
+                                        )
+                                      }
+                                      labels={entityLabels}
+                                      existingOptions={existingOptions}
+                                      showSingleAssociations={false}
+                                      showDatastreamNetworkOnly={
+                                        currentAssociatedEntity === 'datastream'
+                                      }
+                                    />
+                                  </div>
                                 </div>
                               </div>
-                            )
-                          })}
-                        </div>
+                            </div>
+                          )}
 
-                        <div className="flex justify-between gap-2">
-                          <Button
-                            variant="light"
-                            onPress={() =>
-                              setAssociatedStepIndex(ENTITY_ORDER.length - 1)
-                            }
-                          >
-                            {t('general.back')}
-                          </Button>
-
-                          <div className="flex gap-2">
-                            <Button variant="light" onPress={onClose}>
-                              {t('general.cancel')}
-                            </Button>
+                          <div className="flex justify-between gap-2">
                             <Button
-                              color="primary"
-                              onPress={handleAssociatedSubmit}
+                              variant="light"
+                              onPress={() =>
+                                setAssociatedStepIndex((current) =>
+                                  Math.max(0, current - 1)
+                                )
+                              }
+                              isDisabled={associatedStepIndex === 0}
                             >
-                              {t('general.finish', 'Finish')}
+                              {t('general.back')}
                             </Button>
+
+                            <div className="flex gap-2">
+                              <Button variant="light" onPress={onClose}>
+                                {t('general.cancel')}
+                              </Button>
+                              <Button
+                                color="primary"
+                                onPress={() =>
+                                  setAssociatedStepIndex((current) =>
+                                    Math.min(ENTITY_ORDER.length, current + 1)
+                                  )
+                                }
+                              >
+                                {t('general.next', 'Next')}
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </>
-                    )}
+                        </>
+                      ) : (
+                        <>
+                          <SectionTitle
+                            title={t('wizard.review_title')}
+                            description={t('wizard.review_description')}
+                          />
+
+                          <div className="grid gap-3 md:grid-cols-2">
+                            {ENTITY_ORDER.map((entity) => {
+                              const item = associatedDraft[entity]
+                              const summary =
+                                item.source === 'existing'
+                                  ? existingOptions[entity].find(
+                                      (option) =>
+                                        option.value === item.existingId
+                                    )?.label || 'Missing selection'
+                                  : item.formData.name ||
+                                    t('wizard.ready_to_submit')
+
+                              return (
+                                <div
+                                  key={entity}
+                                  className="rounded-2xl border border-default-200 p-4"
+                                >
+                                  <div className="text-sm font-semibold">
+                                    {entityLabels[entity]}
+                                  </div>
+                                  <div className="mt-1 text-xs uppercase tracking-wide text-default-400">
+                                    {item.source === 'new'
+                                      ? t('wizard.create_new')
+                                      : t('wizard.use_existing')}
+                                  </div>
+                                  <div className="mt-2 text-sm text-default-600">
+                                    {summary}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          <Textarea
+                            label={t('commit.message')}
+                            labelPlacement="inside"
+                            value={commitMessage}
+                            onValueChange={setCommitMessage}
+                            placeholder={t('commit.message_placeholder')}
+                            variant="underlined"
+                            radius="sm"
+                            minRows={3}
+                            isRequired
+                            startContent={<StepIcon icon={CommitIcon} />}
+                            size="sm"
+                          />
+                          {submitError ? (
+                            <div className="rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
+                              {submitError}
+                            </div>
+                          ) : null}
+
+                          <div className="flex justify-between gap-2">
+                            <Button
+                              variant="light"
+                              onPress={() =>
+                                setAssociatedStepIndex(ENTITY_ORDER.length - 1)
+                              }
+                            >
+                              {t('general.back')}
+                            </Button>
+
+                            <div className="flex gap-2">
+                              <Button variant="light" onPress={onClose}>
+                                {t('general.cancel')}
+                              </Button>
+                              <Button
+                                color="primary"
+                                onPress={handleAssociatedSubmit}
+                                isDisabled={isSubmitting}
+                              >
+                                {isSubmitting
+                                  ? `${t('general.finish', 'Finish')}...`
+                                  : t('general.finish', 'Finish')}
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
             </div>
           </ModalBody>
         </ModalContent>

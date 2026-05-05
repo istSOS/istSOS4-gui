@@ -109,7 +109,7 @@ export function createLocationFormData(
   return {
     name: '',
     description: '',
-    encodingType: '',
+    encodingType: 'application/vnd.geo+json',
     location:
       latitude !== undefined && longitude !== undefined
         ? formatLv95FromWgs84(latitude, longitude)
@@ -146,7 +146,7 @@ export function createDatastreamFormData(): DatastreamFormData {
     sensorId: '',
     observedPropertyId: '',
     networkId: '',
-    unitOfMeasurement: [],
+    unitOfMeasurement: [createEmptyKeyValue()],
     properties: [],
   }
 }

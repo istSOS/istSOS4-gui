@@ -24,6 +24,7 @@ import {
   SensorIcon,
   ThingIcon,
 } from '@/components/icons'
+
 import { siteConfig } from '@/config/site'
 
 import { formatLv95FromWgs84 } from './coordinates'
@@ -191,27 +192,18 @@ function KeyValueListField({
           </Tooltip>
         ) : null}
       </div>
-      {required ? (
-        <input
-          readOnly
-          required
-          tabIndex={-1}
-          aria-hidden="true"
-          className="pointer-events-none absolute h-0 w-0 opacity-0"
-          value={hasValidItems ? 'valid' : ''}
-          onChange={() => {}}
-        />
-      ) : null}
       <div className="space-y-3">
         {items.map((item, index) => (
           <div key={index} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
             <TextField
+              required={required}
               label={keyLabel}
               value={item.key}
               onValueChange={(value) => updateItem(index, 'key', value)}
               icon={<FormIcon icon={KeyIcon} />}
             />
             <TextField
+              required={required}
               label={valueLabel}
               value={item.value}
               onValueChange={(value) => updateItem(index, 'value', value)}
@@ -318,6 +310,7 @@ export function EntityFields({
   labels,
   existingOptions,
   showSingleAssociations = true,
+  showDatastreamNetworkOnly = false,
 }: {
   entity: EntityKey
   data: FormDataMap[EntityKey]
@@ -325,6 +318,7 @@ export function EntityFields({
   labels: Record<EntityKey, string>
   existingOptions?: Record<ExistingEntitySelectKey, ExistingOption[]>
   showSingleAssociations?: boolean
+  showDatastreamNetworkOnly?: boolean
 }) {
   const { t } = useTranslation()
   const currentThing = entity === 'thing' ? (data as ThingFormData) : null
@@ -653,6 +647,25 @@ export function EntityFields({
                   )}
                 />
               ) : null}
+            </div>
+          ) : showDatastreamNetworkOnly && siteConfig.networkEnabled ? (
+            <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-4">
+              <ExistingEntitySelect
+                entity="network"
+                label={t('datastreams.network')}
+                placeholder={t(
+                  'datastreams.network_placeholder',
+                  'Select an existing Network'
+                )}
+                value={currentDatastream?.networkId ?? ''}
+                options={existingOptions?.network ?? []}
+                onChange={(value) => updateField('networkId', value)}
+                required
+                emptyText={t(
+                  'wizard.no_existing_entities',
+                  'No entities are available yet for this type in the current dataset.'
+                )}
+              />
             </div>
           ) : null}
         </>

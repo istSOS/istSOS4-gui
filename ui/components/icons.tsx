@@ -787,6 +787,7 @@ export const ReviewIcon = ({
       viewBox="0 0 24 24"
       width={w}
       height={h}
+      fill="currentColor"
       {...props}
     >
       <path d="M19 3H5C3.89 3 3 3.89 3 5V19C3 20.11 3.89 21 5 21H19C20.11 21 21 20.11 21 19V5C21 3.89 20.11 3 19 3M19 19H5V5H19V19M7 7H14V9H7V7M7 11H17V13H7V11M7 15H17V17H7V15Z" />

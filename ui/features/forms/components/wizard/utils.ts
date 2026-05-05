@@ -45,6 +45,26 @@ function toEntityReferenceId(id: string) {
 function toPointGeometry(value: string) {
   const parsed = parseLv95String(value)
   if (!parsed) {
+    const trimmed = String(value ?? '').trim()
+    if (!trimmed) return value
+
+    // Allow pasting a GeoJSON object as string in the coordinates field.
+    if (trimmed.startsWith('{')) {
+      try {
+        const parsedJson = JSON.parse(trimmed)
+        if (
+          parsedJson &&
+          typeof parsedJson === 'object' &&
+          parsedJson.type === 'Point' &&
+          Array.isArray(parsedJson.coordinates)
+        ) {
+          return parsedJson
+        }
+      } catch {
+        return value
+      }
+    }
+
     return value
   }
 
@@ -53,6 +73,12 @@ function toPointGeometry(value: string) {
   return {
     type: 'Point',
     coordinates: [east, north],
+    crs: {
+      type: 'name',
+      properties: {
+        name: 'EPSG:2056',
+      },
+    },
   }
 }
 
@@ -195,10 +221,11 @@ export function normalizeEntityPayload(
     case 'location': {
       const current = formData as LocationFormData
       const properties = toPropertiesObject(current.properties)
+      const encodingType = current.encodingType.trim() || 'application/vnd.geo+json'
       return {
         name: current.name,
         description: current.description,
-        encodingType: current.encodingType,
+        encodingType,
         location: toPointGeometry(current.location),
         properties,
       }
