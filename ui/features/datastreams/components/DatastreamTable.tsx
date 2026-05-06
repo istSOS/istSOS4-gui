@@ -20,6 +20,12 @@ import {
 import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Chip } from '@heroui/chip'
+import {
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
+} from '@heroui/dropdown'
 import { Tooltip } from '@heroui/tooltip'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
@@ -30,12 +36,15 @@ import { useTranslation } from 'react-i18next'
 
 import {
   ChartIcon,
+  ChevronDownIcon,
   CloseIcon,
   DeleteIcon,
   EditIcon,
+  ImportFileIcon,
   LocationIcon,
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
+import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -352,14 +361,41 @@ export default function DatastreamTable({
           }
           topRight={
             <div className="flex gap-2">
-              <Button
-                startContent={<LocationIcon size={18} />}
-                size="sm"
-                color="primary"
-                onPress={onCreateDatastream}
-              >
-                {t('general.new')}
-              </Button>
+              <Dropdown>
+                <DropdownTrigger>
+                  <Button
+                    endContent={<ChevronDownIcon size={18} />}
+                    size="sm"
+                    color="primary"
+                  >
+                    {t('general.new')}
+                  </Button>
+                </DropdownTrigger>
+                <DropdownMenu aria-label="Datastream actions" variant="light">
+                  <DropdownItem
+                    key="new-datastream"
+                    startContent={<LocationIcon size={16} />}
+                    onPress={onCreateDatastream}
+                  >
+                    {t('general.new')}
+                  </DropdownItem>
+                  <DropdownItem
+                    key="import-from-file"
+                    startContent={<ImportFileIcon size={16} />}
+                    onPress={() =>
+                      document
+                        .getElementById('datastream-import-trigger')
+                        ?.click()
+                    }
+                  >
+                    Import from file
+                  </DropdownItem>
+                </DropdownMenu>
+              </Dropdown>
+              <ImportFromFileButton
+                buttonId="datastream-import-trigger"
+                className="hidden"
+              />
 
               <Tooltip content={t('general.close')}>
                 <Button

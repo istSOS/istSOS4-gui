@@ -13,16 +13,44 @@ function extractIotIdFromLocationHeader(headerValue: string | null) {
   return match?.[1]?.trim() ?? ''
 }
 
+async function findEntityIdByName(
+  apiRoot: string,
+  collection: string,
+  name: string,
+  token?: string | null
+) {
+  const normalizedName = name.trim()
+  if (!normalizedName) return null
+
+  const escapedName = normalizedName.replace(/'/g, "''")
+  const filter = `name eq '${escapedName}'`
+  const url =
+    `${apiRoot}/${collection}` +
+    `?$filter=${encodeURIComponent(filter)}&$top=1&$select=id`
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: withAuthHeaders(token, {}, apiRoot),
+    cache: 'no-store',
+  })
+
+  if (!response.ok) return null
+  const json = await response.json().catch(() => null)
+  const first = Array.isArray(json?.value) ? json.value[0] : null
+  const id = first?.id ?? first?.['@iot.id']
+  return id === undefined || id === null ? null : String(id).trim() || null
+}
+
 export type CreateDatastreamPayload = {
   name: string
   description?: string
   observationType: string
+  phenomenonTime?: string
   Thing?: { '@iot.id': number | string }
   Sensor?: { '@iot.id': number | string }
   ObservedProperty?: { '@iot.id': number | string }
   Network?: { '@iot.id': number | string }
-  unitOfMeasurement?: Record<string, string>
-  properties?: Record<string, string>
+  unitOfMeasurement?: Record<string, any>
+  properties?: Record<string, any>
   commitMessage?: string
 }
 
@@ -84,6 +112,14 @@ export async function createDatastream(
     if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
     }
+
+    const existingId = await findEntityIdByName(
+      resolvedApiRoot,
+      'Datastreams',
+      payload.name,
+      token
+    )
+    if (existingId) return { '@iot.id': existingId }
 
     const response = await fetch(`${resolvedApiRoot}/Datastreams`, {
       method: 'POST',

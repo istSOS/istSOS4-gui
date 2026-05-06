@@ -254,10 +254,10 @@ export default function TableComponent({
         classNames={{
           base: 'p-0 gap-1',
           wrapper: 'p-0 gap-1',
-          item: 'min-w-6 h-6 px-0 text-xs leading-4',
-          prev: 'min-w-6 h-6 px-0',
-          next: 'min-w-6 h-6 px-0',
-          cursor: 'min-w-6 h-6',
+          item: 'min-w-6 h-6 px-0 text-xs leading-4 cursor-pointer',
+          prev: 'min-w-6 h-6 px-0 cursor-pointer',
+          next: 'min-w-6 h-6 px-0 cursor-pointer',
+          cursor: 'min-w-6 h-6 cursor-pointer',
         }}
       />
 

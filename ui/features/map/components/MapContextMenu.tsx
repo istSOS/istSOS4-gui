@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 
 import {
   CrosshairIcon,
+  ImportFileIcon,
   LocationIcon,
   ZoomInIcon,
   ZoomOutIcon,
@@ -29,6 +30,7 @@ type Props = {
   y: number
   onCenterHere: () => void
   onCreateThing: () => void
+  onImportFromFile: () => void
   onZoomIn: () => void
   onZoomOut: () => void
 }
@@ -46,7 +48,7 @@ function MenuRow({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-left text-[15px] text-default-700 hover:bg-black/5"
+      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-left text-[15px] text-default-700 hover:bg-black/5"
     >
       <span className="flex h-5 w-5 items-center justify-center text-default-800">
         {icon}
@@ -61,6 +63,7 @@ export default function MapContextMenu({
   y,
   onCenterHere,
   onCreateThing,
+  onImportFromFile,
   onZoomIn,
   onZoomOut,
 }: Props) {
@@ -81,6 +84,11 @@ export default function MapContextMenu({
           icon={<LocationIcon />}
           label={t('general.new')}
           onClick={onCreateThing}
+        />
+        <MenuRow
+          icon={<ImportFileIcon />}
+          label="Import from file"
+          onClick={onImportFromFile}
         />
 
         <div className="mx-3 my-1 border-t border-default-200" />

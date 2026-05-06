@@ -25,6 +25,7 @@ import { BASEMAPS } from '@/config/site'
 import LayersControl, { DataSourceLayerItem } from './LayersControl'
 import MapContextMenu from './MapContextMenu'
 import MapMenu from './MapMenu'
+import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
 
 import {
   createClusterGroup,
@@ -800,6 +801,10 @@ export default function LeafletMap({
             })
             setContextMenu(null)
           }}
+          onImportFromFile={() => {
+            document.getElementById('map-import-trigger')?.click()
+            setContextMenu(null)
+          }}
           onZoomIn={() => {
             mapRef.current?.zoomIn?.()
             setContextMenu(null)
@@ -810,6 +815,8 @@ export default function LeafletMap({
           }}
         />
       ) : null}
+
+      <ImportFromFileButton buttonId="map-import-trigger" className="hidden" />
 
       <LayersControl
         title={t('data_sources.title')}

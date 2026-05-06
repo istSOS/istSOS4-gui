@@ -262,6 +262,7 @@ export default function Home({
   const [comparisonDatastream, setComparisonDatastream] = useState<any | null>(
     null
   )
+  const [isClientMounted, setIsClientMounted] = useState(false)
   const locationsForForm = useMemo(() => {
     const primaryEndpoint = normalizeEndpoint(siteConfig.api_root)
     const byKey = new Map<string, any>()
@@ -344,6 +345,10 @@ export default function Home({
   const [obsError, setObsError] = useState<string | null>(null)
   const [obsStart, setObsStart] = useState<string | null>(null)
   const [obsEnd, setObsEnd] = useState<string | null>(null)
+
+  useEffect(() => {
+    setIsClientMounted(true)
+  }, [])
 
   const obsCacheRef = useRef<Map<string, any[]>>(new Map())
   const [observations, setObservations] = useState<any[]>([])
@@ -610,26 +615,28 @@ export default function Home({
 
   return (
     <div className="relative h-[calc(100vh-3.5rem)] w-full overflow-hidden">
-      <LeafletMap
-        things={localThings}
-        selectedNetwork={selectedNetwork}
-        onThingSelect={(thing) => {
-          setSelectedThingId(getThingKey(thing))
-          setSelectedDatastream(null)
-          setComparisonDatastream(null)
-          setObservations([])
-          setComparisonObservations([])
-          setObsError(null)
-        }}
-        onCreateThingAt={(point) => {
-          setCreateFormState({
-            mode: 'create',
-            latitude: point.latitude,
-            longitude: point.longitude,
-            initialTab: 'thing',
-          })
-        }}
-      />
+      {isClientMounted ? (
+        <LeafletMap
+          things={localThings}
+          selectedNetwork={selectedNetwork}
+          onThingSelect={(thing) => {
+            setSelectedThingId(getThingKey(thing))
+            setSelectedDatastream(null)
+            setComparisonDatastream(null)
+            setObservations([])
+            setComparisonObservations([])
+            setObsError(null)
+          }}
+          onCreateThingAt={(point) => {
+            setCreateFormState({
+              mode: 'create',
+              latitude: point.latitude,
+              longitude: point.longitude,
+              initialTab: 'thing',
+            })
+          }}
+        />
+      ) : null}
       {createFormState ? (
         <FormModal
           operation={createFormState.mode}

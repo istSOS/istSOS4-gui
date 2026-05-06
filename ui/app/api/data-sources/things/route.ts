@@ -38,7 +38,8 @@ const expandClause = `
   .replace(/\s*([(),;=])\s*/g, '$1')
   .trim()
 
-const buildThingsUrl = (apiRoot: string) => `${apiRoot}/Things?$expand=${expandClause}`
+const buildThingsUrl = (apiRoot: string) =>
+  `${apiRoot}/Things?$expand=${expandClause}`
 
 const withAuthHeaders = (token?: string | null) => {
   if (!token) return {}
@@ -61,7 +62,7 @@ const buildSensorsUrl = (apiRoot: string) =>
 const buildObservedPropertiesUrl = (apiRoot: string) =>
   `${apiRoot}/ObservedProperties?$select=id,name,definition,description`
 const buildNetworksUrl = (apiRoot: string) =>
-  `${apiRoot}/Networks?$select=id,name,description`
+  `${apiRoot}/Networks?$select=id,name`
 
 async function fetchSourceCollection(
   url: string,
@@ -94,17 +95,16 @@ async function fetchThingsForSource(
       sensorsValues,
       observedPropertiesValues,
       networkValues,
-    ] =
-      await Promise.all([
-        fetch(buildThingsUrl(endpoint), {
-          method: 'GET',
-          headers: withAuthHeaders(token),
-          cache: 'no-store',
-        }),
-        fetchSourceCollection(buildSensorsUrl(endpoint), token),
-        fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
-        fetchSourceCollection(buildNetworksUrl(endpoint), token),
-      ])
+    ] = await Promise.all([
+      fetch(buildThingsUrl(endpoint), {
+        method: 'GET',
+        headers: withAuthHeaders(token),
+        cache: 'no-store',
+      }),
+      fetchSourceCollection(buildSensorsUrl(endpoint), token),
+      fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
+      fetchSourceCollection(buildNetworksUrl(endpoint), token),
+    ])
 
     if (!thingsResponse.ok) {
       return {
@@ -200,18 +200,18 @@ export async function POST(request: Request) {
   const primaryDataSource = getPrimaryDataSource(dataSourcesConfig)
 
   const body = (await request.json().catch(() => null)) as RequestPayload | null
-  const tokenMap = body?.tokens && typeof body.tokens === 'object' ? body.tokens : {}
+  const tokenMap =
+    body?.tokens && typeof body.tokens === 'object' ? body.tokens : {}
 
-  const normalizedTokens = Object.entries(tokenMap).reduce<Record<string, string>>(
-    (acc, [endpoint, token]) => {
-      const normalizedEndpoint = normalizeApiRoot(endpoint)
-      const normalizedToken = typeof token === 'string' ? token.trim() : ''
-      if (!normalizedEndpoint || !normalizedToken) return acc
-      acc[normalizedEndpoint] = normalizedToken
-      return acc
-    },
-    {}
-  )
+  const normalizedTokens = Object.entries(tokenMap).reduce<
+    Record<string, string>
+  >((acc, [endpoint, token]) => {
+    const normalizedEndpoint = normalizeApiRoot(endpoint)
+    const normalizedToken = typeof token === 'string' ? token.trim() : ''
+    if (!normalizedEndpoint || !normalizedToken) return acc
+    acc[normalizedEndpoint] = normalizedToken
+    return acc
+  }, {})
 
   const cookieStore = await cookies()
   const cookieToken = cookieStore.get('token')?.value ?? null
