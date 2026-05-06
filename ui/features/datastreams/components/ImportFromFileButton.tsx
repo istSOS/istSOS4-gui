@@ -59,6 +59,11 @@ type ParsedWorkbookPayload = {
   constraintKeys: string[]
 }
 
+type ParseWorkerRequest = {
+  buffer: ArrayBuffer
+  fileName: string
+}
+
 const parseWorkbookInWorker = async (file: File): Promise<ParsedWorkbookPayload> =>
   new Promise((resolve, reject) => {
     const worker = new Worker(
@@ -85,7 +90,11 @@ const parseWorkbookInWorker = async (file: File): Promise<ParsedWorkbookPayload>
     file
       .arrayBuffer()
       .then((buffer) => {
-        worker.postMessage(buffer, [buffer])
+        const payload: ParseWorkerRequest = {
+          buffer,
+          fileName: file.name,
+        }
+        worker.postMessage(payload, [buffer])
       })
       .catch((error) => {
         worker.terminate()
@@ -337,7 +346,7 @@ export default function ImportFromFileButton({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".xlsx,.xls"
+        accept=".xlsx,.xls,.csv,text/csv"
         className="hidden"
         onChange={handleImportInputChange}
       />

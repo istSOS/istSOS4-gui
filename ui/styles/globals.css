@@ -117,18 +117,48 @@ button.thing-tooltip-row:hover {
 .thing-value-icon {
     background: transparent !important;
     border: none !important;
+    width: 84px !important;
+    height: 28px !important;
+    overflow: visible !important;
 }
 
 .thing-value-wrap {
-    transform: translate(-50%, -50%);
+    width: 84px;
+    height: 28px;
     will-change: transform;
 }
 
 .thing-value-text {
-    display: inline-block;
-    font-size: 18px;
-    font-weight: 600;
-    line-height: 1;
-    color: #ff0000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 84px;
+    height: 28px;
+    padding: 0 8px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    border: 2px solid var(--thing-value-border, #334155);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.28);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: #0f172a;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.leaflet-control-zoom.leaflet-bar {
+    border: 2px solid var(--color-primary) !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+.leaflet-control-zoom.leaflet-bar a {
+    border-color: var(--color-primary) !important;
+}
+
+.leaflet-control-zoom.leaflet-bar a:first-child {
+    border-bottom: 1px solid var(--color-primary) !important;
 }

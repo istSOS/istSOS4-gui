@@ -45,10 +45,21 @@ type ParseWorkbookResult = {
   constraintKeys: string[]
 }
 
-self.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+type ParseWorkerRequest = {
+  buffer: ArrayBuffer
+  fileName: string
+}
+
+self.onmessage = (event: MessageEvent<ParseWorkerRequest>) => {
   try {
-    const bytes = event.data
-    const workbook = XLSX.read(bytes, { type: 'array' })
+    const { buffer, fileName } = event.data
+    const isCsv = fileName.toLowerCase().endsWith('.csv')
+    const workbook = isCsv
+      ? XLSX.read(new TextDecoder('utf-8').decode(buffer), {
+          type: 'string',
+          raw: false,
+        })
+      : XLSX.read(buffer, { type: 'array' })
     const sheetName = workbook.SheetNames[0]
     if (!sheetName) {
       throw new Error('Workbook has no sheets')

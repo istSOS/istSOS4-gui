@@ -1,12 +1,11 @@
 'use client'
 
-import { Autocomplete, AutocompleteItem } from '@heroui/autocomplete'
 import { Button } from '@heroui/button'
 import { DateRangePicker } from '@heroui/date-picker'
 import { Modal, ModalBody, ModalContent, ModalHeader } from '@heroui/modal'
+import { Select, SelectItem } from '@heroui/select'
 import {
   getLocalTimeZone,
-  now,
   parseAbsoluteToLocal,
 } from '@internationalized/date'
 import { useTranslation } from 'react-i18next'
@@ -18,11 +17,16 @@ import ObservationGraph from './ObservationGraph'
 type ChartModalProps = {
   isOpen: boolean
   onClose: () => void
+  things?: any[]
   thing?: any | null
+  selectedObservedPropertyName?: string | null
+  selectedThingKeys?: string[]
+  selectedObservedPropertyNames?: string[]
   datastream?: any | null
   observations?: any[]
   comparisonDatastream?: any | null
   comparisonObservations?: any[]
+  allSeries?: Array<{ datastream: any; observations: any[] }>
   loading?: boolean
   error?: string | null
   start?: string | null
@@ -30,7 +34,10 @@ type ChartModalProps = {
   onApplyRange?: (start?: string | null, end?: string | null) => void
   onResetRange?: () => void
   onDownloadAllDatastreams?: () => Promise<{ filename: string; bytes: ArrayBuffer } | null>
-  onComparisonDatastreamChange?: (datastreamId: string | null) => void
+  activeDatastreamIds?: string[]
+  onActiveDatastreamsChange?: (datastreamIds: string[]) => void
+  onThingKeysChange?: (thingKeys: string[]) => void
+  onObservedPropertyNamesChange?: (observedPropertyNames: string[]) => void
 }
 
 type PickerDateLike = {
@@ -54,11 +61,16 @@ function toRangeValue(start?: string | null, end?: string | null) {
 export default function ChartModal({
   isOpen,
   onClose,
+  things = [],
   thing = null,
+  selectedObservedPropertyName = null,
+  selectedThingKeys = [],
+  selectedObservedPropertyNames = [],
   datastream = null,
   observations = [],
   comparisonDatastream = null,
   comparisonObservations = [],
+  allSeries = [],
   loading = false,
   error = null,
   start = null,
@@ -66,23 +78,41 @@ export default function ChartModal({
   onApplyRange,
   onResetRange,
   onDownloadAllDatastreams,
-  onComparisonDatastreamChange,
+  activeDatastreamIds = [],
+  onActiveDatastreamsChange,
+  onThingKeysChange,
+  onObservedPropertyNamesChange,
 }: ChartModalProps) {
   const { t } = useTranslation()
   const rangeValue = toRangeValue(start, end)
   const timeZone = getLocalTimeZone()
-  const selectedDatastreamId = String(
-    datastream?.['@iot.id'] ?? datastream?.id ?? ''
+  const thingOptions = things.map((entry: any) => {
+    const key = `${String(entry?.__sourceId ?? entry?.__sourceEndpoint ?? '0')}::${String(
+      entry?.['@iot.id'] ?? entry?.id ?? entry?.name ?? ''
+    )}`
+    return { key, label: String(entry?.name ?? key) }
+  })
+  const selectedThings = things.filter((entry: any) =>
+    selectedThingKeys.includes(
+      `${String(entry?.__sourceId ?? entry?.__sourceEndpoint ?? '0')}::${String(
+        entry?.['@iot.id'] ?? entry?.id ?? entry?.name ?? ''
+      )}`
+    )
   )
-  const comparisonDatastreamId = String(
-    comparisonDatastream?.['@iot.id'] ?? comparisonDatastream?.id ?? ''
+  const observedPropertySourceThings =
+    selectedThings.length > 0 ? selectedThings : thing ? [thing] : []
+  const observedPropertyOptions = Array.from(
+    new Set(
+      observedPropertySourceThings
+        .flatMap((entry: any) =>
+          Array.isArray(entry?.Datastreams) ? entry.Datastreams : []
+        )
+        .map((ds: any) => String(ds?.ObservedProperty?.name ?? '').trim())
+        .filter(Boolean)
+    )
   )
-  const datastreamOptions = Array.isArray(thing?.Datastreams)
-    ? thing.Datastreams.filter(
-        (entry: any) =>
-          String(entry?.['@iot.id'] ?? entry?.id ?? '') !== selectedDatastreamId
-      )
-    : []
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => ({ key: name, label: name }))
 
   return (
     <Modal
@@ -102,12 +132,7 @@ export default function ChartModal({
       <ModalContent>
         <ModalHeader className="flex items-center justify-between gap-3 pb-0">
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold">
-              {String(datastream?.name ?? t('general.details'))}
-            </div>
-            <div className="truncate text-sm text-default-500">
-              {String(thing?.name ?? '')}
-            </div>
+            <div className="truncate text-base font-semibold">Observations</div>
           </div>
           <Button
             isIconOnly
@@ -122,7 +147,46 @@ export default function ChartModal({
           </Button>
         </ModalHeader>
         <ModalBody className="h-full overflow-hidden p-4 pt-2">
-          <div className="mb-6 flex w-full flex-wrap items-end gap-4 md:mb-0">
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="mb-4 grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-3">
+            <Select
+              label="Thing"
+              labelPlacement="inside"
+              placeholder="Select thing(s)"
+              variant="bordered"
+              radius="sm"
+              size="sm"
+              color="primary"
+              className="w-full"
+              selectionMode="multiple"
+              selectedKeys={new Set(selectedThingKeys)}
+              onSelectionChange={(keys) =>
+                onThingKeysChange?.(Array.from(keys as Set<string>))
+              }
+            >
+              {thingOptions.map((entry) => (
+                <SelectItem key={entry.key}>{entry.label}</SelectItem>
+              ))}
+            </Select>
+            <Select
+              label="Observed Property"
+              labelPlacement="inside"
+              placeholder="Select observed property(ies)"
+              variant="bordered"
+              radius="sm"
+              size="sm"
+              color="primary"
+              className="w-full"
+              selectionMode="multiple"
+              selectedKeys={new Set(selectedObservedPropertyNames)}
+              onSelectionChange={(keys) =>
+                onObservedPropertyNamesChange?.(Array.from(keys as Set<string>))
+              }
+            >
+              {observedPropertyOptions.map((entry) => (
+                <SelectItem key={entry.key}>{entry.label}</SelectItem>
+              ))}
+            </Select>
             <DateRangePicker<any>
               value={rangeValue as any}
               onChange={(value) => {
@@ -142,7 +206,7 @@ export default function ChartModal({
               }}
               variant="bordered"
               label={t('chart.time_range')}
-              className="w-full md:max-w-xl"
+              className="w-full"
               showMonthAndYearPickers
               hideTimeZone
               visibleMonths={2}
@@ -150,44 +214,24 @@ export default function ChartModal({
               color="primary"
               size="sm"
             />
-            <Autocomplete
-              label={t('chart.compare_datastream')}
-              labelPlacement="inside"
-              placeholder={t('chart.none') ?? 'None'}
-              variant="bordered"
-              radius="sm"
-              size="sm"
-              color="primary"
-              className="w-full max-w-md"
-              selectedKey={comparisonDatastreamId || null}
-              defaultItems={datastreamOptions}
-              onSelectionChange={(key) => {
-                const nextId = key ? String(key) : null
-                onComparisonDatastreamChange?.(nextId)
-              }}
-            >
-              {(entry: any) => {
-                const optionId = String(entry?.['@iot.id'] ?? entry?.id ?? '')
-                const optionName = String(entry?.name ?? optionId)
-                return (
-                  <AutocompleteItem key={optionId} textValue={optionName}>
-                    {optionName}
-                  </AutocompleteItem>
-                )
-              }}
-            </Autocomplete>
+            </div>
+            <div className="min-h-0 flex-1">
+              <ObservationGraph
+                thing={thing}
+                datastream={datastream}
+                observations={observations}
+                comparisonDatastream={comparisonDatastream}
+                comparisonObservations={comparisonObservations}
+                allSeries={allSeries}
+                activeDatastreamIds={activeDatastreamIds}
+                onActiveDatastreamsChange={onActiveDatastreamsChange}
+                loading={loading}
+                error={error}
+                onDownloadAllDatastreams={onDownloadAllDatastreams}
+                height="100%"
+              />
+            </div>
           </div>
-          <ObservationGraph
-            thing={thing}
-            datastream={datastream}
-            observations={observations}
-            comparisonDatastream={comparisonDatastream}
-            comparisonObservations={comparisonObservations}
-            loading={loading}
-            error={error}
-            onDownloadAllDatastreams={onDownloadAllDatastreams}
-            height="100%"
-          />
         </ModalBody>
       </ModalContent>
     </Modal>

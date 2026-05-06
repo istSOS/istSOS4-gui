@@ -258,10 +258,23 @@ export default function Home({
   ])
 
   const [selectedThingId, setSelectedThingId] = useState<string | null>(null)
+  const [selectedObservedPropertyName, setSelectedObservedPropertyName] =
+    useState<string | null>(null)
+  const [tableObservedPropertyFilter, setTableObservedPropertyFilter] =
+    useState<string | null>(null)
+  const [selectedThingKeysForChart, setSelectedThingKeysForChart] = useState<
+    string[]
+  >([])
+  const [
+    selectedObservedPropertyNamesForChart,
+    setSelectedObservedPropertyNamesForChart,
+  ] = useState<string[]>([])
+  const [isChartOpen, setIsChartOpen] = useState(false)
   const [selectedDatastream, setSelectedDatastream] = useState<any | null>(null)
   const [comparisonDatastream, setComparisonDatastream] = useState<any | null>(
     null
   )
+  const [activeDatastreamIds, setActiveDatastreamIds] = useState<string[]>([])
   const [isClientMounted, setIsClientMounted] = useState(false)
   const locationsForForm = useMemo(() => {
     const primaryEndpoint = normalizeEndpoint(siteConfig.api_root)
@@ -353,6 +366,9 @@ export default function Home({
   const obsCacheRef = useRef<Map<string, any[]>>(new Map())
   const [observations, setObservations] = useState<any[]>([])
   const [comparisonObservations, setComparisonObservations] = useState<any[]>([])
+  const [allSeries, setAllSeries] = useState<
+    Array<{ datastream: any; observations: any[] }>
+  >([])
 
   const selectedThing = useMemo(() => {
     if (!selectedThingId) return null
@@ -362,9 +378,16 @@ export default function Home({
   }, [localThings, selectedThingId])
 
   const isPanelOpen = !!selectedThing
+  const thingKeyFor = (thing: any) =>
+    `${String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0')}::${String(
+      thing?.['@iot.id'] ?? thing?.id ?? thing?.name ?? ''
+    )}`
 
   const closePanel = () => {
     setSelectedThingId(null)
+    setSelectedObservedPropertyName(null)
+    setTableObservedPropertyFilter(null)
+    setIsChartOpen(false)
     setSelectedDatastream(null)
     setComparisonDatastream(null)
     setObservations([])
@@ -373,6 +396,8 @@ export default function Home({
     setObsLoading(false)
     setObsStart(null)
     setObsEnd(null)
+    setActiveDatastreamIds([])
+    setAllSeries([])
   }
 
   const fetchObservations = async (
@@ -466,21 +491,219 @@ export default function Home({
     setComparisonObservations(result.data)
   }
 
-  const openChartForDatastream = async (ds: any) => {
-    setSelectedDatastream(ds)
-    setComparisonDatastream(null)
-    setComparisonObservations([])
-
-    const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
-    const sourceEndpoint = String(
-      ds?.__sourceEndpoint ?? selectedThing?.__sourceEndpoint ?? siteConfig.api_root
+  const loadAllDatastreamObservationsForThing = async (
+    thing: any,
+    range?: { start?: string | null; end?: string | null },
+    options?: { observedPropertyNameFilter?: string | null }
+  ) => {
+    const allThingDatastreams = Array.isArray(thing?.Datastreams)
+      ? thing.Datastreams
+      : []
+    const filterName = String(
+      options?.observedPropertyNameFilter ?? ''
+    ).trim().toLowerCase()
+    const thingDatastreams = filterName
+      ? allThingDatastreams.filter((ds: any) =>
+          String(ds?.ObservedProperty?.name ?? '')
+            .trim()
+            .toLowerCase()
+            .includes(filterName)
+        )
+      : allThingDatastreams
+    const entries = await Promise.all(
+      thingDatastreams.map(async (ds: any) => {
+        const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
+        if (!dsId) {
+          return { datastream: ds, observations: [] as any[] }
+        }
+        const sourceEndpoint = String(
+          ds?.__sourceEndpoint ?? thing?.__sourceEndpoint ?? siteConfig.api_root
+        )
+        const result = await fetchObservations(
+          dsId,
+          ds?.phenomenonTime,
+          range,
+          sourceEndpoint
+        )
+        return { datastream: ds, observations: result.data }
+      })
     )
+    setAllSeries(entries)
+  }
+
+  const openChartForDatastream = async (ds: any) => {
+    const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '').trim()
     if (!dsId) {
       setObsError('Missing datastream id')
       setObservations([])
       return
     }
-    await loadPrimaryObservations(dsId, ds.phenomenonTime, undefined, sourceEndpoint)
+
+    const thingKeys =
+      selectedThing && thingKeyFor(selectedThing)
+        ? [thingKeyFor(selectedThing)]
+        : []
+
+    const opName = String(ds?.ObservedProperty?.name ?? '').trim()
+    const observedPropertyNames =
+      tableObservedPropertyFilter && tableObservedPropertyFilter.trim()
+        ? [tableObservedPropertyFilter.trim()]
+        : opName
+          ? [opName]
+          : []
+
+    await openChartForThingAndObservedProperties(
+      thingKeys,
+      observedPropertyNames,
+      dsId
+    )
+  }
+
+  const openChartForThingAndObservedProperty = async (
+    thing: any,
+    observedPropertyName?: string | null
+  ) => {
+    if (!thing) return
+    const normalizedFilter = String(observedPropertyName ?? '').trim() || null
+
+    setSelectedThingId(getThingKey(thing))
+    setSelectedObservedPropertyName(normalizedFilter)
+    setIsChartOpen(true)
+    setComparisonDatastream(null)
+    setComparisonObservations([])
+
+    const thingDatastreams = Array.isArray(thing?.Datastreams)
+      ? thing.Datastreams
+      : []
+    const filteredDatastreams = normalizedFilter
+      ? thingDatastreams.filter((ds: any) =>
+          String(ds?.ObservedProperty?.name ?? '')
+            .trim()
+            .toLowerCase()
+            .includes(normalizedFilter.toLowerCase())
+        )
+      : thingDatastreams
+
+    const primaryDatastream = filteredDatastreams[0] ?? null
+    setSelectedDatastream(primaryDatastream)
+    setActiveDatastreamIds(
+      primaryDatastream
+        ? [String(primaryDatastream?.['@iot.id'] ?? primaryDatastream?.id ?? '')]
+        : []
+    )
+
+    if (!primaryDatastream) {
+      setObservations([])
+      setAllSeries([])
+      return
+    }
+
+    const dsId = String(
+      primaryDatastream?.['@iot.id'] ?? primaryDatastream?.id ?? ''
+    )
+    const sourceEndpoint = String(
+      primaryDatastream?.__sourceEndpoint ??
+        thing?.__sourceEndpoint ??
+        siteConfig.api_root
+    )
+
+    await loadPrimaryObservations(
+      dsId,
+      primaryDatastream?.phenomenonTime,
+      { start: obsStart, end: obsEnd },
+      sourceEndpoint
+    )
+    await loadAllDatastreamObservationsForThing(
+      thing,
+      { start: obsStart, end: obsEnd },
+      { observedPropertyNameFilter: normalizedFilter }
+    )
+  }
+
+  const openChartForThingAndObservedProperties = async (
+    thingKeys: string[],
+    observedPropertyNames: string[],
+    preferredDatastreamId?: string
+  ) => {
+    setIsChartOpen(true)
+    const keys = Array.from(new Set(thingKeys)).filter(Boolean)
+    const ops = Array.from(
+      new Set(observedPropertyNames.map((name) => name.trim()).filter(Boolean))
+    )
+    setSelectedThingKeysForChart(keys)
+    setSelectedObservedPropertyNamesForChart(ops)
+
+    const selectedThingsForChart = localThings.filter((thing) =>
+      keys.includes(thingKeyFor(thing))
+    )
+    const primaryThing = selectedThingsForChart[0] ?? null
+    setSelectedThingId(primaryThing ? getThingKey(primaryThing) : null)
+    setSelectedObservedPropertyName(ops[0] ?? null)
+
+    const datastreamCandidates = selectedThingsForChart.flatMap((thing) =>
+      (Array.isArray(thing?.Datastreams) ? thing.Datastreams : []).filter(
+        (ds: any) =>
+          ops.length === 0 ||
+          ops.some(
+            (op) =>
+              String(ds?.ObservedProperty?.name ?? '')
+                .trim()
+                .toLowerCase() === op.toLowerCase()
+          )
+      )
+    )
+
+    const preferredId = String(preferredDatastreamId ?? '').trim()
+    const primaryDatastream =
+      (preferredId
+        ? datastreamCandidates.find(
+            (ds: any) =>
+              String(ds?.['@iot.id'] ?? ds?.id ?? '').trim() === preferredId
+          )
+        : null) ??
+      datastreamCandidates[0] ??
+      null
+    setSelectedDatastream(primaryDatastream)
+    setComparisonDatastream(null)
+    setComparisonObservations([])
+    setActiveDatastreamIds(
+      primaryDatastream
+        ? [String(primaryDatastream?.['@iot.id'] ?? primaryDatastream?.id ?? '')]
+        : []
+    )
+
+    const nextSeries: Array<{ datastream: any; observations: any[] }> = []
+    let resolvedStart: string | null = null
+    let resolvedEnd: string | null = null
+    const primaryId = String(
+      primaryDatastream?.['@iot.id'] ?? primaryDatastream?.id ?? ''
+    ).trim()
+    for (const ds of datastreamCandidates) {
+      const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '').trim()
+      if (!dsId) continue
+      const sourceEndpoint = String(
+        ds?.__sourceEndpoint ??
+          primaryThing?.__sourceEndpoint ??
+          siteConfig.api_root
+      )
+      const result = await fetchObservations(
+        dsId,
+        ds?.phenomenonTime,
+        { start: obsStart, end: obsEnd },
+        sourceEndpoint
+      )
+      nextSeries.push({ datastream: ds, observations: result.data })
+      if (dsId === primaryId) {
+        resolvedStart = result.startIso ?? null
+        resolvedEnd = result.endIso ?? null
+      }
+    }
+    setAllSeries(nextSeries)
+    setObservations(nextSeries[0]?.observations ?? [])
+    if (resolvedStart && resolvedEnd) {
+      setObsStart(resolvedStart)
+      setObsEnd(resolvedEnd)
+    }
   }
 
   const applyObservationRange = async (
@@ -515,38 +738,86 @@ export default function Home({
         setObsError(e?.message ?? 'Failed to load observations')
       }
     }
+    if (selectedThing) {
+      await loadAllDatastreamObservationsForThing(
+        selectedThing,
+        { start, end },
+        { observedPropertyNameFilter: selectedObservedPropertyName }
+      )
+    }
   }
 
-  const changeComparisonDatastream = async (nextDatastreamId: string | null) => {
-    if (!nextDatastreamId || !selectedThing) {
+  const changeActiveDatastreams = async (nextDatastreamIds: string[]) => {
+    const normalizedIdsRaw = Array.from(
+      new Set(nextDatastreamIds.map((id) => String(id).trim()).filter(Boolean))
+    ).slice(0, 2)
+    const currentPrimaryId = String(activeDatastreamIds[0] ?? '')
+    const normalizedIds = [...normalizedIdsRaw]
+    if (
+      currentPrimaryId &&
+      normalizedIds.length > 1 &&
+      normalizedIds.includes(currentPrimaryId) &&
+      normalizedIds[0] !== currentPrimaryId
+    ) {
+      normalizedIds.splice(normalizedIds.indexOf(currentPrimaryId), 1)
+      normalizedIds.unshift(currentPrimaryId)
+    }
+
+    setActiveDatastreamIds(normalizedIds)
+
+    const getById = (id: string) =>
+      allSeries.find(
+        (entry) =>
+          String(entry?.datastream?.['@iot.id'] ?? entry?.datastream?.id ?? '') ===
+          id
+      )?.datastream ?? null
+
+    const primary = normalizedIds[0] ? getById(normalizedIds[0]) : null
+    const secondary = normalizedIds[1] ? getById(normalizedIds[1]) : null
+
+    setSelectedDatastream(primary)
+    setComparisonDatastream(secondary)
+    const activeObservedPropertyNames = [primary, secondary]
+      .map((ds) => String(ds?.ObservedProperty?.name ?? '').trim())
+      .filter(Boolean)
+    const uniqueActiveObservedPropertyNames = Array.from(
+      new Set(activeObservedPropertyNames)
+    )
+    setSelectedObservedPropertyNamesForChart(uniqueActiveObservedPropertyNames)
+    setSelectedObservedPropertyName(uniqueActiveObservedPropertyNames[0] ?? null)
+
+    if (!primary) {
+      setSelectedDatastream(null)
       setComparisonDatastream(null)
+      setObservations([])
       setComparisonObservations([])
       return
     }
 
-    const thingDatastreams = Array.isArray(selectedThing?.Datastreams)
-      ? selectedThing.Datastreams
-      : []
-    const nextDatastream =
-      thingDatastreams.find(
-        (ds: any) => String(ds?.['@iot.id'] ?? ds?.id ?? '') === nextDatastreamId
+    const primaryId = String(primary?.['@iot.id'] ?? primary?.id ?? '')
+    const primarySeries =
+      allSeries.find(
+        (entry) =>
+          String(
+            entry?.datastream?.['@iot.id'] ?? entry?.datastream?.id ?? ''
+          ) === primaryId
       ) ?? null
+    setObservations(primarySeries?.observations ?? [])
 
-    setComparisonDatastream(nextDatastream)
-    if (!nextDatastream) {
+    if (!secondary) {
       setComparisonObservations([])
       return
     }
 
-    try {
-      await loadComparisonObservations(nextDatastream, {
-        start: obsStart,
-        end: obsEnd,
-      })
-    } catch (e: any) {
-      setObsError(e?.message ?? 'Failed to load observations')
-      setComparisonObservations([])
-    }
+    const secondaryId = String(secondary?.['@iot.id'] ?? secondary?.id ?? '')
+    const secondarySeries =
+      allSeries.find(
+        (entry) =>
+          String(
+            entry?.datastream?.['@iot.id'] ?? entry?.datastream?.id ?? ''
+          ) === secondaryId
+      ) ?? null
+    setComparisonObservations(secondarySeries?.observations ?? [])
   }
 
   const downloadAllDatastreamsCsv = async (): Promise<CsvDownloadPayload | null> => {
@@ -584,10 +855,20 @@ export default function Home({
           sourceEndpoint
         )
 
-        const rows = (Array.isArray(result.data) ? result.data : []).map((obs: any) => ({
-          phenomenonTime: String(obs?.phenomenonTime ?? ''),
-          result: obs?.result ?? '',
-        }))
+        const rows = (Array.isArray(result.data) ? result.data : [])
+          .slice()
+          .sort((a: any, b: any) => {
+            const aTs = dayjs.utc(a?.phenomenonTime).valueOf()
+            const bTs = dayjs.utc(b?.phenomenonTime).valueOf()
+            if (!Number.isFinite(aTs) && !Number.isFinite(bTs)) return 0
+            if (!Number.isFinite(aTs)) return 1
+            if (!Number.isFinite(bTs)) return -1
+            return aTs - bTs
+          })
+          .map((obs: any) => ({
+            phenomenonTime: String(obs?.phenomenonTime ?? ''),
+            result: obs?.result ?? '',
+          }))
         const sheet = XLSX.utils.json_to_sheet(rows, {
           header: ['phenomenonTime', 'result'],
         })
@@ -619,8 +900,14 @@ export default function Home({
         <LeafletMap
           things={localThings}
           selectedNetwork={selectedNetwork}
-          onThingSelect={(thing) => {
+          onThingSelect={(thing, selection) => {
             setSelectedThingId(getThingKey(thing))
+            setSelectedObservedPropertyName(
+              selection?.observedPropertyName?.trim() || null
+            )
+            setTableObservedPropertyFilter(
+              selection?.observedPropertyName?.trim() || null
+            )
             setSelectedDatastream(null)
             setComparisonDatastream(null)
             setObservations([])
@@ -665,29 +952,50 @@ export default function Home({
         />
       ) : null}
       <ChartModal
-        isOpen={!!selectedDatastream}
+        isOpen={isChartOpen}
         onClose={() => {
+          setIsChartOpen(false)
           setSelectedDatastream(null)
           setComparisonDatastream(null)
+          setActiveDatastreamIds([])
           setObservations([])
           setComparisonObservations([])
+          setAllSeries([])
           setObsError(null)
           setObsLoading(false)
           setObsStart(null)
           setObsEnd(null)
         }}
+        things={localThings}
         thing={selectedThing}
+        selectedObservedPropertyName={selectedObservedPropertyName}
+        selectedThingKeys={selectedThingKeysForChart}
+        selectedObservedPropertyNames={selectedObservedPropertyNamesForChart}
         datastream={selectedDatastream}
         observations={observations}
         comparisonDatastream={comparisonDatastream}
         comparisonObservations={comparisonObservations}
+        allSeries={allSeries}
         loading={obsLoading}
         error={obsError}
         start={obsStart}
         end={obsEnd}
         onApplyRange={applyObservationRange}
         onDownloadAllDatastreams={downloadAllDatastreamsCsv}
-        onComparisonDatastreamChange={changeComparisonDatastream}
+        activeDatastreamIds={activeDatastreamIds}
+        onActiveDatastreamsChange={changeActiveDatastreams}
+        onThingKeysChange={(thingKeys) => {
+          void openChartForThingAndObservedProperties(
+            thingKeys,
+            selectedObservedPropertyNamesForChart
+          )
+        }}
+        onObservedPropertyNamesChange={(observedPropertyNames) => {
+          void openChartForThingAndObservedProperties(
+            selectedThingKeysForChart,
+            observedPropertyNames
+          )
+        }}
         onResetRange={() => {
           applyObservationRange(null, null)
         }}
@@ -698,6 +1006,7 @@ export default function Home({
             <div className="max-h-[32vh] overflow-auto pb-2">
               <DatastreamTable
                 thing={selectedThing}
+                observedPropertyNameFilter={tableObservedPropertyFilter}
                 onClose={closePanel}
                 onCreateDatastream={() => {
                   setCreateFormState({

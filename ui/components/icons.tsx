@@ -910,3 +910,27 @@ export const NetworkIcon = ({
     </svg>
   )
 }
+
+export const MenuIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      fill="currentColor"
+      {...props}
+    >
+      <path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" />
+    </svg>
+  )
+}

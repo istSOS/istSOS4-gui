@@ -94,7 +94,10 @@ export default function LeafletMap({
 }: {
   things: any[] | { value: any[] }
   selectedNetwork?: string
-  onThingSelect?: (thing: any) => void
+  onThingSelect?: (
+    thing: any,
+    selection?: { observedPropertyName?: string; datastreamId?: string }
+  ) => void
   onCreateThingAt?: (point: { latitude: number; longitude: number }) => void
 }) {
   const { t } = useTranslation()
@@ -829,7 +832,7 @@ export default function LeafletMap({
         onToggleObservedProperty={onToggleObservedPropertyDetail}
       />
 
-      <div className="absolute bottom-10 right-10 z-[2000]">
+      <div className="absolute bottom-10 right-3 z-[1900]">
         <MapMenu active={basemap} onChange={setBasemap} />
       </div>
     </div>

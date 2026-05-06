@@ -27,6 +27,9 @@ type ObservationGraphProps = {
   observations?: any[]
   comparisonDatastream?: any | null
   comparisonObservations?: any[]
+  allSeries?: Array<{ datastream: any; observations: any[] }>
+  activeDatastreamIds?: string[]
+  onActiveDatastreamsChange?: (datastreamIds: string[]) => void
   loading?: boolean
   error?: string | null
   onDownloadAllDatastreams?: () => Promise<{
@@ -81,6 +84,9 @@ export default function ObservationGraph({
   observations = [],
   comparisonDatastream = null,
   comparisonObservations = [],
+  allSeries = [],
+  activeDatastreamIds = [],
+  onActiveDatastreamsChange,
   loading = false,
   error = null,
   onDownloadAllDatastreams,
@@ -126,16 +132,71 @@ export default function ObservationGraph({
     return rows
   }, [comparisonObservations])
 
-  const unit = String(datastream?.unitOfMeasurement?.symbol ?? '')
-  const observedProperty = String(datastream?.ObservedProperty?.name ?? '')
-  const streamName = String(datastream?.name ?? '')
-  const comparisonUnit = String(
-    comparisonDatastream?.unitOfMeasurement?.symbol ?? ''
-  )
-  const comparisonObservedProperty = String(
-    comparisonDatastream?.ObservedProperty?.name ?? ''
-  )
-  const comparisonStreamName = String(comparisonDatastream?.name ?? '')
+  const seriesEntries = useMemo(() => {
+    if (Array.isArray(allSeries) && allSeries.length > 0) {
+      return allSeries.map((entry) => {
+        const ds = entry?.datastream
+        const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
+        const dsName = String(ds?.name ?? dsId)
+        const dsUnit = String(ds?.unitOfMeasurement?.symbol ?? '')
+        const dsObservedProperty = String(ds?.ObservedProperty?.name ?? '')
+
+        const rows: Array<{ ts: number; value: number }> = []
+        for (const obs of Array.isArray(entry?.observations)
+          ? entry.observations
+          : []) {
+          const ts = extractTimestamp(obs)
+          const value = toNumber(obs?.result)
+          if (ts === null || value === null) continue
+          rows.push({ ts, value })
+        }
+        rows.sort((a, b) => a.ts - b.ts)
+
+        return {
+          id: dsId,
+          name: dsName,
+          unit: dsUnit,
+          observedProperty: dsObservedProperty,
+          rows,
+        }
+      })
+    }
+
+    return [
+      {
+        id: String(datastream?.['@iot.id'] ?? datastream?.id ?? ''),
+        name: String(datastream?.name ?? ''),
+        unit: String(datastream?.unitOfMeasurement?.symbol ?? ''),
+        observedProperty: String(datastream?.ObservedProperty?.name ?? ''),
+        rows: chartData,
+      },
+      ...(comparisonDatastream
+        ? [
+            {
+              id: String(
+                comparisonDatastream?.['@iot.id'] ??
+                  comparisonDatastream?.id ??
+                  ''
+              ),
+              name: String(comparisonDatastream?.name ?? ''),
+              unit: String(
+                comparisonDatastream?.unitOfMeasurement?.symbol ?? ''
+              ),
+              observedProperty: String(
+                comparisonDatastream?.ObservedProperty?.name ?? ''
+              ),
+              rows: comparisonChartData,
+            },
+          ]
+        : []),
+    ]
+  }, [
+    allSeries,
+    datastream,
+    comparisonDatastream,
+    chartData,
+    comparisonChartData,
+  ])
 
   useEffect(() => {
     const el = containerRef.current
@@ -190,12 +251,12 @@ export default function ObservationGraph({
     }
 
     if (!datastream) {
-      showMessage(t('general.select_datastream') ?? 'Select a datastream')
+      showMessage(t('general.select_datastream'))
       return
     }
 
     if (loading) {
-      showMessage(t('general.loading') ?? 'Loading…')
+      showMessage(t('general.loading'))
       return
     }
 
@@ -204,33 +265,42 @@ export default function ObservationGraph({
       return
     }
 
-    if (chartData.length === 0 && comparisonChartData.length === 0) {
-      showMessage(t('general.no_data') ?? 'No data')
+    const hasAnyData = seriesEntries.some((entry) => entry.rows.length > 0)
+    if (!hasAnyData) {
+      showMessage(t('general.no_data'))
       return
     }
 
-    const yLabel = unit ? `${observedProperty} (${unit})` : observedProperty
+    const selectedSeries = seriesEntries.filter((entry) =>
+      activeDatastreamIds.includes(entry.id)
+    )
+    const primarySeries =
+      selectedSeries[0] ??
+      seriesEntries.find((entry) => activeDatastreamIds.includes(entry.id)) ??
+      seriesEntries[0]
+    const secondarySeries = selectedSeries[1] ?? null
+    const yLabel = primarySeries?.unit
+      ? `${primarySeries.observedProperty} (${primarySeries.unit})`
+      : (primarySeries?.observedProperty ?? '')
+    const secondaryYLabel = secondarySeries
+      ? secondarySeries.unit
+        ? `${secondarySeries.observedProperty} (${secondarySeries.unit})`
+        : secondarySeries.observedProperty
+      : ''
     const secondaryColor = '#f59e0b'
     const seriesDataRows: Array<{
       date: string
       stream: string
       value: string
     }> = []
-    for (const row of chartData) {
-      seriesDataRows.push({
-        date: dayjs.utc(row.ts).format('YYYY-MM-DD HH:mm'),
-        stream: streamName,
-        value: unit ? `${row.value} ${unit}` : String(row.value),
-      })
-    }
-    for (const row of comparisonChartData) {
-      seriesDataRows.push({
-        date: dayjs.utc(row.ts).format('YYYY-MM-DD HH:mm'),
-        stream: comparisonStreamName,
-        value: comparisonUnit
-          ? `${row.value} ${comparisonUnit}`
-          : String(row.value),
-      })
+    for (const entry of seriesEntries) {
+      for (const row of entry.rows) {
+        seriesDataRows.push({
+          date: dayjs.utc(row.ts).format('YYYY-MM-DD HH:mm'),
+          stream: entry.name,
+          value: entry.unit ? `${row.value} ${entry.unit}` : String(row.value),
+        })
+      }
     }
     seriesDataRows.sort(
       (a, b) => dayjs.utc(a.date).valueOf() - dayjs.utc(b.date).valueOf()
@@ -242,12 +312,27 @@ export default function ObservationGraph({
         left: 50,
         right: 50,
         top: 30,
-        bottom: 70,
+        bottom: 110,
       },
 
       tooltip: {
         trigger: 'axis',
         borderColor: primaryColor,
+        formatter: (params: any) => {
+          const rows = Array.isArray(params) ? params : [params]
+          const axisLabel = rows[0]?.axisValueLabel ?? ''
+          const lines = rows
+            .map((row: any) => {
+              const entry = seriesEntries.find(
+                (item) => item.id === String(row?.seriesName ?? '')
+              )
+              const displayName = entry?.name ?? String(row?.seriesName ?? '')
+              const value = Array.isArray(row?.data) ? row.data[1] : row?.value
+              return `${row?.marker ?? ''}${displayName}: ${value ?? ''}`
+            })
+            .join('<br/>')
+          return `${axisLabel}<br/>${lines}`
+        },
         axisPointer: {
           type: 'line',
           lineStyle: {
@@ -261,8 +346,9 @@ export default function ObservationGraph({
         bottom: 'bottom',
         feature: {
           dataView: {
+            title: 'DataView',
             readOnly: true,
-            lang: ['', t('general.close') ?? 'Close', ''],
+            lang: ['\u200B', t('general.close'), ''],
             backgroundColor: '#ffffff',
             textareaColor: '#ffffff',
             textareaBorderColor: tableBorderColor,
@@ -278,26 +364,86 @@ export default function ObservationGraph({
               },
             },
             optionToContent: () => {
-              const rows = seriesDataRows.map((row, index) => {
-                const rowBg = index % 2 === 0 ? 'transparent' : tableRowAltBg
+              const groupedRows = new Map<
+                string,
+                Array<{ date: string; value: string }>
+              >()
+              for (const row of seriesDataRows) {
+                const group = groupedRows.get(row.stream) ?? []
+                group.push({ date: row.date, value: row.value })
+                groupedRows.set(row.stream, group)
+              }
 
-                return `<tr>
-                  <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.date}</td>
-                  <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.stream}</td>
-                  <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.value}</td>
-                </tr>`
-              })
+              const datastreamNames = Array.from(groupedRows.keys())
+              const wrapper = document.createElement('div')
+              wrapper.style.display = 'flex'
+              wrapper.style.flexDirection = 'column'
+              wrapper.style.gap = '10px'
 
-              return `<table style="width:100%;border-collapse:collapse;font-size:12px;color:${primaryColor};">
-                <thead>
-                  <tr>
-                    <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Date</th>
-                    <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Datastream</th>
-                    <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Value</th>
-                  </tr>
-                </thead>
-                <tbody>${rows.join('')}</tbody>
-              </table>`
+              const tabs = document.createElement('div')
+              tabs.style.display = 'flex'
+              tabs.style.flexWrap = 'wrap'
+              tabs.style.gap = '6px'
+
+              const tableContainer = document.createElement('div')
+
+              const renderTable = (stream: string) => {
+                const rows = (groupedRows.get(stream) ?? [])
+                  .map((row, index) => {
+                    const rowBg =
+                      index % 2 === 0 ? 'transparent' : tableRowAltBg
+                    return `<tr>
+                      <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.date}</td>
+                      <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.value}</td>
+                    </tr>`
+                  })
+                  .join('')
+
+                tableContainer.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;color:${primaryColor};">
+                  <thead>
+                    <tr>
+                      <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Date</th>
+                      <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>`
+              }
+
+              let activeStream = datastreamNames[0] ?? ''
+              for (const stream of datastreamNames) {
+                const btn = document.createElement('button')
+                btn.type = 'button'
+                btn.textContent = stream
+                btn.style.padding = '4px 10px'
+                btn.style.border = `1px solid ${tableBorderColor}`
+                btn.style.borderRadius = '9999px'
+                btn.style.fontSize = '12px'
+                btn.style.cursor = 'pointer'
+                btn.style.background =
+                  stream === activeStream ? tableHeaderBg : '#fff'
+                btn.style.color = primaryColor
+                btn.onclick = () => {
+                  activeStream = stream
+                  for (const child of Array.from(tabs.children)) {
+                    const element = child as HTMLButtonElement
+                    element.style.background =
+                      element.textContent === activeStream
+                        ? tableHeaderBg
+                        : '#fff'
+                  }
+                  renderTable(activeStream)
+                }
+                tabs.appendChild(btn)
+              }
+
+              if (activeStream) {
+                renderTable(activeStream)
+              }
+
+              wrapper.appendChild(tabs)
+              wrapper.appendChild(tableContainer)
+              return wrapper
             },
           },
           dataZoom: {
@@ -348,10 +494,22 @@ export default function ObservationGraph({
 
       legend: {
         top: 0,
+        formatter: (id: string) =>
+          seriesEntries.find((entry) => entry.id === id)?.name ?? id,
+        selected: Object.fromEntries(
+          seriesEntries.map((entry) => [
+            entry.id,
+            activeDatastreamIds.length
+              ? activeDatastreamIds.includes(entry.id)
+              : entry.id === primarySeries?.id,
+          ])
+        ),
       },
 
       xAxis: {
         type: 'time',
+        minInterval: 60 * 60 * 1000,
+        maxInterval: 60 * 60 * 1000,
         axisLine: {
           lineStyle: {
             color: primaryColor,
@@ -359,7 +517,14 @@ export default function ObservationGraph({
         },
         axisLabel: {
           hideOverlap: true,
-          formatter: (value: number) => dayjs.utc(value).format('HH:mm'),
+          rotate: 35,
+          interval: 'auto',
+          margin: 16,
+          formatter: (value: number) => {
+            const d = dayjs.utc(value)
+            if (d.hour() % 6 !== 0) return ''
+            return d.format('DD/MM HH:mm')
+          },
         },
       },
 
@@ -384,14 +549,12 @@ export default function ObservationGraph({
         },
         {
           type: 'value',
-          name: comparisonUnit
-            ? `${comparisonObservedProperty} (${comparisonUnit})`
-            : comparisonObservedProperty,
+          name: secondaryYLabel,
           nameLocation: 'middle',
           nameGap: 48,
           scale: true,
           position: 'right',
-          show: !!comparisonDatastream,
+          show: !!secondarySeries,
           axisLine: {
             lineStyle: {
               color: secondaryColor,
@@ -405,60 +568,79 @@ export default function ObservationGraph({
 
       dataZoom: [{ type: 'inside', xAxisIndex: 0, filterMode: 'none' }],
 
-      series: [
-        {
-          name: streamName,
-          type: 'line',
-          data: chartData.map((row) => [row.ts, row.value]),
+      series: seriesEntries.map((entry) => {
+        const isPrimary = entry.id === primarySeries?.id
+        const isSecondary = entry.id === secondarySeries?.id
+        const color = isPrimary
+          ? primaryColor
+          : isSecondary
+            ? secondaryColor
+            : '#94a3b8'
+        return {
+          name: entry.id,
+          type: 'line' as const,
+          data: entry.rows.map((row) => [row.ts, row.value]),
           showSymbol: false,
-          sampling: 'lttb',
+          sampling: 'lttb' as const,
           smooth: false,
           lineStyle: {
-            color: primaryColor,
+            color,
             width: 2,
           },
           itemStyle: {
-            color: primaryColor,
+            color,
           },
-          yAxisIndex: 0,
-        },
-        ...(comparisonDatastream
-          ? [
-              {
-                name: comparisonStreamName,
-                type: 'line' as const,
-                data: comparisonChartData.map((row) => [row.ts, row.value]),
-                showSymbol: false,
-                sampling: 'lttb' as const,
-                smooth: false,
-                lineStyle: {
-                  color: secondaryColor,
-                  width: 2,
-                },
-                itemStyle: {
-                  color: secondaryColor,
-                },
-                yAxisIndex: 1,
-              },
-            ]
-          : []),
-      ],
+          yAxisIndex: isSecondary ? 1 : 0,
+        }
+      }),
     }
 
     chart.clear()
     chart.setOption(option, { notMerge: true })
+    chart.off('legendselectchanged')
+    chart.on('legendselectchanged', (params: any) => {
+      const selectedIds = Object.entries(params.selected ?? {})
+        .filter(([, enabled]) => !!enabled)
+        .map(([id]) => id)
+      if (selectedIds.length === 0) {
+        chart.dispatchAction({ type: 'legendSelect', name: params.name })
+        return
+      }
+      if (selectedIds.length > 2) {
+        const clickedId = String(params.name ?? '')
+        const primaryId =
+          activeDatastreamIds[0] ||
+          selectedIds.find((id) => id !== clickedId) ||
+          clickedId
+        const nextSelectedIds =
+          primaryId === clickedId
+            ? [
+                clickedId,
+                selectedIds.find((id) => id !== clickedId) || clickedId,
+              ]
+            : [primaryId, clickedId]
+
+        for (const entry of seriesEntries) {
+          const shouldBeSelected = nextSelectedIds.includes(entry.id)
+          chart.dispatchAction({
+            type: shouldBeSelected ? 'legendSelect' : 'legendUnSelect',
+            name: entry.id,
+          })
+        }
+        onActiveDatastreamsChange?.(nextSelectedIds)
+        return
+      }
+      onActiveDatastreamsChange?.(selectedIds)
+    })
     chart.resize()
   }, [
     datastream,
     chartData,
     comparisonDatastream,
     comparisonChartData,
-    streamName,
-    comparisonStreamName,
-    observedProperty,
-    unit,
-    comparisonObservedProperty,
-    comparisonUnit,
+    seriesEntries,
+    activeDatastreamIds,
+    onActiveDatastreamsChange,
     loading,
     error,
     onDownloadAllDatastreams,

@@ -182,13 +182,14 @@ function buildTooltipMount(
 function bindSelectThing(
   layer: any,
   thing: any,
-  onThingSelect?: (t: any) => void
+  onThingSelect?: (t: any, selection?: { observedPropertyName?: string; datastreamId?: string }) => void,
+  selection?: { observedPropertyName?: string; datastreamId?: string }
 ) {
   if (!onThingSelect) return
   layer.on('click', (e: any) => {
     e.originalEvent?.preventDefault?.()
     e.originalEvent?.stopPropagation?.()
-    onThingSelect(thing)
+    onThingSelect(thing, selection)
   })
 }
 
@@ -350,7 +351,10 @@ export function drawNetworkLayers(args: {
   sourceColorByKey?: Record<string, string>
 
   labels?: TooltipLabels
-  onThingSelect?: (thing: any) => void
+  onThingSelect?: (
+    thing: any,
+    selection?: { observedPropertyName?: string; datastreamId?: string }
+  ) => void
 }) {
   const {
     L,
@@ -440,6 +444,7 @@ export function drawNetworkLayers(args: {
       if (!centerLL) continue
 
       const dss = Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
+      const observedMatches: Array<{ ds: any; text: string; sourceKey: string }> = []
       for (const ds of dss) {
         const opName = ds?.ObservedProperty?.name
         if (typeof opName !== 'string') continue
@@ -451,23 +456,32 @@ export function drawNetworkLayers(args: {
 
         const text = valueTextForDatastream(ds)
         if (!text) continue
+        observedMatches.push({ ds, text, sourceKey })
+      }
+
+      for (const { ds, text, sourceKey } of observedMatches) {
+        const compactLabel = text
 
         const sourceColor = sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
         const freshnessStatus = thingFreshnessStatus(thing)
         const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
         const marker = L.marker(centerLL, {
-          icon: markerIconFor(sourceColor, borderColor),
+          icon: L.divIcon({
+            className: 'thing-value-icon',
+            iconSize: [84, 28],
+            iconAnchor: [42, 14],
+            html: `<div class="thing-value-wrap" style="--thing-value-border:${escapeHtml(
+              borderColor
+            )};--thing-value-accent:${escapeHtml(sourceColor)};">
+              <span class="thing-value-text">${escapeHtml(compactLabel)}</span>
+            </div>`,
+          }),
         })
         ;(marker as any).__sourceColor = sourceColor
         ;(marker as any).__freshnessStatus = freshnessStatus
-        bindSelectThing(marker, thing, onThingSelect)
-        marker.bindTooltip(escapeHtml(text), {
-          sticky: false,
-          interactive: false,
-          direction: 'top',
-          offset: [0, TOOLTIP_VERTICAL_OFFSET],
-          opacity: 1,
-          className: 'thing-tooltip',
+        bindSelectThing(marker, thing, onThingSelect, {
+          observedPropertyName: String(ds?.ObservedProperty?.name ?? '').trim(),
+          datastreamId: String(ds?.['@iot.id'] ?? ds?.id ?? '').trim(),
         })
         observedCluster.addLayer(marker)
       }

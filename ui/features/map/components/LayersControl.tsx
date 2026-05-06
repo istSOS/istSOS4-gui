@@ -21,7 +21,7 @@ import { useEffect, useRef, useState } from 'react'
 import { HexColorPicker } from 'react-colorful'
 import { useTranslation } from 'react-i18next'
 
-import { ChevronDownIcon } from '@/components/icons'
+import { ChevronDownIcon, MenuIcon } from '@/components/icons'
 
 export type ThingLayerItem = {
   key: string
@@ -451,15 +451,27 @@ export default function LayersControl({
   if (!sources.length) return null
 
   return (
-    <div className="absolute inset-y-3 right-3 z-[2000] flex max-w-[calc(100vw-1.5rem)] items-start">
-      <Card className="max-h-full w-[360px] max-w-full overflow-hidden">
+    <div className="absolute right-3 top-3 bottom-40 z-[2200] flex max-w-[calc(100vw-1.5rem)] items-start">
+      <Card
+        className={`max-h-full max-w-full overflow-hidden ring-2 ring-[var(--color-primary)] ${
+          expanded ? 'w-[360px]' : 'w-auto'
+        }`}
+      >
         <div className="px-3 py-2 flex items-center gap-2">
-          <ExpandButton
-            expanded={expanded}
-            label={title}
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}
             onPress={() => setExpanded((value) => !value)}
-          />
-          <span className="text-xs font-semibold">{title}</span>
+            className="h-6 w-6 min-w-6"
+          >
+            <span className="sr-only">{title}</span>
+            <MenuIcon size={24} />
+          </Button>
+          {expanded ? (
+            <span className="text-xs font-semibold">{title}</span>
+          ) : null}
         </div>
 
         {expanded ? (

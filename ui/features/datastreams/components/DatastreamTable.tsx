@@ -104,6 +104,7 @@ function ageLabel(endRaw?: string) {
 
 type Props = {
   thing: any | null
+  observedPropertyNameFilter?: string | null
   onClose: () => void
   onCreateDatastream?: () => void
   onOpenDetails?: (datastream: any) => void
@@ -112,6 +113,7 @@ type Props = {
 
 export default function DatastreamTable({
   thing,
+  observedPropertyNameFilter = null,
   onClose,
   onCreateDatastream,
   onOpenDetails,
@@ -122,8 +124,16 @@ export default function DatastreamTable({
 
   const datastreams: any[] = useMemo(() => {
     const ds = thing?.Datastreams
-    return Array.isArray(ds) ? ds : []
-  }, [thing])
+    const all = Array.isArray(ds) ? ds : []
+    const filterName = String(observedPropertyNameFilter ?? '').trim().toLowerCase()
+    if (!filterName) return all
+    return all.filter((entry: any) =>
+      String(entry?.ObservedProperty?.name ?? '')
+        .trim()
+        .toLowerCase()
+        .includes(filterName)
+    )
+  }, [thing, observedPropertyNameFilter])
 
   const thingName = String(thing?.name ?? '')
   const networkName = networkKey(thing?.Datastreams?.[0]?.Network?.name)
