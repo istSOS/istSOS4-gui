@@ -12,16 +12,17 @@ import type {
   ThingFormData,
 } from './types'
 import { parseLv95String } from './coordinates'
+import { Datastream, EntityRef, LocationRef, ObservedPropertyRef, SensorRef, Thing } from '@/types/domain'
 
 import { siteConfig } from '@/config/site'
 
 export type ExistingEntities = {
-  things: any[]
-  locations: any[]
-  sensors: any[]
-  observedProperties: any[]
-  datastreams: any[]
-  networks: any[]
+  things: Thing[]
+  locations: LocationRef[]
+  sensors: SensorRef[]
+  observedProperties: ObservedPropertyRef[]
+  datastreams: Datastream[]
+  networks: EntityRef[]
 }
 
 export type ExistingOptionsMap = Record<ExistingEntitySelectKey, ExistingOption[]>
@@ -82,15 +83,24 @@ function toPointGeometry(value: string) {
   }
 }
 
-function getEntityId(item: any) {
+type EntityLike = {
+  '@iot.id'?: string | number
+  id?: string | number
+  name?: string
+}
+
+function getEntityId(item: EntityLike | null | undefined) {
   return String(item?.['@iot.id'] ?? item?.id ?? '')
 }
 
-function getEntityName(item: any, fallback: string) {
+function getEntityName(item: EntityLike | null | undefined, fallback: string) {
   return String(item?.name ?? fallback)
 }
 
-function getLocationDescription(location: any, thing: any) {
+function getLocationDescription(
+  location: LocationRef | null | undefined,
+  thing: Thing | null | undefined
+) {
   if (
     typeof location?.description === 'string' &&
     location.description.trim()
@@ -109,11 +119,12 @@ function getLocationDescription(location: any, thing: any) {
       return rawLocation.coordinates.join(', ')
     }
 
+    const raw = rawLocation as { latitude?: unknown; longitude?: unknown }
     if (
-      typeof rawLocation?.latitude === 'number' &&
-      typeof rawLocation?.longitude === 'number'
+      typeof raw.latitude === 'number' &&
+      typeof raw.longitude === 'number'
     ) {
-      return `${rawLocation.latitude}, ${rawLocation.longitude}`
+      return `${raw.latitude}, ${raw.longitude}`
     }
   }
 
@@ -144,7 +155,7 @@ export function buildExistingOptions(
   )
 
   const locationOptions = uniqueOptions(
-    locations.map((location: any, index: number) => ({
+    locations.map((location, index: number) => ({
       value: getEntityId(location),
       label: getEntityName(location, `Location ${index + 1}`),
       description: getLocationDescription(location, null),
@@ -152,7 +163,7 @@ export function buildExistingOptions(
   )
 
   const sensorOptions = uniqueOptions(
-    sensors.map((sensor: any, index: number) => ({
+    sensors.map((sensor, index: number) => ({
       value: getEntityId(sensor),
       label: getEntityName(sensor, `Sensor ${index + 1}`),
       description: String(sensor?.description ?? ''),
@@ -160,7 +171,7 @@ export function buildExistingOptions(
   )
 
   const observedPropertyOptions = uniqueOptions(
-    observedProperties.map((observedProperty: any, index: number) => ({
+    observedProperties.map((observedProperty, index: number) => ({
       value: getEntityId(observedProperty),
       label: getEntityName(observedProperty, `Observed Property ${index + 1}`),
       description: String(
@@ -170,7 +181,7 @@ export function buildExistingOptions(
   )
 
   const datastreamOptions = uniqueOptions(
-    datastreams.map((datastream: any, index: number) => ({
+    datastreams.map((datastream, index: number) => ({
       value: getEntityId(datastream),
       label: getEntityName(datastream, `Datastream ${index + 1}`),
       description: String(
@@ -185,7 +196,7 @@ export function buildExistingOptions(
   )
 
   const networkOptions = uniqueOptions(
-    networks.map((network: any, index: number) => ({
+    networks.map((network, index: number) => ({
       value: getEntityId(network),
       label: getEntityName(network, `Network ${index + 1}`),
       description: String(network?.description ?? ''),

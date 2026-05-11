@@ -47,7 +47,7 @@ function FormIcon({
   size = 18,
   tone = 'text-default-400',
 }: {
-  icon: ComponentType<any>
+  icon: ComponentType<{ size?: number }>
   size?: number
   tone?: string
 }) {

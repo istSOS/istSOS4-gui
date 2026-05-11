@@ -30,8 +30,16 @@ const MapComponent = forwardRef<
     coordinates?: string
   }
 >(({ onCenterChange, coordinates }, ref) => {
+  type MiniMapInstance = {
+    setView: (center: [number, number], zoom: number) => void
+    getCenter: () => { lat: number; lng: number }
+    getZoom: () => number
+    on: (event: string, handler: () => void) => void
+    invalidateSize: () => void
+  }
+
   const mapRef = useRef<HTMLDivElement | null>(null)
-  const mapInstanceRef = useRef<any>(null)
+  const mapInstanceRef = useRef<MiniMapInstance | null>(null)
   const onCenterChangeRef = useRef(onCenterChange)
 
   useEffect(() => {

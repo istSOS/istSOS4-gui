@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 
-const cleanValue = (value: any) => {
+const cleanValue = (value: unknown) => {
   if (value === null || value === undefined) return null
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -9,7 +9,7 @@ const cleanValue = (value: any) => {
   return value
 }
 
-const normalizeHeader = (value: any) => {
+const normalizeHeader = (value: unknown) => {
   const cleaned = cleanValue(value)
   if (cleaned === null) return null
 
@@ -21,7 +21,7 @@ const normalizeHeader = (value: any) => {
   return normalized || null
 }
 
-const buildColumnNames = (rows: any[][]) => {
+const buildColumnNames = (rows: unknown[][]) => {
   const headerRow2 = rows[1] ?? []
   const headerRow3 = rows[2] ?? []
   const width = Math.max(headerRow2.length, headerRow3.length)
@@ -41,7 +41,7 @@ const buildColumnNames = (rows: any[][]) => {
 }
 
 type ParseWorkbookResult = {
-  procedures: Record<string, any>[]
+  procedures: Array<Record<string, unknown>>
   constraintKeys: string[]
 }
 
@@ -70,7 +70,7 @@ self.onmessage = (event: MessageEvent<ParseWorkerRequest>) => {
       header: 1,
       raw: false,
       defval: null,
-    }) as any[][]
+    }) as unknown[][]
 
     if (rows.length < 4) {
       throw new Error(
@@ -83,10 +83,10 @@ self.onmessage = (event: MessageEvent<ParseWorkerRequest>) => {
       key.startsWith('constraint_')
     )
 
-    const procedures: Record<string, any>[] = []
+    const procedures: Array<Record<string, unknown>> = []
     for (let rowIndex = 3; rowIndex < rows.length; rowIndex += 1) {
       const row = rows[rowIndex] ?? []
-      const entry: Record<string, any> = {}
+      const entry: Record<string, unknown> = {}
       let hasData = false
 
       for (let index = 0; index < columnNames.length; index += 1) {

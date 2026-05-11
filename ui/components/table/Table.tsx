@@ -35,18 +35,28 @@ import React, { type Key, type ReactNode } from 'react'
 
 import { ChevronDownIcon, SearchIcon } from '@/components/icons'
 
-type TableProps = {
-  items: any[]
-  columns: any[]
-  rowKey: (item: any, index: number) => Key
-  renderCell: (item: any, columnKey: string) => ReactNode
+type TableColumn<TColumnKey extends string = string> = {
+  name: ReactNode
+  uid: TColumnKey
+  sortable?: boolean
+  align?: 'start' | 'center' | 'end'
+}
+
+type TableProps<TItem, TColumnKey extends string = string> = {
+  items: TItem[]
+  columns: TableColumn<TColumnKey>[]
+  rowKey: (item: TItem, index: number) => Key
+  renderCell: (item: TItem, columnKey: TColumnKey) => ReactNode
 
   initialSort?: SortDescriptor
-  getSortValue?: (item: any, columnKey: string) => string | number | null
+  getSortValue?: (
+    item: TItem,
+    columnKey: TColumnKey
+  ) => string | number | null
 
   enableSearch?: boolean
   searchPlaceholder?: string
-  searchPredicate?: (item: any, query: string) => boolean
+  searchPredicate?: (item: TItem, query: string) => boolean
 
   enablePagination?: boolean
 
@@ -63,7 +73,7 @@ type TableProps = {
   totalLabel?: (total: number) => ReactNode
 }
 
-export default function TableComponent({
+export default function TableComponent<TItem, TColumnKey extends string = string>({
   items,
   columns,
   rowKey,
@@ -94,7 +104,7 @@ export default function TableComponent({
   totalLabel = (total) => (
     <span className="text-default-400 text-small">Total {total}</span>
   ),
-}: TableProps) {
+}: TableProps<TItem, TColumnKey>) {
   const [filterValue, setFilterValue] = React.useState('')
   const q = filterValue.trim()
 
@@ -114,10 +124,10 @@ export default function TableComponent({
   React.useEffect(() => {
     setVisibleColumns((prev) => {
       if (prev === 'all') return 'all'
-      const allowed = new Set(columns.map((c) => c.uid))
+      const allowed = new Set(columns.map((c) => String(c.uid)))
       const next = new Set<string>()
       for (const k of prev) if (allowed.has(k)) next.add(k)
-      return next.size ? next : new Set(columns.map((c) => c.uid))
+      return next.size ? next : new Set(columns.map((c) => String(c.uid)))
     })
   }, [columns])
 
@@ -138,7 +148,7 @@ export default function TableComponent({
   const sortedItems = React.useMemo(() => {
     if (!getSortValue || !sortDescriptor?.column) return filteredItems
 
-    const columnKey = String(sortDescriptor.column)
+    const columnKey = String(sortDescriptor.column) as TColumnKey
     const dir = sortDescriptor.direction === 'descending' ? -1 : 1
 
     return [...filteredItems].sort((a, b) => {
@@ -173,9 +183,10 @@ export default function TableComponent({
     return sortedItems.slice(start, start + rowsPerPage)
   }, [enablePagination, sortedItems, page, rowsPerPage])
 
-  const onSelectionChangeVisibleCols = (keys: any) => {
+  const onSelectionChangeVisibleCols = (keys: unknown) => {
     if (keys === 'all') return setVisibleColumns('all')
-    const set = new Set(Array.from(keys as Set<Key>).map(String))
+    if (!(keys instanceof Set)) return
+    const set = new Set(Array.from(keys).map(String))
     if (disallowEmptyVisibleColumns && set.size === 0) return
     setVisibleColumns(set)
   }
@@ -322,7 +333,9 @@ export default function TableComponent({
         {(item) => (
           <TableRow key={rowKey(item, 0)}>
             {(columnKey) => (
-              <TableCell>{renderCell(item, String(columnKey))}</TableCell>
+              <TableCell>
+                {renderCell(item, String(columnKey) as TColumnKey)}
+              </TableCell>
             )}
           </TableRow>
         )}

@@ -18,6 +18,14 @@ import {
   getPrimaryDataSource,
   readDataSourcesConfigFile,
 } from '@/server/data-sources/config'
+import { Datastream, EntityRef, ObservedPropertyRef, SensorRef, Thing } from '@/types/domain'
+
+type SourceMeta = {
+  __sourceId: string
+  __sourceName: string
+  __sourceEndpoint: string
+}
+type WithSourceMeta<T> = T & SourceMeta
 
 type RequestPayload = {
   tokens?: Record<string, string>
@@ -50,10 +58,10 @@ type SourceResult = {
   id: string
   name: string
   endpoint: string
-  things: any[]
-  sensors: any[]
-  observedProperties: any[]
-  networks: any[]
+  things: Array<WithSourceMeta<Thing>>
+  sensors: Array<WithSourceMeta<SensorRef>>
+  observedProperties: Array<WithSourceMeta<ObservedPropertyRef>>
+  networks: Array<WithSourceMeta<EntityRef>>
   error: string | null
 }
 
@@ -67,7 +75,7 @@ const buildNetworksUrl = (apiRoot: string) =>
 async function fetchSourceCollection(
   url: string,
   token: string | null
-): Promise<any[]> {
+): Promise<Array<Record<string, unknown>>> {
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -112,21 +120,21 @@ async function fetchThingsForSource(
         name: source.name,
         endpoint,
         things: [],
-        sensors: sensorsValues.map((sensor: any) => ({
+        sensors: sensorsValues.map((sensor) => ({
           ...sensor,
           __sourceId: source.id,
           __sourceName: source.name,
           __sourceEndpoint: endpoint,
         })),
         observedProperties: observedPropertiesValues.map(
-          (observedProperty: any) => ({
+          (observedProperty) => ({
             ...observedProperty,
             __sourceId: source.id,
             __sourceName: source.name,
             __sourceEndpoint: endpoint,
           })
         ),
-        networks: networkValues.map((network: any) => ({
+        networks: networkValues.map((network) => ({
           ...network,
           __sourceId: source.id,
           __sourceName: source.name,
@@ -139,13 +147,13 @@ async function fetchThingsForSource(
     const data = await thingsResponse.json().catch(() => null)
     const values = Array.isArray(data?.value) ? data.value : []
 
-    const things = values.map((thing: any) => ({
+    const things = values.map((thing) => ({
       ...thing,
       __sourceId: source.id,
       __sourceName: source.name,
       __sourceEndpoint: endpoint,
       Datastreams: Array.isArray(thing?.Datastreams)
-        ? thing.Datastreams.map((datastream: any) => ({
+        ? thing.Datastreams.map((datastream: Datastream) => ({
             ...datastream,
             __sourceId: source.id,
             __sourceName: source.name,
@@ -159,21 +167,21 @@ async function fetchThingsForSource(
       name: source.name,
       endpoint,
       things,
-      sensors: sensorsValues.map((sensor: any) => ({
+      sensors: sensorsValues.map((sensor) => ({
         ...sensor,
         __sourceId: source.id,
         __sourceName: source.name,
         __sourceEndpoint: endpoint,
       })),
       observedProperties: observedPropertiesValues.map(
-        (observedProperty: any) => ({
+        (observedProperty) => ({
           ...observedProperty,
           __sourceId: source.id,
           __sourceName: source.name,
           __sourceEndpoint: endpoint,
         })
       ),
-      networks: networkValues.map((network: any) => ({
+      networks: networkValues.map((network) => ({
         ...network,
         __sourceId: source.id,
         __sourceName: source.name,

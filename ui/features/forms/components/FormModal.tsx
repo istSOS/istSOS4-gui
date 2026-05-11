@@ -13,35 +13,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import {
-  type CreateDatastreamPayload,
-  createDatastream,
-  updateDatastream,
-} from '@/services/datastreams'
-import {
-  type CreateLocationPayload,
-  type UpdateLocationPayload,
-  createLocation,
-  updateLocation,
-} from '@/services/locations'
-import {
-  type CreateObservedPropertyPayload,
-  type UpdateObservedPropertyPayload,
-  createObservedProperty,
-  updateObservedProperty,
-} from '@/services/observedProperties'
-import {
-  type CreateSensorPayload,
-  type UpdateSensorPayload,
-  createSensor,
-  updateSensor,
-} from '@/services/sensors'
-import {
-  type CreateThingPayload,
-  type UpdateThingPayload,
-  createThing,
-  updateThing,
-} from '@/services/things'
 import { Autocomplete, AutocompleteItem } from '@heroui/autocomplete'
 import { Button } from '@heroui/button'
 import { Form as HeroForm } from '@heroui/form'
@@ -95,10 +66,16 @@ import {
   createInitialSingleDraft,
 } from './wizard/types'
 import {
+  DataSourceInspectResponse,
+  inspectApiPath,
+  normalizeEndpoint,
+} from './wizard/formModalUtils'
+import { executeAssociatedSubmitFlow } from './wizard/associatedSubmit'
+import { executeSingleSubmitFlow } from './wizard/singleSubmit'
+import {
   type ExistingEntities,
   type ExistingOptionsMap,
   buildExistingOptions,
-  normalizeEntityPayload,
 } from './wizard/utils'
 
 interface FormProps {
@@ -120,26 +97,11 @@ interface FormProps {
   }>
 }
 
-const normalizeEndpoint = (value: string) => value.trim().replace(/\/+$/, '')
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
-const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
-const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
-
-type DataSourceInspectResponse =
-  | {
-      ok: true
-      accessToken?: string | null
-    }
-  | {
-      ok: false
-      errorCode: string
-    }
-
 function StepIcon({
   icon: Icon,
   size = 16,
 }: {
-  icon: ComponentType<any>
+  icon: ComponentType<{ size?: number }>
   size?: number
 }) {
   return (
@@ -300,19 +262,29 @@ export default function FormModal({
         singleDataSourceEndpoint || defaultSingleDataSourceEndpoint
       ) || normalizeEndpoint(siteConfig.api_root)
 
-    const resolveEntityEndpoint = (entity: any) =>
+    const resolveEntityEndpoint = (
+      entity: Record<string, unknown> | null | undefined
+    ) =>
       normalizeEndpoint(String(entity?.__sourceEndpoint ?? siteConfig.api_root))
 
-    const filterByEndpoint = (items: any[]) =>
+    const filterByEndpoint = (items: Array<Record<string, unknown>>) =>
       items.filter((item) => resolveEntityEndpoint(item) === selectedEndpoint)
 
     return {
-      things: filterByEndpoint(existingEntities.things),
-      locations: filterByEndpoint(existingEntities.locations),
-      sensors: filterByEndpoint(existingEntities.sensors),
-      observedProperties: filterByEndpoint(existingEntities.observedProperties),
-      datastreams: filterByEndpoint(existingEntities.datastreams),
-      networks: filterByEndpoint(existingEntities.networks),
+      things: filterByEndpoint(
+        existingEntities.things as Array<Record<string, unknown>>
+      ) as ExistingEntities['things'],
+      locations: filterByEndpoint(
+        existingEntities.locations as Array<Record<string, unknown>>
+      ) as ExistingEntities['locations'],
+      sensors: filterByEndpoint(existingEntities.sensors) as ExistingEntities['sensors'],
+      observedProperties: filterByEndpoint(
+        existingEntities.observedProperties
+      ) as ExistingEntities['observedProperties'],
+      datastreams: filterByEndpoint(
+        existingEntities.datastreams as Array<Record<string, unknown>>
+      ) as ExistingEntities['datastreams'],
+      networks: filterByEndpoint(existingEntities.networks) as ExistingEntities['networks'],
     }
   }, [
     wizardMode,
@@ -446,198 +418,19 @@ export default function FormModal({
     setIsSubmitting(true)
 
     try {
-      let result = null
-
-      if (operation === 'edit') {
-        const editTargetId = String(editTargets?.[singleEntity] ?? '').trim()
-        if (!editTargetId) {
-          setSubmitError(
-            `No linked ${entityLabels[singleEntity]} is available for editing`
-          )
-          return
-        }
-
-        if (singleEntity === 'thing') {
-          const thingPayload = normalizeEntityPayload(
-            'thing',
-            singleDraft.thing
-          ) as UpdateThingPayload
-          result = await updateThing(
-            editTargetId,
-            {
-              ...thingPayload,
-              ...(requiresCommitMessage
-                ? { commitMessage: commitMessage.trim() }
-                : {}),
-            },
-            requestToken,
-            selectedEndpoint
-          )
-        } else if (singleEntity === 'location') {
-          const locationPayload = normalizeEntityPayload(
-            'location',
-            singleDraft.location
-          ) as UpdateLocationPayload
-          result = await updateLocation(
-            editTargetId,
-            {
-              ...locationPayload,
-              ...(requiresCommitMessage
-                ? { commitMessage: commitMessage.trim() }
-                : {}),
-            },
-            requestToken,
-            selectedEndpoint
-          )
-        } else if (singleEntity === 'sensor') {
-          const sensorPayload = normalizeEntityPayload(
-            'sensor',
-            singleDraft.sensor
-          ) as UpdateSensorPayload
-          result = await updateSensor(
-            editTargetId,
-            {
-              ...sensorPayload,
-              ...(requiresCommitMessage
-                ? { commitMessage: commitMessage.trim() }
-                : {}),
-            },
-            requestToken,
-            selectedEndpoint
-          )
-        } else if (singleEntity === 'observedProperty') {
-          const observedPropertyPayload = normalizeEntityPayload(
-            'observedProperty',
-            singleDraft.observedProperty
-          ) as UpdateObservedPropertyPayload
-          result = await updateObservedProperty(
-            editTargetId,
-            {
-              ...observedPropertyPayload,
-              ...(requiresCommitMessage
-                ? { commitMessage: commitMessage.trim() }
-                : {}),
-            },
-            requestToken,
-            selectedEndpoint
-          )
-        } else if (singleEntity === 'datastream') {
-          const datastreamPayload = normalizeEntityPayload(
-            'datastream',
-            singleDraft.datastream
-          ) as CreateDatastreamPayload
-          result = await updateDatastream(
-            editTargetId,
-            {
-              ...datastreamPayload,
-              ...(requiresCommitMessage
-                ? { commitMessage: commitMessage.trim() }
-                : {}),
-            },
-            requestToken,
-            selectedEndpoint
-          )
-        } else {
-          setSubmitError('Unable to resolve edit payload for this entity')
-          return
-        }
-      } else if (singleEntity === 'thing') {
-        const thingPayload = normalizeEntityPayload(
-          'thing',
-          singleDraft.thing
-        ) as CreateThingPayload
-        result = await createThing(
-          {
-            ...thingPayload,
-            ...(requiresCommitMessage
-              ? { commitMessage: commitMessage.trim() }
-              : {}),
-          },
-          requestToken,
-          selectedEndpoint
-        )
-      } else if (singleEntity === 'location') {
-        const locationPayload = normalizeEntityPayload(
-          'location',
-          singleDraft.location
-        ) as CreateLocationPayload
-        result = await createLocation(
-          {
-            ...locationPayload,
-            ...(requiresCommitMessage
-              ? { commitMessage: commitMessage.trim() }
-              : {}),
-          },
-          requestToken,
-          selectedEndpoint
-        )
-      } else if (singleEntity === 'sensor') {
-        const sensorPayload = normalizeEntityPayload(
-          'sensor',
-          singleDraft.sensor
-        ) as CreateSensorPayload
-        result = await createSensor(
-          {
-            ...sensorPayload,
-            ...(requiresCommitMessage
-              ? { commitMessage: commitMessage.trim() }
-              : {}),
-          },
-          requestToken,
-          selectedEndpoint
-        )
-      } else if (singleEntity === 'datastream') {
-        const datastreamPayload = normalizeEntityPayload(
-          'datastream',
-          singleDraft.datastream
-        ) as CreateDatastreamPayload
-        result = await createDatastream(
-          {
-            ...datastreamPayload,
-            ...(requiresCommitMessage
-              ? { commitMessage: commitMessage.trim() }
-              : {}),
-          },
-          requestToken,
-          selectedEndpoint
-        )
-      } else {
-        const observedPropertyPayload = normalizeEntityPayload(
-          'observedProperty',
-          singleDraft.observedProperty
-        ) as CreateObservedPropertyPayload
-        result = await createObservedProperty(
-          {
-            ...observedPropertyPayload,
-            ...(requiresCommitMessage
-              ? { commitMessage: commitMessage.trim() }
-              : {}),
-          },
-          requestToken,
-          selectedEndpoint
-        )
-      }
-
-      if (!result) {
-        if (operation === 'edit') {
-          setSubmitError(
-            singleEntity === 'datastream'
-              ? 'Unable to update Datastream'
-              : 'Unable to update entity'
-          )
-        } else {
-          setSubmitError(
-            singleEntity === 'thing'
-              ? 'Unable to create Thing'
-              : singleEntity === 'location'
-                ? 'Unable to create Location'
-                : singleEntity === 'sensor'
-                  ? 'Unable to create Sensor'
-                  : singleEntity === 'datastream'
-                    ? 'Unable to create Datastream'
-                    : 'Unable to create Observed Property'
-          )
-        }
+      const result = await executeSingleSubmitFlow({
+        operation,
+        singleEntity,
+        singleDraft,
+        editTargets,
+        entityLabel: entityLabels[singleEntity],
+        requiresCommitMessage,
+        commitMessage,
+        requestToken,
+        selectedEndpoint,
+      })
+      if (result.ok === false) {
+        setSubmitError(result.errorMessage)
         return
       }
 
@@ -772,19 +565,6 @@ export default function FormModal({
     }
   }
 
-  const parseCreatedEntityId = (value: any): string => {
-    const raw = value?.['@iot.id'] ?? value?.id
-    if (raw === undefined || raw === null) return ''
-    return String(raw).trim()
-  }
-
-  const toEntityReferenceId = (id: string) => {
-    const trimmed = id.trim()
-    if (!trimmed) return trimmed
-    const numericId = Number(trimmed)
-    return Number.isFinite(numericId) ? numericId : trimmed
-  }
-
   const handleAssociatedSubmit = async () => {
     setSubmitError(null)
 
@@ -824,162 +604,12 @@ export default function FormModal({
 
     setIsSubmitting(true)
     try {
-      const ids: Record<EntityKey, string> = {
-        thing:
-          associatedDraft.thing.source === 'existing'
-            ? associatedDraft.thing.existingId.trim()
-            : '',
-        location:
-          associatedDraft.location.source === 'existing'
-            ? associatedDraft.location.existingId.trim()
-            : '',
-        sensor:
-          associatedDraft.sensor.source === 'existing'
-            ? associatedDraft.sensor.existingId.trim()
-            : '',
-        observedProperty:
-          associatedDraft.observedProperty.source === 'existing'
-            ? associatedDraft.observedProperty.existingId.trim()
-            : '',
-        datastream:
-          associatedDraft.datastream.source === 'existing'
-            ? associatedDraft.datastream.existingId.trim()
-            : '',
-      }
-
-      if (associatedDraft.location.source === 'new') {
-        const payload = normalizeEntityPayload(
-          'location',
-          associatedDraft.location.formData
-        ) as CreateLocationPayload
-        const created = await createLocation(
-          { ...payload, commitMessage: commitMessage.trim() },
-          requestToken,
-          selectedEndpoint
-        )
-        const id = parseCreatedEntityId(created)
-        if (!id) throw new Error('Location created without id')
-        ids.location = id
-      }
-
-      if (associatedDraft.sensor.source === 'new') {
-        const payload = normalizeEntityPayload(
-          'sensor',
-          associatedDraft.sensor.formData
-        ) as CreateSensorPayload
-        const created = await createSensor(
-          { ...payload, commitMessage: commitMessage.trim() },
-          requestToken,
-          selectedEndpoint
-        )
-        const id = parseCreatedEntityId(created)
-        if (!id) throw new Error('Sensor created without id')
-        ids.sensor = id
-      }
-
-      if (associatedDraft.observedProperty.source === 'new') {
-        const payload = normalizeEntityPayload(
-          'observedProperty',
-          associatedDraft.observedProperty.formData
-        ) as CreateObservedPropertyPayload
-        const created = await createObservedProperty(
-          { ...payload, commitMessage: commitMessage.trim() },
-          requestToken,
-          selectedEndpoint
-        )
-        const id = parseCreatedEntityId(created)
-        if (!id) throw new Error('ObservedProperty created without id')
-        ids.observedProperty = id
-      }
-
-      if (associatedDraft.thing.source === 'new') {
-        const payload = normalizeEntityPayload(
-          'thing',
-          associatedDraft.thing.formData
-        ) as CreateThingPayload
-        const mergedPayload = {
-          ...payload,
-          ...(ids.location
-            ? { Locations: [{ '@iot.id': toEntityReferenceId(ids.location) }] }
-            : {}),
-        }
-        const created = await createThing(
-          { ...mergedPayload, commitMessage: commitMessage.trim() },
-          requestToken,
-          selectedEndpoint
-        )
-        const id = parseCreatedEntityId(created)
-        if (!id) throw new Error('Thing created without id')
-        ids.thing = id
-      } else if (ids.thing && ids.location) {
-        await updateThing(
-          ids.thing,
-          {
-            Locations: [{ '@iot.id': toEntityReferenceId(ids.location) }],
-            commitMessage: commitMessage.trim(),
-          } as any,
-          requestToken,
-          selectedEndpoint
-        )
-      }
-
-      if (associatedDraft.datastream.source === 'new') {
-        const payload = normalizeEntityPayload(
-          'datastream',
-          associatedDraft.datastream.formData
-        ) as CreateDatastreamPayload
-        if (siteConfig.networkEnabled && !payload.Network) {
-          throw new Error('Datastream Network is required')
-        }
-        const mergedPayload = {
-          ...payload,
-          ...(ids.thing
-            ? { Thing: { '@iot.id': toEntityReferenceId(ids.thing) } }
-            : {}),
-          ...(ids.sensor
-            ? { Sensor: { '@iot.id': toEntityReferenceId(ids.sensor) } }
-            : {}),
-          ...(ids.observedProperty
-            ? {
-                ObservedProperty: {
-                  '@iot.id': toEntityReferenceId(ids.observedProperty),
-                },
-              }
-            : {}),
-        }
-        const created = await createDatastream(
-          { ...mergedPayload, commitMessage: commitMessage.trim() },
-          requestToken,
-          selectedEndpoint
-        )
-        const id = parseCreatedEntityId(created)
-        if (!id) throw new Error('Datastream created without id')
-        ids.datastream = id
-      } else if (ids.datastream) {
-        const patchPayload: Record<string, unknown> = {}
-        if (ids.thing) {
-          patchPayload.Thing = { '@iot.id': toEntityReferenceId(ids.thing) }
-        }
-        if (ids.sensor) {
-          patchPayload.Sensor = { '@iot.id': toEntityReferenceId(ids.sensor) }
-        }
-        if (ids.observedProperty) {
-          patchPayload.ObservedProperty = {
-            '@iot.id': toEntityReferenceId(ids.observedProperty),
-          }
-        }
-        if (Object.keys(patchPayload).length > 0) {
-          await updateDatastream(
-            ids.datastream,
-            {
-              ...(patchPayload as any),
-              commitMessage: commitMessage.trim(),
-            },
-            requestToken,
-            selectedEndpoint
-          )
-        }
-      }
+      await executeAssociatedSubmitFlow({
+        associatedDraft,
+        commitMessage: commitMessage.trim(),
+        requestToken,
+        selectedEndpoint,
+      })
 
       router.refresh()
       onClose()
@@ -1343,7 +973,8 @@ export default function FormModal({
                                           currentAssociatedEntity,
                                           (current) => ({
                                             ...current,
-                                            formData: value as any,
+                                            formData:
+                                              value as unknown as typeof current.formData,
                                           })
                                         )
                                       }

@@ -16,9 +16,10 @@
 import { fetchData } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { Datastream } from '@/types/domain'
 
 export async function getDatastreams(token: string) {
-  const values: any[] = []
+  const values: Datastream[] = []
 
   let url =
     `${siteConfig.api_root}` +

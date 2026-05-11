@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { SensorRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
@@ -59,7 +60,7 @@ export type UpdateSensorPayload = {
 }
 
 export async function getSensors(token?: string | null) {
-  const values: any[] = []
+  const values: SensorRef[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url = `${siteConfig.api_root}/Sensors?$select=id,name,description`
 

@@ -16,6 +16,7 @@
 import { fetchData } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { Observation } from '@/types/domain'
 
 export async function getObservationsByDatastream(
   token: string | null | undefined,
@@ -24,7 +25,7 @@ export async function getObservationsByDatastream(
   end?: string,
   apiRoot?: string
 ) {
-  const values: any[] = []
+  const values: Observation[] = []
   const baseRoot = (apiRoot ?? siteConfig.api_root).trim().replace(/\/+$/, '')
 
   const filters: string[] = []
@@ -81,8 +82,8 @@ export async function getObservationsCountByNetwork(
     ),
   ])
 
-  const counts = (observationData['value'] || []).reduce(
-    (total, ds) => total + (ds['Observations@iot.count'] ?? 0),
+  const counts = ((observationData['value'] as Array<Record<string, unknown>>) || []).reduce(
+    (total, ds) => total + Number(ds['Observations@iot.count'] ?? 0),
     0
   )
 

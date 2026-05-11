@@ -45,6 +45,7 @@ import {
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
 import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
+import { Datastream, Thing } from '@/types/domain'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -103,13 +104,23 @@ function ageLabel(endRaw?: string) {
 }
 
 type Props = {
-  thing: any | null
+  thing: Thing | null
   observedPropertyNameFilter?: string | null
   onClose: () => void
   onCreateDatastream?: () => void
-  onOpenDetails?: (datastream: any) => void
-  onEditDatastream?: (datastream: any) => void
+  onOpenDetails?: (datastream: Datastream) => void
+  onEditDatastream?: (datastream: Datastream) => void
 }
+
+type DatastreamColumnKey =
+  | 'name'
+  | 'observedProperty'
+  | 'unitOfMeasurement'
+  | 'last'
+  | 'lastValue'
+  | 'startDate'
+  | 'endDate'
+  | 'actions'
 
 export default function DatastreamTable({
   thing,
@@ -122,12 +133,12 @@ export default function DatastreamTable({
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? i18n.language
 
-  const datastreams: any[] = useMemo(() => {
+  const datastreams: Datastream[] = useMemo(() => {
     const ds = thing?.Datastreams
     const all = Array.isArray(ds) ? ds : []
     const filterName = String(observedPropertyNameFilter ?? '').trim().toLowerCase()
     if (!filterName) return all
-    return all.filter((entry: any) =>
+    return all.filter((entry) =>
       String(entry?.ObservedProperty?.name ?? '')
         .trim()
         .toLowerCase()
@@ -142,19 +153,24 @@ export default function DatastreamTable({
       ? t('map.unspecified_network')
       : networkName
 
-  const columns: any[] = useMemo(
+  const columns: Array<{
+    name: string
+    uid: DatastreamColumnKey
+    sortable: boolean
+    align: 'start' | 'center'
+  }> = useMemo(
     () => [
       {
         name: t('datastreams.name'),
         uid: 'name',
         sortable: true,
-        align: 'left',
+        align: 'start',
       },
       {
         name: t('datastreams.observed_property'),
         uid: 'observedProperty',
         sortable: true,
-        align: 'left',
+        align: 'start',
       },
       {
         name: t('datastreams.unit_of_measurement'),
@@ -162,7 +178,7 @@ export default function DatastreamTable({
         sortable: true,
         align: 'center',
       },
-      { name: t('general.last'), uid: 'last', sortable: true, align: 'left' },
+      { name: t('general.last'), uid: 'last', sortable: true, align: 'start' },
       {
         name: t('general.last_value'),
         uid: 'lastValue',
@@ -191,14 +207,15 @@ export default function DatastreamTable({
     [lang]
   )
 
-  const searchPredicate = useCallback((item: any, query: string) => {
+  const searchPredicate = useCallback((item: Datastream, query: string) => {
     const q = query.toLowerCase()
     return String(item?.name ?? '')
       .toLowerCase()
       .includes(q)
   }, [])
 
-  const getSortValue = useCallback((item: any, columnKey: string) => {
+  const getSortValue = useCallback(
+    (item: Datastream, columnKey: DatastreamColumnKey) => {
     switch (columnKey) {
       case 'name':
         return item?.name ?? ''
@@ -218,10 +235,12 @@ export default function DatastreamTable({
       default:
         return ''
     }
-  }, [])
+    },
+    []
+  )
 
   const renderCell = useCallback(
-    (item: any, columnKey: string) => {
+    (item: Datastream, columnKey: DatastreamColumnKey) => {
       const { start, end, endRaw } = parsePhenomenonTime(item?.phenomenonTime)
 
       const handleDetails = () => {
@@ -271,7 +290,7 @@ export default function DatastreamTable({
 
           return value !== undefined && unit ? (
             <span>
-              {value} {unit}
+              {String(value)} {unit}
             </span>
           ) : (
             <span>{''}</span>

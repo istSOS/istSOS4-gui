@@ -55,7 +55,7 @@ type ImportLogEntry = {
 }
 
 type ParsedWorkbookPayload = {
-  procedures: Record<string, any>[]
+  procedures: Array<Record<string, unknown>>
   constraintKeys: string[]
 }
 
@@ -106,7 +106,7 @@ function FormIcon({
   icon: Icon,
   size = 16,
 }: {
-  icon: ComponentType<any>
+  icon: ComponentType<{ size?: number }>
   size?: number
 }) {
   return (
@@ -132,7 +132,7 @@ const REPORT_ORDER = [
 type ReportRow = {
   key: string
   label: string
-  icon: ComponentType<any>
+  icon: ComponentType<{ size?: number }>
   created: number
   secondaryLabel?: string
   secondaryValue?: number

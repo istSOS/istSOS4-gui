@@ -11,22 +11,23 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import { CloseIcon } from '@/components/icons'
+import { Datastream, Observation, Thing } from '@/types/domain'
 
 import ObservationGraph from './ObservationGraph'
 
 type ChartModalProps = {
   isOpen: boolean
   onClose: () => void
-  things?: any[]
-  thing?: any | null
+  things?: Thing[]
+  thing?: Thing | null
   selectedObservedPropertyName?: string | null
   selectedThingKeys?: string[]
   selectedObservedPropertyNames?: string[]
-  datastream?: any | null
-  observations?: any[]
-  comparisonDatastream?: any | null
-  comparisonObservations?: any[]
-  allSeries?: Array<{ datastream: any; observations: any[] }>
+  datastream?: Datastream | null
+  observations?: Observation[]
+  comparisonDatastream?: Datastream | null
+  comparisonObservations?: Observation[]
+  allSeries?: Array<{ datastream: Datastream; observations: Observation[] }>
   loading?: boolean
   error?: string | null
   start?: string | null
@@ -40,13 +41,9 @@ type ChartModalProps = {
   onObservedPropertyNamesChange?: (observedPropertyNames: string[]) => void
 }
 
-type PickerDateLike = {
-  toDate: (timeZone?: string) => Date
-}
-
-type PickerRangeLike = {
-  start: PickerDateLike
-  end: PickerDateLike
+type DateRangeChangeValue = {
+  start: { toDate: (timeZone?: string) => Date } | null
+  end: { toDate: (timeZone?: string) => Date } | null
 } | null
 
 function toRangeValue(start?: string | null, end?: string | null) {
@@ -55,7 +52,7 @@ function toRangeValue(start?: string | null, end?: string | null) {
   return {
     start: parseAbsoluteToLocal(start),
     end: parseAbsoluteToLocal(end),
-  } as unknown as PickerRangeLike
+  }
 }
 
 export default function ChartModal({
@@ -86,13 +83,13 @@ export default function ChartModal({
   const { t } = useTranslation()
   const rangeValue = toRangeValue(start, end)
   const timeZone = getLocalTimeZone()
-  const thingOptions = things.map((entry: any) => {
+  const thingOptions = things.map((entry) => {
     const key = `${String(entry?.__sourceId ?? entry?.__sourceEndpoint ?? '0')}::${String(
       entry?.['@iot.id'] ?? entry?.id ?? entry?.name ?? ''
     )}`
     return { key, label: String(entry?.name ?? key) }
   })
-  const selectedThings = things.filter((entry: any) =>
+  const selectedThings = things.filter((entry) =>
     selectedThingKeys.includes(
       `${String(entry?.__sourceId ?? entry?.__sourceEndpoint ?? '0')}::${String(
         entry?.['@iot.id'] ?? entry?.id ?? entry?.name ?? ''
@@ -104,10 +101,10 @@ export default function ChartModal({
   const observedPropertyOptions = Array.from(
     new Set(
       observedPropertySourceThings
-        .flatMap((entry: any) =>
+        .flatMap((entry) =>
           Array.isArray(entry?.Datastreams) ? entry.Datastreams : []
         )
-        .map((ds: any) => String(ds?.ObservedProperty?.name ?? '').trim())
+        .map((ds) => String(ds?.ObservedProperty?.name ?? '').trim())
         .filter(Boolean)
     )
   )
@@ -187,10 +184,10 @@ export default function ChartModal({
                 <SelectItem key={entry.key}>{entry.label}</SelectItem>
               ))}
             </Select>
-            <DateRangePicker<any>
-              value={rangeValue as any}
+            <DateRangePicker
+              value={rangeValue as never}
               onChange={(value) => {
-                const nextValue = value as PickerRangeLike
+                const nextValue = value as unknown as DateRangeChangeValue
 
                 if (!nextValue) {
                   onResetRange?.()

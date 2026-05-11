@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { Datastream } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
@@ -49,8 +50,8 @@ export type CreateDatastreamPayload = {
   Sensor?: { '@iot.id': number | string }
   ObservedProperty?: { '@iot.id': number | string }
   Network?: { '@iot.id': number | string }
-  unitOfMeasurement?: Record<string, any>
-  properties?: Record<string, any>
+  unitOfMeasurement?: Record<string, unknown>
+  properties?: Record<string, unknown>
   commitMessage?: string
 }
 
@@ -62,13 +63,13 @@ export type UpdateDatastreamPayload = {
   Sensor?: { '@iot.id': number | string }
   ObservedProperty?: { '@iot.id': number | string }
   Network?: { '@iot.id': number | string }
-  unitOfMeasurement?: Record<string, string>
-  properties?: Record<string, string>
+  unitOfMeasurement?: Record<string, unknown>
+  properties?: Record<string, unknown>
   commitMessage?: string
 }
 
 export async function getDatastreams(token?: string | null) {
-  const values: any[] = []
+  const values: Datastream[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url =
     `${siteConfig.api_root}/Datastreams` +

@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { EntityRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
@@ -41,7 +42,7 @@ async function findEntityIdByName(
 }
 
 export async function getNetworks(token?: string | null) {
-  const values: any[] = []
+  const values: EntityRef[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url = `${siteConfig.api_root}/Networks?$select=id,name`
 

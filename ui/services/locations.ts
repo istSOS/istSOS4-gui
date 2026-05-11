@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { LocationRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
@@ -69,7 +70,7 @@ export type UpdateLocationPayload = {
 }
 
 export async function getLocations(token?: string | null) {
-  const values: any[] = []
+  const values: LocationRef[] = []
   const apiBase = new URL(siteConfig.api_root)
   let url = `${siteConfig.api_root}/Locations?$select=id,name,description,location`
 

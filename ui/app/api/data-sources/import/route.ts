@@ -14,7 +14,7 @@
 import { siteConfig } from '@/config/site'
 
 type ImportPayload = {
-  procedures?: Record<string, any>[]
+  procedures?: Array<Record<string, unknown>>
   constraintKeys?: string[]
   token?: string | null
 }
@@ -36,7 +36,7 @@ const UOM_MAPPING: Record<string, string> = {
 
 const normalizeEndpoint = (value: string) => value.trim().replace(/\/+$/, '')
 
-const cleanValue = (value: any) => {
+const cleanValue = (value: unknown) => {
   if (value === null || value === undefined) return null
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -45,12 +45,12 @@ const cleanValue = (value: any) => {
   return value
 }
 
-const toNumber = (value: any) => {
+const toNumber = (value: unknown) => {
   const number = Number(value)
   return Number.isFinite(number) ? number : value
 }
 
-const splitValues = (value: any) => {
+const splitValues = (value: unknown) => {
   const cleaned = cleanValue(value)
   if (cleaned === null) return [] as string[]
   return String(cleaned)
@@ -65,7 +65,10 @@ const getListValue = <T>(values: T[], index: number, fallback?: T) => {
   return values[values.length - 1]
 }
 
-const parseJsonValue = (value: any, fallback: any = {}) => {
+const parseJsonValue = (
+  value: unknown,
+  fallback: Record<string, unknown> = {}
+) => {
   const cleaned = cleanValue(value)
   if (cleaned === null) return fallback
   if (typeof cleaned === 'object') return cleaned
@@ -76,7 +79,7 @@ const parseJsonValue = (value: any, fallback: any = {}) => {
   }
 }
 
-const parseDefinition = (value: any) => {
+const parseDefinition = (value: unknown) => {
   const cleaned = cleanValue(value)
   if (cleaned === null) return ''
   try {
@@ -86,7 +89,7 @@ const parseDefinition = (value: any) => {
   }
 }
 
-const parseCoordinates = (value: any) => {
+const parseCoordinates = (value: unknown) => {
   const cleaned = cleanValue(value)
   if (cleaned === null) return null
 
@@ -106,7 +109,10 @@ const parseCoordinates = (value: any) => {
   return [toNumber(parts[0]), toNumber(parts[1])]
 }
 
-const parseCreatedEntityId = (value: any, locationHeader?: string | null) => {
+const parseCreatedEntityId = (
+  value: Record<string, unknown> | null,
+  locationHeader?: string | null
+) => {
   const raw = value?.['@iot.id'] ?? value?.id
   if (raw !== undefined && raw !== null) return String(raw).trim()
 
@@ -130,7 +136,7 @@ const withAuthHeaders = (
   extra: Record<string, string> = {}
 ) => (token ? { ...extra, Authorization: `Bearer ${token}` } : extra)
 
-const requireField = (procedure: Record<string, any>, key: string) => {
+const requireField = (procedure: Record<string, unknown>, key: string) => {
   const value = cleanValue(procedure[key])
   if (value === null) {
     throw new Error(
@@ -198,7 +204,7 @@ export async function POST(request: Request) {
 
   const stream = new ReadableStream({
     start(controller) {
-      const emit = (event: Record<string, any>) => {
+      const emit = (event: Record<string, unknown>) => {
         controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
       }
 
@@ -230,7 +236,7 @@ export async function POST(request: Request) {
 
       const createEntity = async (
         collection: string,
-        payload: Record<string, any>,
+        payload: Record<string, unknown>,
         commitMessage?: string
       ) => {
         const resolvedCommitMessage =
@@ -261,7 +267,7 @@ export async function POST(request: Request) {
       const resolveId = async (
         collection: string,
         name: string,
-        createPayload: Record<string, any>,
+        createPayload: Record<string, unknown>,
         commitMessage?: string
       ) => {
         const normalizedName = String(name).trim()
@@ -515,7 +521,7 @@ export async function POST(request: Request) {
             continue
           }
 
-          const properties: Record<string, any> = Object.fromEntries(
+          const properties: Record<string, unknown> = Object.fromEntries(
             Object.entries({
               samplingFrequency: cleanValue(procedure.sampling_frequency),
               acquisitionFrequency: cleanValue(procedure.acquisition_frequency),

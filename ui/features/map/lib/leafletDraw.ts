@@ -16,6 +16,7 @@ import {
   createThingMarkerIcon,
   showClusterHullPreview,
 } from './leafletCluster'
+import { Datastream, Thing } from '@/types/domain'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import utc from 'dayjs/plugin/utc'
@@ -65,7 +66,7 @@ const FRESHNESS_BORDER_COLOR: Record<FreshnessStatus, string> = {
   unknown: '#64748b',
 }
 
-export function networkKey(name: any) {
+export function networkKey(name: unknown) {
   return String(name ?? '').trim() || UNSPECIFIED_NETWORK_KEY
 }
 
@@ -93,11 +94,11 @@ function groupKeyFor(sourceKey: string, netKey: string) {
   return `${sourceKey}||${netKey}`
 }
 
-function thingSourceKey(thing: any) {
+function thingSourceKey(thing: Thing) {
   return String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0')
 }
 
-function thingSourceLabel(thing: any) {
+function thingSourceLabel(thing: Thing) {
   const sourceName = String(thing?.__sourceName ?? '').trim()
   const sourceId = String(thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0').trim()
 
@@ -108,8 +109,37 @@ function thingSourceLabel(thing: any) {
   return sourceId || '0'
 }
 
-function thingDisplayName(thing: any) {
+function thingDisplayName(thing: Thing) {
   return String(thing?.name ?? '').trim() || 'Unnamed thing'
+}
+
+type ClickableLayer = {
+  on: (event: string, handler: (event: unknown) => void) => void
+}
+
+type TooltipLayer = ClickableLayer & {
+  bindTooltip: (mount: HTMLElement, options: Record<string, unknown>) => void
+}
+type BoundsLayer = { getBounds: () => { getCenter: () => { lat: number; lng: number } } }
+type MarkerLike = TooltipLayer & MarkerWithMeta
+type VectorLike = TooltipLayer
+type LayerGroupLike = { addLayer: (layer: unknown) => void; remove?: () => void }
+type MarkerWithMeta = {
+  __sourceColor?: string
+  __freshnessStatus?: FreshnessStatus
+  __tooltipRow?: TooltipRow
+}
+type ClusterEvent = {
+  originalEvent?: { preventDefault?: () => void; stopPropagation?: () => void }
+  layer?: {
+    closeTooltip?: () => void
+    spiderfy?: () => void
+    getAllChildMarkers?: () => unknown[]
+    getTooltip?: () => unknown
+    setTooltipContent?: (content: HTMLElement) => void
+    bindTooltip?: (content: HTMLElement, options: Record<string, unknown>) => void
+    openTooltip?: () => void
+  } & { getConvexHull?: () => unknown[] }
 }
 
 function resolveTooltipLabels(labels?: TooltipLabels): TooltipLabels {
@@ -180,22 +210,28 @@ function buildTooltipMount(
 }
 
 function bindSelectThing(
-  layer: any,
-  thing: any,
-  onThingSelect?: (t: any, selection?: { observedPropertyName?: string; datastreamId?: string }) => void,
+  layer: ClickableLayer,
+  thing: Thing,
+  onThingSelect?: (
+    t: Thing,
+    selection?: { observedPropertyName?: string; datastreamId?: string }
+  ) => void,
   selection?: { observedPropertyName?: string; datastreamId?: string }
 ) {
   if (!onThingSelect) return
-  layer.on('click', (e: any) => {
-    e.originalEvent?.preventDefault?.()
-    e.originalEvent?.stopPropagation?.()
+  layer.on('click', (e: unknown) => {
+    const event = e as {
+      originalEvent?: { preventDefault?: () => void; stopPropagation?: () => void }
+    }
+    event.originalEvent?.preventDefault?.()
+    event.originalEvent?.stopPropagation?.()
     onThingSelect(thing, selection)
   })
 }
 
 function bindHeroTooltip(
-  layer: any,
-  thing: any,
+  layer: TooltipLayer,
+  thing: Thing,
   options?: {
     labels?: TooltipLabels
   }
@@ -236,11 +272,11 @@ function escapeHtml(s: string) {
     .replaceAll("'", '&#39;')
 }
 
-function latestObservationOfDatastream(ds: any): any | null {
+function latestObservationOfDatastream(ds: Datastream): Datastream['Observations'][number] | null {
   const obsArr = Array.isArray(ds?.Observations) ? ds.Observations : []
   if (!obsArr.length) return null
 
-  let best: any = null
+  let best: Datastream['Observations'][number] | null = null
   let bestT = -Infinity
 
   for (const obs of obsArr) {
@@ -254,7 +290,7 @@ function latestObservationOfDatastream(ds: any): any | null {
   return best
 }
 
-function valueTextForDatastream(ds: any): string | null {
+function valueTextForDatastream(ds: Datastream): string | null {
   const obs = latestObservationOfDatastream(ds)
   if (!obs) return null
 
@@ -280,7 +316,7 @@ function isoDurationToMs(iso?: string) {
   return Number.isFinite(ms) && ms > 0 ? ms : 0
 }
 
-function datastreamFreshness(ds: any): 'fresh' | 'stale' | 'unknown' {
+function datastreamFreshness(ds: Datastream): 'fresh' | 'stale' | 'unknown' {
   const hasObservations = Array.isArray(ds?.Observations)
     ? ds.Observations.length > 0
     : false
@@ -298,10 +334,10 @@ function datastreamFreshness(ds: any): 'fresh' | 'stale' | 'unknown' {
   return Date.now() - endMs < thresholdMs ? 'fresh' : 'stale'
 }
 
-function thingFreshnessStatus(thing: any): FreshnessStatus {
+function thingFreshnessStatus(thing: Thing): FreshnessStatus {
   const dss = Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
   const statuses = dss
-    .map((ds: any) => datastreamFreshness(ds))
+    .map((ds) => datastreamFreshness(ds))
     .filter((status) => status !== 'unknown') as Array<'fresh' | 'stale'>
 
   if (!statuses.length) return 'unknown'
@@ -310,14 +346,17 @@ function thingFreshnessStatus(thing: any): FreshnessStatus {
   return 'mixed'
 }
 
-function clusterFreshnessStatus(clusterLayer: any): FreshnessStatus {
+function clusterFreshnessStatus(clusterLayer: {
+  getAllChildMarkers?: () => unknown[]
+}): FreshnessStatus {
   const childMarkers = clusterLayer?.getAllChildMarkers?.() ?? []
   let hasFresh = false
   let hasStale = false
   let hasUnknown = false
 
   for (const marker of childMarkers) {
-    const status = (marker as any)?.__freshnessStatus as FreshnessStatus | undefined
+    const status = (marker as { __freshnessStatus?: FreshnessStatus })
+      ?.__freshnessStatus
     if (status === 'fresh') hasFresh = true
     else if (status === 'stale') hasStale = true
     else if (status === 'mixed') {
@@ -334,25 +373,55 @@ function clusterFreshnessStatus(clusterLayer: any): FreshnessStatus {
 }
 
 export function drawNetworkLayers(args: {
-  L: any
-  proj4: any
-  map: any
-  things: any[]
-  isThingVisible?: (thing: any) => boolean
+  L: {
+    marker: (...args: unknown[]) => MarkerLike
+    divIcon: (...args: unknown[]) => unknown
+    polyline: (...args: unknown[]) => VectorLike & BoundsLayer
+    polygon: (...args: unknown[]) => VectorLike & BoundsLayer & { addTo?: (map: unknown) => void }
+    layerGroup: (...args: unknown[]) => LayerGroupLike
+    icon: (...args: unknown[]) => unknown
+    markerClusterGroup: (...args: unknown[]) => unknown
+    point: (...args: unknown[]) => unknown
+  }
+  proj4: (src: string, dst: string, point: [number, number]) => [number, number]
+  map: {
+    addLayer: (layer: unknown) => void
+    removeLayer: (layer: unknown) => void
+  }
+  things: Thing[]
+  isThingVisible?: (thing: Thing) => boolean
   selectedNetwork?: string
 
-  networkLayers: Map<string, { cluster: any; vectors: any; color: string }>
-  overlayWrappersRef: { current: Map<string, any> }
+  networkLayers: Map<
+    string,
+    {
+      cluster: {
+        addLayer?: (layer: unknown) => void
+        clearLayers?: () => void
+        on?: (event: string, cb: (event: unknown) => void) => void
+        off?: () => void
+        remove?: () => void
+        refreshClusters?: () => void
+      }
+      vectors: {
+        addLayer?: (layer: unknown) => void
+        clearLayers?: () => void
+        remove?: () => void
+      }
+      color: string
+    }
+  >
+  overlayWrappersRef: { current: Map<string, { remove?: () => void }> }
   enabledRef: { current: Map<string, boolean> }
   didInitVisibilityRef: { current: boolean }
 
-  observedCluster: any
+  observedCluster: { clearLayers?: () => void; addLayer: (layer: unknown) => void }
   observedPropertyFilter?: Set<string>
   sourceColorByKey?: Record<string, string>
 
   labels?: TooltipLabels
   onThingSelect?: (
-    thing: any,
+    thing: Thing,
     selection?: { observedPropertyName?: string; datastreamId?: string }
   ) => void
 }) {
@@ -395,7 +464,7 @@ export function drawNetworkLayers(args: {
     Array.from(sourceKeys),
     sourceColorByKey
   )
-  const markerIconByColor = new Map<string, any>()
+  const markerIconByColor = new Map<string, unknown>()
   const markerIconFor = (fillColor: string, borderColor: string) => {
     const key = `${fillColor}|${borderColor}`
     if (!markerIconByColor.has(key)) {
@@ -430,7 +499,7 @@ export function drawNetworkLayers(args: {
           .map((ring: [number, number][]) =>
             ring.map(([x, y]) => toLatLng(x, y)).filter(Boolean)
           )
-          .map((ring: any[]) => ring as [number, number][])
+          .map((ring) => ring as [number, number][])
           .filter((ring) => ring.length >= 3)
         if (rings.length) {
           try {
@@ -444,7 +513,11 @@ export function drawNetworkLayers(args: {
       if (!centerLL) continue
 
       const dss = Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
-      const observedMatches: Array<{ ds: any; text: string; sourceKey: string }> = []
+      const observedMatches: Array<{
+        ds: Datastream
+        text: string
+        sourceKey: string
+      }> = []
       for (const ds of dss) {
         const opName = ds?.ObservedProperty?.name
         if (typeof opName !== 'string') continue
@@ -477,8 +550,8 @@ export function drawNetworkLayers(args: {
             </div>`,
           }),
         })
-        ;(marker as any).__sourceColor = sourceColor
-        ;(marker as any).__freshnessStatus = freshnessStatus
+        ;(marker as MarkerWithMeta).__sourceColor = sourceColor
+        ;(marker as MarkerWithMeta).__freshnessStatus = freshnessStatus
         bindSelectThing(marker, thing, onThingSelect, {
           observedPropertyName: String(ds?.ObservedProperty?.name ?? '').trim(),
           datastreamId: String(ds?.['@iot.id'] ?? ds?.id ?? '').trim(),
@@ -536,31 +609,36 @@ export function drawNetworkLayers(args: {
     const cluster = createClusterGroup({
       L,
       color,
-      borderColor: (clusterLayer: any) =>
+      borderColor: (clusterLayer: unknown) =>
         FRESHNESS_BORDER_COLOR[clusterFreshnessStatus(clusterLayer)],
     })
     const vectors = L.layerGroup()
 
-    cluster.on('clusterclick', (e: any) => {
-      e.originalEvent?.preventDefault?.()
-      e.originalEvent?.stopPropagation?.()
-      e.layer?.closeTooltip?.()
+    cluster.on?.('clusterclick', (e: unknown) => {
+      const event = e as ClusterEvent
+      event.originalEvent?.preventDefault?.()
+      event.originalEvent?.stopPropagation?.()
+      event.layer?.closeTooltip?.()
       showClusterHullPreview({
-        L,
+        L: L as {
+          polygon: (hull: unknown[], options: Record<string, unknown>) => {
+            addTo: (map: unknown) => void
+          }
+        },
         map,
-        clusterLayer: e.layer,
+        clusterLayer: event.layer ?? {},
         color,
       })
-      e.layer?.spiderfy?.()
+      event.layer?.spiderfy?.()
     })
 
-    cluster.on('clustermouseover', (e: any) => {
-      const clusterLayer = e.layer
+    cluster.on?.('clustermouseover', (e: unknown) => {
+      const clusterLayer = (e as ClusterEvent).layer
       const childMarkers = clusterLayer?.getAllChildMarkers?.() ?? []
       const dedup = new Map<string, TooltipRow>()
 
       for (const child of childMarkers) {
-        const row = (child as any)?.__tooltipRow as TooltipRow | undefined
+        const row = (child as MarkerWithMeta)?.__tooltipRow
         if (!row) continue
 
         const key = `${row.source}::${row.name}::${row.network}`
@@ -601,8 +679,8 @@ export function drawNetworkLayers(args: {
       clusterLayer.openTooltip?.()
     })
 
-    cluster.on('clustermouseout', (e: any) => {
-      const clusterLayer = e.layer
+    cluster.on?.('clustermouseout', (e: unknown) => {
+      const clusterLayer = (e as ClusterEvent).layer
       clusterLayer.closeTooltip?.()
     })
 
@@ -640,8 +718,8 @@ export function drawNetworkLayers(args: {
   }
 
   for (const { cluster, vectors } of networkLayers.values()) {
-    cluster.clearLayers()
-    vectors.clearLayers()
+    cluster.clearLayers?.()
+    vectors.clearLayers?.()
   }
 
   for (const thing of things) {
@@ -667,9 +745,9 @@ export function drawNetworkLayers(args: {
       const m = L.marker(ll, {
         icon: markerIconFor(base, borderColor),
       })
-      ;(m as any).__freshnessStatus = freshnessStatus
+      ;(m as MarkerWithMeta).__freshnessStatus = freshnessStatus
 
-      ;(m as any).__tooltipRow = {
+      ;(m as MarkerWithMeta).__tooltipRow = {
         source: thingSourceLabel(thing),
         name: thingDisplayName(thing),
         network: String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim(),
@@ -677,7 +755,7 @@ export function drawNetworkLayers(args: {
 
       bindHeroTooltip(m, thing, { labels })
       bindSelectThing(m, thing, onThingSelect)
-      grp.cluster.addLayer(m)
+      grp.cluster.addLayer?.(m)
       continue
     }
 
@@ -696,7 +774,7 @@ export function drawNetworkLayers(args: {
 
       bindHeroTooltip(l, thing, { labels })
       bindSelectThing(l, thing, onThingSelect)
-      grp.vectors.addLayer(l)
+      grp.vectors.addLayer?.(l)
       continue
     }
 
@@ -705,7 +783,7 @@ export function drawNetworkLayers(args: {
         .map((ring: [number, number][]) =>
           ring.map(([x, y]) => toLatLng(x, y)).filter(Boolean)
         )
-        .map((ring: any[]) => ring as [number, number][])
+        .map((ring) => ring as [number, number][])
         .filter((ring) => ring.length >= 3)
 
       if (!rings.length) continue
@@ -719,7 +797,7 @@ export function drawNetworkLayers(args: {
 
       bindHeroTooltip(p, thing, { labels })
       bindSelectThing(p, thing, onThingSelect)
-      grp.vectors.addLayer(p)
+      grp.vectors.addLayer?.(p)
       continue
     }
   }

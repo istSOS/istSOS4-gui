@@ -17,16 +17,27 @@ export function createClusterGroup({
   borderColor,
   options,
 }: {
-  L: any
-  color: string | ((cluster: any) => string)
-  borderColor?: string | ((cluster: any) => string)
+  L: {
+    markerClusterGroup: (options: Record<string, unknown>) => unknown
+    divIcon: (options: Record<string, unknown>) => unknown
+    point: (x: number, y: number) => unknown
+  }
+  color: string | ((cluster: unknown) => string)
+  borderColor?: string | ((cluster: unknown) => string)
   options?: Partial<{
     spiderfyDistanceMultiplier: number
     maxClusterRadius: number
     disableClusteringAtZoom: number
   }> &
-    Record<string, any>
-}) {
+    Record<string, unknown>
+}): {
+  on: (event: string, handler: (event: unknown) => void) => void
+  addLayer: (layer: unknown) => void
+  clearLayers?: () => void
+  off?: () => void
+  remove?: () => void
+  refreshClusters?: () => void
+} {
   return L.markerClusterGroup({
     spiderfyOnMaxZoom: true,
     showCoverageOnHover: false,
@@ -36,13 +47,14 @@ export function createClusterGroup({
 
     ...(options ?? {}),
 
-    iconCreateFunction: (cl: any) => {
-      const total = cl.getChildCount()
+    iconCreateFunction: (cl: unknown) => {
+      const cluster = cl as { getChildCount: () => number }
+      const total = cluster.getChildCount()
       const size = total < 10 ? 'small' : total < 100 ? 'medium' : 'large'
-      const resolvedColor = typeof color === 'function' ? color(cl) : color
+      const resolvedColor = typeof color === 'function' ? color(cluster) : color
       const resolvedBorderColor =
         typeof borderColor === 'function'
-          ? borderColor(cl)
+          ? borderColor(cluster)
           : borderColor ?? '#ffffff'
 
       return L.divIcon({
@@ -51,11 +63,20 @@ export function createClusterGroup({
         iconSize: L.point(40, 40),
       })
     },
-  })
+  }) as {
+    on: (event: string, handler: (event: unknown) => void) => void
+    addLayer: (layer: unknown) => void
+    clearLayers?: () => void
+    off?: () => void
+    remove?: () => void
+    refreshClusters?: () => void
+  }
 }
 
 export function createThingMarkerIcon(
-  L: any,
+  L: {
+    icon: (options: Record<string, unknown>) => unknown
+  },
   color: string,
   borderColor: string
 ) {
@@ -81,15 +102,26 @@ export function showClusterHullPreview({
   color,
   durationMs = 1800,
 }: {
-  L: any
-  map: any
-  clusterLayer: any
+  L: {
+    polygon: (hull: unknown[], options: Record<string, unknown>) => {
+      addTo: (map: unknown) => void
+    }
+  }
+  map: {
+    removeLayer: (layer: unknown) => void
+  } & {
+    __clusterHullPreviewLayer?: unknown
+    __clusterHullPreviewTimer?: ReturnType<typeof setTimeout> | null
+  }
+  clusterLayer: {
+    getConvexHull?: () => unknown[]
+  }
   color: string
   durationMs?: number
 }) {
   if (!L || !map || !clusterLayer) return
 
-  const mapState = map as any
+  const mapState = map
   const hull = clusterLayer.getConvexHull?.()
   if (!Array.isArray(hull) || hull.length < 3) return
 
