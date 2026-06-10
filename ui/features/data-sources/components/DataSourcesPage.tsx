@@ -128,7 +128,8 @@ type DataSourceConfigResponse =
 
 const normalizeApiRoot = (value: string) => value.trim().replace(/\/+$/, '')
 const normalizeSourceName = (value: string) => value.trim().toLowerCase()
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
+const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
+const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
 const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
 const configApiPath = `${normalizedBasePath}/api/data-sources/config`

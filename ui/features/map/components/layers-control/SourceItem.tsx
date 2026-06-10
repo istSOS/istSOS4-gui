@@ -3,6 +3,7 @@
 import { UNSPECIFIED_NETWORK_KEY } from '@/features/map/lib/leafletDraw'
 import { Checkbox } from '@heroui/checkbox'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { HexColorPicker } from 'react-colorful'
 import { useTranslation } from 'react-i18next'
 
@@ -26,6 +27,11 @@ export default function SourceItem({
   const [expanded, setExpanded] = useState(false)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const colorPickerRef = useRef<HTMLDivElement | null>(null)
+  const colorButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [pickerPosition, setPickerPosition] = useState<{
+    top: number
+    left: number
+  } | null>(null)
   const [networksExpanded, setNetworksExpanded] = useState(true)
   const [expandedNetworks, setExpandedNetworks] = useState<
     Record<string, boolean>
@@ -43,10 +49,23 @@ export default function SourceItem({
   useEffect(() => {
     if (!colorPickerOpen) return
 
+    const updatePickerPosition = () => {
+      const button = colorButtonRef.current
+      if (!button) return
+      const rect = button.getBoundingClientRect()
+      setPickerPosition({
+        top: rect.bottom + 8,
+        left: Math.max(8, rect.right - 200),
+      })
+    }
+
+    updatePickerPosition()
+
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
       if (!target) return
       if (colorPickerRef.current?.contains(target)) return
+      if (colorButtonRef.current?.contains(target)) return
       setColorPickerOpen(false)
     }
 
@@ -56,9 +75,13 @@ export default function SourceItem({
 
     document.addEventListener('pointerdown', onPointerDown)
     document.addEventListener('keydown', onKeyDown)
+    window.addEventListener('resize', updatePickerPosition)
+    window.addEventListener('scroll', updatePickerPosition, true)
     return () => {
       document.removeEventListener('pointerdown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('resize', updatePickerPosition)
+      window.removeEventListener('scroll', updatePickerPosition, true)
     }
   }, [colorPickerOpen])
 
@@ -78,6 +101,7 @@ export default function SourceItem({
 
         <div className="relative flex items-center gap-1" ref={colorPickerRef}>
           <button
+            ref={colorButtonRef}
             type="button"
             aria-label={`${source.label} color`}
             onClick={() => setColorPickerOpen((value) => !value)}
@@ -85,14 +109,26 @@ export default function SourceItem({
             style={{ backgroundColor: sourceColor }}
           />
 
-          {colorPickerOpen ? (
-            <div className="absolute right-0 top-6 z-[2100] rounded-md border border-default-200 bg-content1 p-2 shadow-lg">
-              <HexColorPicker
-                color={sourceColor}
-                onChange={(color) => onSourceColorChange(source.key, color)}
-              />
-            </div>
-          ) : null}
+          {colorPickerOpen &&
+          pickerPosition &&
+          typeof document !== 'undefined'
+            ? createPortal(
+                <div
+                  ref={colorPickerRef}
+                  className="fixed z-[7000] rounded-md border border-default-200 bg-content1 p-2 shadow-lg"
+                  style={{
+                    top: pickerPosition.top,
+                    left: pickerPosition.left,
+                  }}
+                >
+                  <HexColorPicker
+                    color={sourceColor}
+                    onChange={(color) => onSourceColorChange(source.key, color)}
+                  />
+                </div>,
+                document.body
+              )
+            : null}
 
           <Checkbox
             size="sm"

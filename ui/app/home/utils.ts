@@ -14,7 +14,8 @@ type NetworkRef = {
   __sourceEndpoint?: string
 }
 
-export const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
+const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
+export const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
 export const normalizedBasePath =
   basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 export const mapThingsApiPath = `${normalizedBasePath}/api/data-sources/things`

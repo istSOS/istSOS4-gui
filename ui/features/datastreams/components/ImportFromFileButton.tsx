@@ -7,11 +7,13 @@ import {
   type ChangeEvent,
   type ComponentType,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
 
 import { useRouter } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 
 import {
   CloseIcon,
@@ -25,9 +27,11 @@ import {
 
 import { useAuth } from '@/context/AuthContext'
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
+const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
+const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
 const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const importApiPath = `${normalizedBasePath}/api/data-sources/import`
+const importTemplatePath = `${normalizedBasePath}/import-template.csv`
 
 type ImportFromFileButtonProps = {
   className?: string
@@ -37,10 +41,11 @@ type ImportFromFileButtonProps = {
 type ImportReport = {
   rowsProcessed: number
   entities?: Record<string, { created?: number; existing?: number }>
+  failedRows?: Array<{ row: number; reason: string }>
 }
 
 type ImportStreamEvent = {
-  type?: 'progress' | 'done' | 'error'
+  type?: 'progress' | 'done' | 'error' | 'warning'
   ok?: boolean
   error?: string
   message?: string
@@ -84,7 +89,7 @@ const parseWorkbookInWorker = async (file: File): Promise<ParsedWorkbookPayload>
 
     worker.onerror = () => {
       worker.terminate()
-      reject(new Error('Failed to parse workbook in worker'))
+      reject(new Error('FAILED_TO_PARSE_WORKBOOK'))
     }
 
     file
@@ -102,6 +107,12 @@ const parseWorkbookInWorker = async (file: File): Promise<ParsedWorkbookPayload>
       })
   })
 
+const isNonCompliantFileError = (message: string) =>
+  message.includes('Excel template must contain header rows') ||
+  message.includes('Workbook has no sheets') ||
+  message.includes('Failed to parse workbook') ||
+  message.includes('Missing required field')
+
 function FormIcon({
   icon: Icon,
   size = 16,
@@ -117,16 +128,12 @@ function FormIcon({
 }
 
 const REPORT_ORDER = [
-  { key: 'Networks', label: 'Networks', icon: NetworkIcon },
-  { key: 'Things', label: 'Things', icon: ThingIcon },
-  { key: 'Locations', label: 'Locations', icon: LocationIcon },
-  { key: 'Sensors', label: 'Sensors', icon: SensorIcon },
-  {
-    key: 'ObservedProperties',
-    label: 'Observed Properties',
-    icon: ObservedPropertyIcon,
-  },
-  { key: 'Datastreams', label: 'Datastreams', icon: DatastreamIcon },
+  { key: 'Networks', icon: NetworkIcon },
+  { key: 'Things', icon: ThingIcon },
+  { key: 'Locations', icon: LocationIcon },
+  { key: 'Sensors', icon: SensorIcon },
+  { key: 'ObservedProperties', icon: ObservedPropertyIcon },
+  { key: 'Datastreams', icon: DatastreamIcon },
 ] as const
 
 type ReportRow = {
@@ -147,10 +154,25 @@ const LOG_ENTITY_ORDER = [
   'datastream',
 ] as const
 
+const logToneClass = (message: string) => {
+  const normalized = message.toLowerCase()
+  if (normalized.includes('skipped') || normalized.includes('error')) {
+    return 'border border-danger/30 bg-danger-50 text-danger-700'
+  }
+  if (normalized.includes('found') || normalized.includes('existing')) {
+    return 'border border-warning/30 bg-warning-50 text-warning-700'
+  }
+  if (normalized.includes('created') || normalized.includes('completed')) {
+    return 'border border-success/30 bg-success-50 text-success-700'
+  }
+  return 'bg-[color:rgba(0,131,116,0.12)] text-default-600'
+}
+
 export default function ImportFromFileButton({
   className,
   buttonId,
 }: ImportFromFileButtonProps) {
+  const { t } = useTranslation()
   const router = useRouter()
   const { token } = useAuth()
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -158,20 +180,37 @@ export default function ImportFromFileButton({
   const [isImporting, setIsImporting] = useState(false)
   const [importReport, setImportReport] = useState<ImportReport | null>(null)
   const [importLog, setImportLog] = useState<ImportLogEntry[]>([])
+  const [importErrorMessage, setImportErrorMessage] = useState<string | null>(
+    null
+  )
   const [progress, setProgress] = useState<{ current: number; total: number }>({
     current: 0,
     total: 0,
   })
   const reportRows: ReportRow[] = importReport
-    ? REPORT_ORDER.map(({ key, label, icon }) => {
+    ? REPORT_ORDER.map(({ key, icon }) => {
         const stats = importReport.entities?.[key]
+        const label =
+          key === 'Networks'
+            ? t('import.report.networks')
+            : key === 'Things'
+              ? t('import.report.things')
+              : key === 'Locations'
+                ? t('import.report.locations')
+                : key === 'Sensors'
+                  ? t('import.report.sensors')
+                  : key === 'ObservedProperties'
+                    ? t('import.report.observed_properties')
+                    : t('import.report.datastreams')
         return {
           key,
           label,
           icon,
           created: stats?.created ?? 0,
           secondaryLabel:
-            typeof stats?.existing === 'number' ? 'existing' : undefined,
+            typeof stats?.existing === 'number'
+              ? t('import.summary.existing_label')
+              : undefined,
           secondaryValue: stats?.existing,
         }
       })
@@ -210,6 +249,25 @@ export default function ImportFromFileButton({
       secondIndex === -1 ? LOG_ENTITY_ORDER.length : secondIndex
     return normalizedFirstIndex - normalizedSecondIndex
   })
+  const groupedImportLog = useMemo(() => {
+    const groups = new Map<number, ImportLogEntry[]>()
+    const withoutRow: ImportLogEntry[] = []
+
+    for (const entry of orderedImportLog) {
+      if (typeof entry.row !== 'number') {
+        withoutRow.push(entry)
+        continue
+      }
+      const bucket = groups.get(entry.row) ?? []
+      bucket.push(entry)
+      groups.set(entry.row, bucket)
+    }
+
+    const orderedRows = Array.from(groups.entries()).sort(
+      ([rowA], [rowB]) => rowA - rowB
+    )
+    return { orderedRows, withoutRow }
+  }, [orderedImportLog])
 
   useEffect(() => {
     const node = liveLogContainerRef.current
@@ -236,7 +294,7 @@ export default function ImportFromFileButton({
       const fallbackText = await response.text().catch(() => '')
       throw new Error(
         fallbackText ||
-          `Import failed: ${response.status} ${response.statusText}`
+          `${t('import.errors.import_failed')}: ${response.status} ${response.statusText}`
       )
     }
 
@@ -245,6 +303,7 @@ export default function ImportFromFileButton({
     let finalReport: ImportReport | null = null
     let doneOk = false
     let streamError = ''
+    let hasNonCompliantRowError = false
 
     while (true) {
       const { value, done } = await reader.read()
@@ -276,6 +335,12 @@ export default function ImportFromFileButton({
           setProgress({ current: event.currentRow, total: event.totalRows })
         }
         if (event.message) {
+          if (
+            event.type === 'warning' &&
+            event.message.includes('Missing required field')
+          ) {
+            hasNonCompliantRowError = true
+          }
           setImportLog((prev) => [
             ...prev,
             {
@@ -291,13 +356,21 @@ export default function ImportFromFileButton({
           doneOk = true
         }
         if (event.type === 'error') {
-          streamError = event.error || 'Import failed'
+          streamError = event.error || t('import.errors.import_failed')
         }
       }
     }
 
     if (!doneOk) {
-      throw new Error(streamError || `Import failed: ${response.status}`)
+      throw new Error(
+        streamError || `${t('import.errors.import_failed')}: ${response.status}`
+      )
+    }
+
+    if (hasNonCompliantRowError) {
+      setImportErrorMessage(
+        t('import.errors.non_compliant')
+      )
     }
 
     return finalReport
@@ -311,6 +384,7 @@ export default function ImportFromFileButton({
     if (!file) return
 
     setIsImporting(true)
+    setImportErrorMessage(null)
     setImportReport({
       rowsProcessed: 0,
       entities: {
@@ -322,20 +396,32 @@ export default function ImportFromFileButton({
         Datastreams: { created: 0, existing: 0 },
       },
     })
-    setImportLog([{ message: 'Reading file...', row: 0 }])
+    setImportLog([{ message: t('import.log.reading_file'), row: 0 }])
     setProgress({ current: 0, total: 0 })
     try {
       const parsed = await parseWorkbookInWorker(file)
-      setImportLog([{ message: 'File parsed. Starting import...', row: 0 }])
+      setImportLog([{ message: t('import.log.file_parsed_starting'), row: 0 }])
       const report = await importProcedures(parsed)
       setImportReport(report)
       router.refresh()
     } catch (error) {
-      console.error('Import from file failed:', error)
-      const message = error instanceof Error ? error.message : 'Import failed'
-      if (typeof window !== 'undefined') {
-        window.alert(message)
+      const rawMessage =
+        error instanceof Error ? error.message : t('import.errors.import_failed')
+      const message =
+        rawMessage === 'FAILED_TO_PARSE_WORKBOOK'
+          ? t('import.errors.failed_to_parse_workbook')
+          : rawMessage
+      const isInvalidTemplateError = isNonCompliantFileError(message)
+
+      if (!isInvalidTemplateError) {
+        console.error('Import from file failed:', error)
       }
+
+      setImportErrorMessage(
+        isInvalidTemplateError
+          ? t('import.errors.non_compliant')
+          : message
+      )
     } finally {
       setIsImporting(false)
     }
@@ -357,7 +443,7 @@ export default function ImportFromFileButton({
         isDisabled={isImporting}
         onPress={() => fileInputRef.current?.click()}
       >
-        Import from file
+        {t('import.actions.import_from_file')}
       </Button>
       {importReport ? (
         <Card
@@ -376,18 +462,29 @@ export default function ImportFromFileButton({
           <CardHeader className="flex items-start justify-between gap-4 px-5 py-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-semibold">Import</span>
+                <span className="text-base font-semibold">
+                  {t('import.summary.title')}
+                </span>
               </div>
               <p className="mt-1 text-xs text-default-500">
-                {importReport.rowsProcessed} rows processed
+                {t('import.summary.rows_processed', {
+                  count: importReport.rowsProcessed,
+                })}
               </p>
+              {(importReport.failedRows?.length ?? 0) > 0 ? (
+                <p className="mt-1 text-xs text-danger-600">
+                  {t('import.summary.rows_skipped', {
+                    count: importReport.failedRows?.length ?? 0,
+                  })}
+                </p>
+              ) : null}
             </div>
 
             <Button
               isIconOnly
               size="sm"
               variant="light"
-              aria-label="Close import report"
+              aria-label={t('import.actions.close_report')}
               className="shrink-0 text-default-500"
               onPress={() => setImportReport(null)}
             >
@@ -398,10 +495,23 @@ export default function ImportFromFileButton({
           <Divider />
 
           <CardBody className="max-h-[70vh] gap-5 overflow-auto px-5 py-4">
+            {importErrorMessage ? (
+              <div className="rounded-2xl border border-danger/30 bg-danger-50 p-4 text-sm text-danger-700">
+                <div>{importErrorMessage}</div>
+                <a
+                  href={importTemplatePath}
+                  download
+                  className="mt-2 inline-block text-sm font-semibold underline"
+                >
+                  {t('import.actions.download_template')}
+                </a>
+              </div>
+            ) : null}
+
             {progress.total > 0 ? (
               <div className="rounded-2xl border border-default-200 bg-default-50/60 p-4">
                 <div className="mb-2 flex items-center justify-between text-xs text-default-600">
-                  <span>Progress</span>
+                  <span>{t('import.summary.progress')}</span>
                   <span>
                     {progress.current}/{progress.total}
                   </span>
@@ -424,7 +534,7 @@ export default function ImportFromFileButton({
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
               <div className="rounded-2xl border border-default-200 p-4">
                 <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-default-500">
-                  <span>Created entities</span>
+                  <span>{t('import.summary.created_entities')}</span>
                 </div>
 
                 <div className="space-y-2 text-sm">
@@ -444,7 +554,9 @@ export default function ImportFromFileButton({
 
                       <div className="text-right text-xs text-default-500">
                         <div className="font-medium text-default-800">
-                          {row.created} created
+                          {t('import.summary.created_count', {
+                            count: row.created,
+                          })}
                         </div>
 
                         {typeof row.secondaryValue === 'number' ? (
@@ -461,11 +573,13 @@ export default function ImportFromFileButton({
               <div className="rounded-2xl border border-default-200 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-default-500">
-                    <span>Live log</span>
+                    <span>{t('import.summary.live_log')}</span>
                   </div>
 
                   <span className="text-[11px] text-default-400">
-                    {orderedImportLog.length} entries
+                    {t('import.summary.entries_count', {
+                      count: orderedImportLog.length,
+                    })}
                   </span>
                 </div>
 
@@ -474,24 +588,44 @@ export default function ImportFromFileButton({
                   className="max-h-84 space-y-2 overflow-auto pr-1"
                 >
                   {orderedImportLog.length ? (
-                    orderedImportLog.map((entry, index) => (
-                      <div
-                        key={`${index}-${entry.row ?? 'na'}-${entry.message}`}
-                        className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed text-default-600 ${
-                          (entry.row ?? 1) % 2 === 1
-                            ? 'bg-white'
-                            : 'bg-[color:rgba(0,131,116,0.12)]'
-                        }`}
-                      >
-                        <span className="font-medium text-default-700">
-                          Row {entry.row ?? '-'}:
-                        </span>{' '}
-                        {entry.message}
-                      </div>
-                    ))
+                    <>
+                      {groupedImportLog.orderedRows.map(([row, entries]) => (
+                        <div
+                          key={`row-${row}`}
+                          className="rounded-lg border border-default-200 bg-white px-3 py-2"
+                        >
+                          <div className="mb-2 text-[11px] font-semibold text-default-700">
+                            {t('import.summary.row_label', { row })}
+                          </div>
+                          <div className="space-y-1">
+                            {entries.map((entry, index) => (
+                              <div
+                                key={`row-${row}-${index}-${entry.message}`}
+                                className={`rounded-md px-2 py-1 text-[11px] leading-relaxed ${logToneClass(
+                                  entry.message
+                                )}`}
+                              >
+                                {entry.message}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {groupedImportLog.withoutRow.map((entry, index) => (
+                        <div
+                          key={`na-${index}-${entry.message}`}
+                          className={`rounded-lg px-3 py-2 text-[11px] leading-relaxed ${logToneClass(
+                            entry.message
+                          )}`}
+                        >
+                          {entry.message}
+                        </div>
+                      ))}
+                    </>
                   ) : (
                     <div className="rounded-lg border border-dashed border-default-200 px-3 py-6 text-center text-xs text-default-400">
-                      No log entries yet
+                      {t('import.summary.no_log_entries')}
                     </div>
                   )}
                 </div>

@@ -3,7 +3,8 @@ import { siteConfig } from '@/config/site'
 export const normalizeEndpoint = (value: string) =>
   value.trim().replace(/\/+$/, '')
 
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim() ?? ''
+const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
+const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
 const normalizedBasePath =
   basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 

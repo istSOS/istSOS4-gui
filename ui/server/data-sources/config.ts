@@ -11,17 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import type { ConfiguredDataSource } from '@/types'
 import { access, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-
-import type { ConfiguredDataSource } from '@/types'
 
 const PRIMARY_DATA_SOURCE_ID = '0'
 
 const FALLBACK_SOURCE: ConfiguredDataSource = {
   id: '0',
   name: 'Primary SensorThings',
-  apiRoot: 'http://api:5000/istsos4/v1.1',
+  apiRoot: 'http://api:5000/v4/v1.1',
   authorizationEnabled: true,
   networkEnabled: true,
 }
@@ -78,7 +77,9 @@ export const getPrimaryDataSource = (sources: ConfiguredDataSource[]) => {
   )
 }
 
-export async function readDataSourcesConfigFile(): Promise<ConfiguredDataSource[]> {
+export async function readDataSourcesConfigFile(): Promise<
+  ConfiguredDataSource[]
+> {
   const filePath = await resolveConfigFilePath()
 
   const raw = await readFile(filePath, 'utf-8').catch(() => '')
@@ -86,10 +87,14 @@ export async function readDataSourcesConfigFile(): Promise<ConfiguredDataSource[
 
   try {
     const parsed = JSON.parse(raw) as { sources?: unknown } | null
-    const candidateSources = Array.isArray(parsed?.sources) ? parsed.sources : []
+    const candidateSources = Array.isArray(parsed?.sources)
+      ? parsed.sources
+      : []
 
     return normalizeSources(
-      candidateSources as Array<Partial<ConfiguredDataSource> | null | undefined>
+      candidateSources as Array<
+        Partial<ConfiguredDataSource> | null | undefined
+      >
     )
   } catch {
     return [FALLBACK_SOURCE]

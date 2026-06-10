@@ -166,7 +166,17 @@
     "propertiesKey": "Name",
     "propertiesKey_placeholder": "Enter the name of the property",
     "propertiesValue": "Value",
-    "propertiesValue_placeholder": "Enter the value of the property"
+    "propertiesValue_placeholder": "Enter the value of the property",
+    "delete_confirm_title": "Confirm datastream deletion?",
+    "delete_confirm_impacted": "Impacted entities:",
+    "delete_confirm_network": "Network",
+    "delete_confirm_thing": "Thing",
+    "delete_confirm_location": "Location",
+    "delete_confirm_sensor": "Sensor",
+    "delete_confirm_observed_property": "Observed Property",
+    "delete_confirm_datastream": "Datastream",
+    "delete_confirm_observations": "Linked observations",
+    "delete_confirm_footer": "This action may remove related data."
   },
   "locations": {
     "name": "Name",
@@ -253,5 +263,43 @@
     "result_placeholder": "Enter the result",
     "result_quality": "Result Quality",
     "result_quality_placeholder": "Enter the result quality"
+  },
+  "import": {
+    "actions": {
+      "import_from_file": "Import from file",
+      "close_report": "Close import report",
+      "download_template": "Download template"
+    },
+    "errors": {
+      "import_failed": "Import failed",
+      "failed_to_parse_workbook": "Failed to parse workbook",
+      "non_compliant": "Non-compliant file: download a template and try again."
+    },
+    "log": {
+      "reading_file": "Reading file...",
+      "file_parsed_starting": "File parsed. Starting import..."
+    },
+    "summary": {
+      "title": "Import",
+      "rows_processed": "{{count}} rows processed",
+      "rows_skipped": "{{count}} rows skipped",
+      "progress": "Progress",
+      "created_entities": "Created entities",
+      "created_count": "{{count}} created",
+      "existing_label": "existing",
+      "existing_count": "{{count}} existing",
+      "live_log": "Live log",
+      "entries_count": "{{count}} entries",
+      "row_label": "Row {{row}}:",
+      "no_log_entries": "No log entries yet"
+    },
+    "report": {
+      "networks": "Networks",
+      "things": "Things",
+      "locations": "Locations",
+      "sensors": "Sensors",
+      "observed_properties": "Observed Properties",
+      "datastreams": "Datastreams"
+    }
   }
 }

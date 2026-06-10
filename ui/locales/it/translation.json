@@ -166,7 +166,17 @@
     "propertiesKey": "Nome",
     "propertiesKey_placeholder": "Inserisci il nome della proprietà",
     "propertiesValue": "Valore",
-    "propertiesValue_placeholder": "Inserisci il valore della proprietà"
+    "propertiesValue_placeholder": "Inserisci il valore della proprietà",
+    "delete_confirm_title": "Confermare eliminazione del datastream?",
+    "delete_confirm_impacted": "Entità coinvolte:",
+    "delete_confirm_network": "Network",
+    "delete_confirm_thing": "Thing",
+    "delete_confirm_location": "Location",
+    "delete_confirm_sensor": "Sensor",
+    "delete_confirm_observed_property": "Observed Property",
+    "delete_confirm_datastream": "Datastream",
+    "delete_confirm_observations": "Osservazioni collegate",
+    "delete_confirm_footer": "Questa operazione potrebbe rimuovere dati collegati."
   },
   "locations": {
     "name": "Nome",
@@ -253,5 +263,43 @@
     "result_placeholder": "Inserisci il risultato",
     "result_quality": "Qualità del Risultato",
     "result_quality_placeholder": "Inserisci la qualità del risultato"
+  },
+  "import": {
+    "actions": {
+      "import_from_file": "Importa da file",
+      "close_report": "Chiudi report import",
+      "download_template": "Scarica qui un template"
+    },
+    "errors": {
+      "import_failed": "Import fallito",
+      "failed_to_parse_workbook": "Impossibile analizzare il file",
+      "non_compliant": "File non conforme: scarica qui un template e riprova."
+    },
+    "log": {
+      "reading_file": "Lettura file...",
+      "file_parsed_starting": "File analizzato. Avvio import..."
+    },
+    "summary": {
+      "title": "Import",
+      "rows_processed": "{{count}} righe processate",
+      "rows_skipped": "{{count}} righe saltate",
+      "progress": "Avanzamento",
+      "created_entities": "Entità create",
+      "created_count": "{{count}} create",
+      "existing_label": "esistenti",
+      "existing_count": "{{count}} esistenti",
+      "live_log": "Log live",
+      "entries_count": "{{count}} voci",
+      "row_label": "Riga {{row}}:",
+      "no_log_entries": "Nessuna voce di log disponibile"
+    },
+    "report": {
+      "networks": "Networks",
+      "things": "Things",
+      "locations": "Locations",
+      "sensors": "Sensors",
+      "observed_properties": "Observed Properties",
+      "datastreams": "Datastreams"
+    }
   }
 }

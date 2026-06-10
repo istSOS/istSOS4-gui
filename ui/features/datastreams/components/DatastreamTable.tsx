@@ -26,12 +26,19 @@ import {
   DropdownMenu,
   DropdownTrigger,
 } from '@heroui/dropdown'
+import {
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from '@heroui/modal'
 import { Tooltip } from '@heroui/tooltip'
 import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import utc from 'dayjs/plugin/utc'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -110,6 +117,7 @@ type Props = {
   onCreateDatastream?: () => void
   onOpenDetails?: (datastream: Datastream) => void
   onEditDatastream?: (datastream: Datastream) => void
+  onDeleteDatastream?: (datastream: Datastream) => void
 }
 
 type DatastreamColumnKey =
@@ -122,6 +130,16 @@ type DatastreamColumnKey =
   | 'endDate'
   | 'actions'
 
+type DeletePreview = {
+  network: string
+  thing: string
+  location: string
+  sensor: string
+  observedProperty: string
+  datastream: string
+  observationsCount: number
+}
+
 export default function DatastreamTable({
   thing,
   observedPropertyNameFilter = null,
@@ -129,9 +147,12 @@ export default function DatastreamTable({
   onCreateDatastream,
   onOpenDetails,
   onEditDatastream,
+  onDeleteDatastream,
 }: Props) {
   const { t, i18n } = useTranslation()
   const lang = i18n.resolvedLanguage ?? i18n.language
+  const [pendingDelete, setPendingDelete] = useState<Datastream | null>(null)
+  const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null)
 
   const datastreams: Datastream[] = useMemo(() => {
     const ds = thing?.Datastreams
@@ -253,7 +274,20 @@ export default function DatastreamTable({
           onEditDatastream(item)
         }
       }
-      const handleDelete = () => console.log('Delete datastream:', item)
+      const handleDelete = () => {
+        setPendingDelete(item)
+        setDeletePreview({
+          network: String(item?.Network?.name ?? ''),
+          thing: String(thing?.name ?? ''),
+          location: String(thing?.Locations?.[0]?.name ?? ''),
+          sensor: String(item?.Sensor?.name ?? ''),
+          observedProperty: String(item?.ObservedProperty?.name ?? ''),
+          datastream: String(item?.name ?? ''),
+          observationsCount: Array.isArray(item?.Observations)
+            ? item.Observations.length
+            : 0,
+        })
+      }
 
       switch (columnKey) {
         case 'name':
@@ -349,18 +383,30 @@ export default function DatastreamTable({
           return <span>{''}</span>
       }
     },
-    [lang, onEditDatastream, onOpenDetails]
+    [lang, onDeleteDatastream, onEditDatastream, onOpenDetails, t, thing]
   )
 
   if (!thing) return null
 
+  const closeDeleteModal = () => {
+    setPendingDelete(null)
+    setDeletePreview(null)
+  }
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return
+    onDeleteDatastream?.(pendingDelete)
+    closeDeleteModal()
+  }
+
   return (
-    <div
-      className="fixed left-0 right-0 bottom-0 pb-[env(safe-area-inset-bottom)]"
-      style={{ zIndex: 3000 }}
-    >
-      <Card className="h-[27vh] overflow-hidden rounded-none">
-        <TableComponent
+    <>
+      <div
+        className="fixed left-0 right-0 bottom-0 pb-[env(safe-area-inset-bottom)]"
+        style={{ zIndex: 3000 }}
+      >
+        <Card className="h-[27vh] overflow-hidden rounded-none">
+          <TableComponent
           key={lang}
           items={datastreams}
           columns={columns}
@@ -417,7 +463,7 @@ export default function DatastreamTable({
                         ?.click()
                     }
                   >
-                    Import from file
+                    {t('import.actions.import_from_file')}
                   </DropdownItem>
                 </DropdownMenu>
               </Dropdown>
@@ -441,9 +487,58 @@ export default function DatastreamTable({
               </Tooltip>
             </div>
           }
-          renderCell={(item, columnKey) => renderCell(item, columnKey)}
-        />
-      </Card>
-    </div>
+            renderCell={(item, columnKey) => renderCell(item, columnKey)}
+          />
+        </Card>
+      </div>
+
+      <Modal
+        isOpen={pendingDelete !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) closeDeleteModal()
+        }}
+      >
+        <ModalContent>
+          <ModalHeader>{t('datastreams.delete_confirm_title')}</ModalHeader>
+          <ModalBody className="flex flex-col gap-2 text-sm">
+            <p>{t('datastreams.delete_confirm_impacted')}</p>
+            <p>
+              {t('datastreams.delete_confirm_network')}: {deletePreview?.network || '-'}
+            </p>
+            <p>
+              {t('datastreams.delete_confirm_thing')}: {deletePreview?.thing || '-'}
+            </p>
+            <p>
+              {t('datastreams.delete_confirm_location')}: {deletePreview?.location || '-'}
+            </p>
+            <p>
+              {t('datastreams.delete_confirm_sensor')}: {deletePreview?.sensor || '-'}
+            </p>
+            <p>
+              {t('datastreams.delete_confirm_observed_property')}:{' '}
+              {deletePreview?.observedProperty || '-'}
+            </p>
+            <p>
+              {t('datastreams.delete_confirm_datastream')}: {deletePreview?.datastream || '-'}
+            </p>
+            <p>
+              {t('datastreams.delete_confirm_observations')}:{' '}
+              {deletePreview?.observationsCount ?? 0}
+            </p>
+            <p className="pt-1 text-default-500">
+              {t('datastreams.delete_confirm_footer')}
+            </p>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={closeDeleteModal}>
+              {t('general.cancel')}
+            </Button>
+            <Button color="danger" onPress={confirmDelete}>
+              {t('general.delete')}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </>
   )
 }

@@ -23,6 +23,7 @@ type EntityStats = { created: number; existing: number }
 type ImportReport = {
   rowsProcessed: number
   entities: Record<string, EntityStats>
+  failedRows?: Array<{ row: number; reason: string }>
 }
 
 const UOM_MAPPING: Record<string, string> = {
@@ -191,6 +192,7 @@ export async function POST(request: Request) {
       Networks: { created: 0, existing: 0 },
       Datastreams: { created: 0, existing: 0 },
     },
+    failedRows: [],
   }
   const cacheKeyFor = (collection: string, name: string) =>
     `${collection}::${name.trim().toLowerCase()}`
@@ -312,6 +314,7 @@ export async function POST(request: Request) {
               totalRows: payload.procedures.length,
               report: reportSnapshot(),
             })
+            try {
       const procedure = Object.fromEntries(
         Object.entries(rawProcedure ?? {}).map(([key, value]) => [
           key,
@@ -566,12 +569,34 @@ export async function POST(request: Request) {
           })
         }
       }
+            } catch (rowError) {
+              const reason =
+                rowError instanceof Error ? rowError.message : String(rowError)
+              report.failedRows?.push({
+                row: rowIndex + 1,
+                reason,
+              })
+              emit({
+                type: 'warning',
+                message: `Row skipped: ${reason}`,
+                currentRow: rowIndex + 1,
+                totalRows: payload.procedures.length,
+                report: reportSnapshot(),
+              })
+              continue
+            }
           }
 
+          const failedCount = report.failedRows?.length ?? 0
           emit({
             type: 'done',
             ok: true,
             imported: payload.procedures.length,
+            failedRows: failedCount,
+            message:
+              failedCount > 0
+                ? `Import completed with ${failedCount} skipped row(s)`
+                : 'Import completed',
             report: reportSnapshot(),
           })
           controller.close()

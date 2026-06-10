@@ -1,12 +1,13 @@
-import rawDataSources from '@/config/data-sources.json'
 import type { ConfiguredDataSource } from '@/types'
+
+import rawDataSources from '@/config/data-sources.json'
 
 const PRIMARY_DATA_SOURCE_ID = '0'
 
 const FALLBACK_SOURCE: ConfiguredDataSource = {
   id: 'default',
   name: 'Primary SensorThings',
-  apiRoot: 'http://api:5000/istsos4/v1.1',
+  apiRoot: 'http://api:5000/v4/v1.1',
   authorizationEnabled: true,
   networkEnabled: true,
 }

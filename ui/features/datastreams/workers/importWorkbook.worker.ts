@@ -54,10 +54,16 @@ self.onmessage = (event: MessageEvent<ParseWorkerRequest>) => {
   try {
     const { buffer, fileName } = event.data
     const isCsv = fileName.toLowerCase().endsWith('.csv')
+    const csvText = isCsv ? new TextDecoder('utf-8').decode(buffer) : ''
+    const firstLine = isCsv ? (csvText.split(/\r?\n/)[0] ?? '') : ''
+    const semicolonCount = (firstLine.match(/;/g) ?? []).length
+    const commaCount = (firstLine.match(/,/g) ?? []).length
+    const delimiter = semicolonCount >= commaCount ? ';' : ','
     const workbook = isCsv
-      ? XLSX.read(new TextDecoder('utf-8').decode(buffer), {
+      ? XLSX.read(csvText, {
           type: 'string',
           raw: false,
+          FS: delimiter,
         })
       : XLSX.read(buffer, { type: 'array' })
     const sheetName = workbook.SheetNames[0]
