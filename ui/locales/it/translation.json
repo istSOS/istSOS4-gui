@@ -24,6 +24,8 @@
     "next": "Avanti",
     "finish": "Conferma",
     "no_data": "Nessun dato disponibile.",
+    "select_datastream": "Seleziona un datastream per visualizzare il grafico",
+    "loading": "Caricamento...",
     "reset": "Reset"
   },
   "wizard": {

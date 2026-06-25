@@ -24,6 +24,8 @@
     "next": "Next",
     "finish": "Finish",
     "no_data": "No data available.",
+    "select_datastream": "Select a datastream to view the chart",
+    "loading": "Loading...",
     "reset": "Reset"
   },
   "wizard": {
