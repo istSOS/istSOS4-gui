@@ -3,11 +3,32 @@ import type { ConfiguredDataSource } from '@/types'
 import rawDataSources from '@/config/data-sources.json'
 
 const PRIMARY_DATA_SOURCE_ID = '0'
+const ISTSOS4_URL_PLACEHOLDER = '/ISTSOS4_URL'
+
+const normalizeApiRoot = (value: string) => value.trim().replace(/\/+$/, '')
+
+const getConfiguredApiRoot = () => {
+  const apiRoot = process.env.NEXT_PUBLIC_ISTSOS4_URL
+
+  if (!apiRoot?.trim()) {
+    throw new Error('Missing NEXT_PUBLIC_ISTSOS4_URL environment variable')
+  }
+
+  return normalizeApiRoot(apiRoot)
+}
+
+const resolveApiRoot = (value: string) => {
+  const normalizedValue = normalizeApiRoot(value)
+
+  return normalizedValue === ISTSOS4_URL_PLACEHOLDER
+    ? getConfiguredApiRoot()
+    : normalizedValue
+}
 
 const FALLBACK_SOURCE: ConfiguredDataSource = {
   id: 'default',
   name: 'Primary SensorThings',
-  apiRoot: 'http://api:5000/v4/v1.1',
+  apiRoot: resolveApiRoot(ISTSOS4_URL_PLACEHOLDER),
   authorizationEnabled: true,
   networkEnabled: true,
 }
@@ -24,7 +45,7 @@ const normalizeSource = (
   return {
     id: safeId || `source-${index + 1}`,
     name: safeName || `Data source ${index + 1}`,
-    apiRoot: String(source.apiRoot).trim().replace(/\/+$/, ''),
+    apiRoot: resolveApiRoot(String(source.apiRoot)),
     authorizationEnabled: source.authorizationEnabled !== false,
     networkEnabled: source.networkEnabled !== false,
   }

@@ -11,10 +11,11 @@ services:
       - ./ui/:/home/node/app
     environment:
       NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
+      NEXT_PUBLIC_ISTSOS4_URL: ${NEXT_PUBLIC_ISTSOS4_URL}
     command: npm run dev
     networks:
-     - istsos4_default
+     - istsos4-network
      
 networks:
-  istsos4_default:
+  istsos4-network:
     external: true

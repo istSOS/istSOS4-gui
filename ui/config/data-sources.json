@@ -3,7 +3,7 @@
     {
       "id": "0",
       "name": "SensorThings1",
-      "apiRoot": "http://api:5000/v4/v1.1",
+      "apiRoot": "/ISTSOS4_URL",
       "authorizationEnabled": true,
       "networkEnabled": true
     }

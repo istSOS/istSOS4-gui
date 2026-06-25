@@ -8,6 +8,7 @@ RUN npm ci
 # ---- BUILD ----
 FROM node:20.20-bullseye AS builder
 WORKDIR /home/node/app
+ENV NEXT_PUBLIC_ISTSOS4_URL=/ISTSOS4_URL
 COPY --from=installer /home/node/app/node_modules ./node_modules
 COPY . .
 RUN npm run build

@@ -1,15 +1,16 @@
 services:
   istsos4-gui:
     container_name: istsos4-gui
-    image: ghcr.io/istsos/istsos4/gui:1.1
+    image: ghcr.io/istsos/istsos4/gui:1.2
     restart: always
     ports:
       - 2000:3000
     environment:
       NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
+      NEXT_PUBLIC_ISTSOS4_URL: ${NEXT_PUBLIC_ISTSOS4_URL}
     networks:
-     - istsos4_default
+     - istsos4-network
      
 networks:
-  istsos4_default:
+  istsos4-network:
     external: true
