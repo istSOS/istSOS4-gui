@@ -23,41 +23,31 @@ export const BASEMAPS: Record<
     attribution: string
     minZoom: number
     maxZoom: number
-    bounds: [[number, number], [number, number]]
   }
 > = {
   pixelGray: {
     label: 'Gray map',
-    url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-grau/default/current/3857/{z}/{x}/{y}.jpeg',
-    attribution: '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
-    minZoom: 10,
-    maxZoom: 16,
-    bounds: [
-      [45.7, 5.7],
-      [47.95, 10.7],
-    ],
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    minZoom: 2,
+    maxZoom: 19,
   },
   pixelColor: {
     label: 'Color map',
-    url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
-    attribution: '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
-    minZoom: 10,
-    maxZoom: 16,
-    bounds: [
-      [45.7, 5.7],
-      [47.95, 10.7],
-    ],
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    minZoom: 2,
+    maxZoom: 19,
   },
   satellite: {
     label: 'Aerial imagery',
-    url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
-    attribution: '© <a href="https://www.swisstopo.admin.ch/">swisstopo</a>',
-    minZoom: 10,
-    maxZoom: 16,
-    bounds: [
-      [45.7, 5.7],
-      [47.95, 10.7],
-    ],
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution:
+      'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+    minZoom: 2,
+    maxZoom: 19,
   },
 }
 

@@ -11,7 +11,7 @@ import type {
   SensorFormData,
   ThingFormData,
 } from './types'
-import { parseLv95String } from './coordinates'
+import { parseLonLatString } from './coordinates'
 import { Datastream, EntityRef, LocationRef, ObservedPropertyRef, SensorRef, Thing } from '@/types/domain'
 
 import { siteConfig } from '@/config/site'
@@ -44,7 +44,7 @@ function toEntityReferenceId(id: string) {
 }
 
 function toPointGeometry(value: string) {
-  const parsed = parseLv95String(value)
+  const parsed = parseLonLatString(value)
   if (!parsed) {
     const trimmed = String(value ?? '').trim()
     if (!trimmed) return value
@@ -69,17 +69,11 @@ function toPointGeometry(value: string) {
     return value
   }
 
-  const { east, north } = parsed
+  const { longitude, latitude } = parsed
 
   return {
     type: 'Point',
-    coordinates: [east, north],
-    crs: {
-      type: 'name',
-      properties: {
-        name: 'EPSG:2056',
-      },
-    },
+    coordinates: [longitude, latitude],
   }
 }
 

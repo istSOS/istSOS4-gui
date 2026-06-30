@@ -31,13 +31,20 @@ export type SensorRef = EntityRef & {
   properties?: Record<string, unknown>
 }
 
+export type GeoJsonNamedCrs = {
+  crs?: {
+    type?: string
+    properties?: { name?: string }
+  }
+}
+
 export type LocationRef = EntityRef & {
   __sourceEndpoint?: string
   encodingType?: string
   location?:
-    | { type: 'Point'; coordinates?: [number, number] }
-    | { type: 'LineString'; coordinates?: [number, number][] }
-    | { type: 'Polygon'; coordinates?: [number, number][][] }
+    | ({ type: 'Point'; coordinates?: [number, number] } & GeoJsonNamedCrs)
+    | ({ type: 'LineString'; coordinates?: [number, number][] } & GeoJsonNamedCrs)
+    | ({ type: 'Polygon'; coordinates?: [number, number][][] } & GeoJsonNamedCrs)
   properties?: Record<string, unknown>
 }
 

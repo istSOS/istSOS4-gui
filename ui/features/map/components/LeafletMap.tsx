@@ -13,25 +13,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
 import { BasemapKey } from '@/types'
+import { Thing } from '@/types/domain'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet/dist/leaflet.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { mapConfig } from '@/config/map'
 import { BASEMAPS } from '@/config/site'
-import { Thing } from '@/types/domain'
 
 import LayersControl from './LayersControl'
 import MapContextMenu from './MapContextMenu'
 import MapMenu from './MapMenu'
-import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
 
+import { buildLayerControlSources } from '../lib/layersControlData'
 import {
   createClusterGroup,
   showClusterHullPreview,
 } from '../lib/leafletCluster'
+import {
+  buildSourceColorMapWithOverrides,
+  drawNetworkLayers,
+  networkKey,
+} from '../lib/leafletDraw'
 import {
   ObservedToggleItem,
   buildObservedPropertyKey,
@@ -39,16 +46,10 @@ import {
   getThingSourceKey,
   parseObservedPropertyKey,
 } from '../lib/leafletMapHelpers'
-import { buildLayerControlSources } from '../lib/layersControlData'
 import {
   getDominantSourceColor,
   getObservedClusterBorderColor,
 } from '../lib/observedClusterStyle'
-import {
-  buildSourceColorMapWithOverrides,
-  drawNetworkLayers,
-  networkKey,
-} from '../lib/leafletDraw'
 
 export default function LeafletMap({
   things,
@@ -72,9 +73,7 @@ export default function LeafletMap({
     __clusterHullPreviewLayer?: { remove?: () => void } | null
   }
   type MapWithClusterPreview = {
-    mouseEventToContainerPoint: (
-      event: MouseEvent
-    ) => { x: number; y: number }
+    mouseEventToContainerPoint: (event: MouseEvent) => { x: number; y: number }
     setView: (center: [number, number], zoom: number) => void
     setZoom: (zoom: number) => void
     getZoom: () => number
@@ -100,7 +99,10 @@ export default function LeafletMap({
     icon: (...args: unknown[]) => unknown
     point: (...args: unknown[]) => unknown
     markerClusterGroup: (...args: unknown[]) => unknown
-    map: (element: HTMLElement, options: Record<string, unknown>) => {
+    map: (
+      element: HTMLElement,
+      options: Record<string, unknown>
+    ) => {
       setView: (center: [number, number], zoom: number) => MapWithClusterPreview
     }
     tileLayer: (
@@ -133,15 +135,24 @@ export default function LeafletMap({
 
   const roRef = useRef<ResizeObserver | null>(null)
 
-  const tileLayerRef = useRef<
-    { addTo: (map: MapWithClusterPreview) => void; remove?: () => void } | null
-  >(null)
-  const [basemap, setBasemap] = useState<BasemapKey>('pixelGray')
+  const tileLayerRef = useRef<{
+    addTo: (map: MapWithClusterPreview) => void
+    remove?: () => void
+  } | null>(null)
+  const [basemap, setBasemap] = useState<BasemapKey>(mapConfig.defaultBasemap)
 
   const networkLayersRef = useRef<
     Map<
       string,
-      { cluster: { clearLayers?: () => void; off?: () => void; remove?: () => void }; vectors: { clearLayers?: () => void; remove?: () => void }; color: string }
+      {
+        cluster: {
+          clearLayers?: () => void
+          off?: () => void
+          remove?: () => void
+        }
+        vectors: { clearLayers?: () => void; remove?: () => void }
+        color: string
+      }
     >
   >(new Map())
   const overlayWrappersRef = useRef<Map<string, OverlayWrapper>>(new Map())
@@ -359,15 +370,11 @@ export default function LeafletMap({
       const map = L.map(el, {
         minZoom: bm.minZoom,
         maxZoom: bm.maxZoom,
-        maxBounds: bm.bounds,
-        maxBoundsViscosity: 1.0,
-      }).setView([46.005, 8.956], 10)
+      }).setView(mapConfig.center, mapConfig.zoom)
       tileLayerRef.current = L.tileLayer(bm.url, {
         attribution: bm.attribution,
         minZoom: bm.minZoom,
         maxZoom: bm.maxZoom,
-        bounds: bm.bounds,
-        noWrap: true,
       })
       tileLayerRef.current.addTo(map)
 
@@ -376,13 +383,15 @@ export default function LeafletMap({
         L,
         color: (cluster: unknown) =>
           getDominantSourceColor(
-            (cluster as { getAllChildMarkers?: () => unknown[] })?.getAllChildMarkers?.() ??
-              []
+            (
+              cluster as { getAllChildMarkers?: () => unknown[] }
+            )?.getAllChildMarkers?.() ?? []
           ),
         borderColor: (cluster: unknown) =>
           getObservedClusterBorderColor(
-            (cluster as { getAllChildMarkers?: () => unknown[] })?.getAllChildMarkers?.() ??
-              []
+            (
+              cluster as { getAllChildMarkers?: () => unknown[] }
+            )?.getAllChildMarkers?.() ?? []
           ),
         options: { spiderfyDistanceMultiplier: 2.6 },
       })
@@ -528,8 +537,7 @@ export default function LeafletMap({
     const bm = BASEMAPS[basemap]
     map.setMinZoom(bm.minZoom)
     map.setMaxZoom(bm.maxZoom)
-    map.setMaxBounds(bm.bounds)
-    map.panInsideBounds(bm.bounds, { animate: false })
+    map.setMaxBounds(null)
 
     if (map.getZoom() < bm.minZoom) {
       map.setZoom(bm.minZoom)
@@ -545,8 +553,6 @@ export default function LeafletMap({
       attribution: bm.attribution,
       minZoom: bm.minZoom,
       maxZoom: bm.maxZoom,
-      bounds: bm.bounds,
-      noWrap: true,
     })
     tileLayerRef.current.addTo(map)
   }, [basemap])

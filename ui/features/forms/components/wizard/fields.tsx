@@ -27,7 +27,7 @@ import {
 
 import { siteConfig } from '@/config/site'
 
-import { formatLv95FromWgs84 } from './coordinates'
+import { formatLonLat } from './coordinates'
 import {
   type DatastreamFormData,
   type EntityKey,
@@ -432,10 +432,7 @@ export function EntityFields({
             <MapComponent
               coordinates={currentLocation?.location}
               onCenterChange={(coords) => {
-                updateField(
-                  'location',
-                  formatLv95FromWgs84(coords.lat, coords.lng)
-                )
+                updateField('location', formatLonLat(coords.lng, coords.lat))
               }}
             />
           </div>

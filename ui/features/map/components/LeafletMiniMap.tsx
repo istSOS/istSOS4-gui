@@ -17,7 +17,7 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect, useRef } from 'react'
 import { forwardRef, useImperativeHandle } from 'react'
 
-import { lv95ToWgs84, parseLv95String } from '@/features/forms/components/wizard/coordinates'
+import { parseLonLatString } from '@/features/forms/components/wizard/coordinates'
 
 export type MapRef = {
   setCenter: (coords: { lat: number; lng: number }) => void
@@ -49,11 +49,10 @@ const MapComponent = forwardRef<
   let initialLat = 45.881237
   let initialLng = 8.971079
   if (coordinates) {
-    const parsed = parseLv95String(coordinates)
+    const parsed = parseLonLatString(coordinates)
     if (parsed) {
-      const { latitude, longitude } = lv95ToWgs84(parsed.east, parsed.north)
-      initialLat = latitude
-      initialLng = longitude
+      initialLat = parsed.latitude
+      initialLng = parsed.longitude
     }
   }
 

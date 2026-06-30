@@ -1,4 +1,4 @@
-import { formatLv95FromWgs84 } from './coordinates'
+import { formatLonLat } from './coordinates'
 
 export type EntityKey =
   | 'thing'
@@ -112,7 +112,7 @@ export function createLocationFormData(
     encodingType: 'application/vnd.geo+json',
     location:
       latitude !== undefined && longitude !== undefined
-        ? formatLv95FromWgs84(latitude, longitude)
+        ? formatLonLat(longitude, latitude)
         : '',
     properties: [],
   }

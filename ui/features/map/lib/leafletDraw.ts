@@ -28,6 +28,37 @@ const EPSG_2056 =
   '+proj=somerc +lat_0=46.95240555555556 +lon_0=7.439583333333333 +k_0=1 +x_0=2600000 +y_0=1200000 +ellps=bessel +units=m +no_defs'
 const WGS84 = '+proj=longlat +datum=WGS84 +no_defs'
 
+// proj4 source definitions for the non-WGS84 CRS we can reproject from.
+// EPSG:4326 (WGS84) and EPSG:3857 (Web Mercator) are built into proj4, so an
+// EPSG code not listed here is still passed straight to proj4 as a fallback.
+const PROJ_DEFS: Record<string, string> = {
+  'EPSG:2056': EPSG_2056,
+}
+
+// Extracts a normalized "EPSG:<code>" string from a GeoJSON named CRS, handling
+// both "EPSG:2056" and "urn:ogc:def:crs:EPSG::2056" forms. Returns null when no
+// usable name is present.
+function normalizeCrsName(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  // CRS84 / "WGS 84" aliases are equivalent to EPSG:4326.
+  if (/CRS84|WGS\s*84/i.test(trimmed)) return 'EPSG:4326'
+  const match =
+    trimmed.match(/EPSG[^0-9]*(\d{3,6})/i) ?? trimmed.match(/(\d{3,6})\s*$/)
+  return match ? `EPSG:${match[1]}` : null
+}
+
+// Resolves the proj4 source for a geometry, or null when its coordinates are
+// already WGS84 lon/lat (no crs, or a crs that resolves to EPSG:4326).
+function resolveSourceProj(geom: {
+  crs?: { properties?: { name?: string } }
+}): string | null {
+  const name = normalizeCrsName(geom?.crs?.properties?.name)
+  if (!name || name === 'EPSG:4326') return null
+  return PROJ_DEFS[name] ?? name
+}
+
 export const SOURCE_COLOR_PALETTE = [
   '#2563eb',
   '#16a34a',
@@ -446,10 +477,20 @@ export function drawNetworkLayers(args: {
     onThingSelect,
   } = args
 
-  const toLatLng = (x: number, y: number): [number, number] | null => {
+  const toLatLng = (
+    x: number,
+    y: number,
+    srcProj: string | null
+  ): [number, number] | null => {
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-    const [lng, lat] = proj4(EPSG_2056, WGS84, [x, y])
-    return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null
+    // No source projection: coordinates are already WGS84, in GeoJSON [lng, lat] order.
+    if (!srcProj) return [y, x]
+    try {
+      const [lng, lat] = proj4(srcProj, WGS84, [x, y])
+      return Number.isFinite(lat) && Number.isFinite(lng) ? [lat, lng] : null
+    } catch {
+      return null
+    }
   }
 
   const isObservedMode =
@@ -478,14 +519,15 @@ export function drawNetworkLayers(args: {
       const geom = thing?.Locations?.[0]?.location
       if (!geom) continue
 
+      const srcProj = resolveSourceProj(geom)
       let centerLL: [number, number] | null = null
 
       if (geom.type === 'Point') {
         const [x, y] = geom.coordinates ?? []
-        centerLL = toLatLng(x, y)
+        centerLL = toLatLng(x, y, srcProj)
       } else if (geom.type === 'LineString') {
         const latlngs = (geom.coordinates ?? [])
-          .map(([x, y]: [number, number]) => toLatLng(x, y))
+          .map(([x, y]: [number, number]) => toLatLng(x, y, srcProj))
           .filter(Boolean) as [number, number][]
         if (latlngs.length >= 2) {
           try {
@@ -497,7 +539,7 @@ export function drawNetworkLayers(args: {
       } else if (geom.type === 'Polygon') {
         const rings = (geom.coordinates ?? [])
           .map((ring: [number, number][]) =>
-            ring.map(([x, y]) => toLatLng(x, y)).filter(Boolean)
+            ring.map(([x, y]) => toLatLng(x, y, srcProj)).filter(Boolean)
           )
           .map((ring) => ring as [number, number][])
           .filter((ring) => ring.length >= 3)
@@ -727,6 +769,7 @@ export function drawNetworkLayers(args: {
     const geom = thing?.Locations?.[0]?.location
     if (!geom) continue
 
+    const srcProj = resolveSourceProj(geom)
     const sourceKey = thingSourceKey(thing)
     const netKey = networkKey(thing?.Datastreams?.[0]?.Network?.name)
     const key = groupKeyFor(sourceKey, netKey)
@@ -739,7 +782,7 @@ export function drawNetworkLayers(args: {
 
     if (geom.type === 'Point') {
       const [x, y] = geom.coordinates ?? []
-      const ll = toLatLng(x, y)
+      const ll = toLatLng(x, y, srcProj)
       if (!ll) continue
 
       const m = L.marker(ll, {
@@ -761,7 +804,7 @@ export function drawNetworkLayers(args: {
 
     if (geom.type === 'LineString') {
       const latlngs = (geom.coordinates ?? [])
-        .map(([x, y]: [number, number]) => toLatLng(x, y))
+        .map(([x, y]: [number, number]) => toLatLng(x, y, srcProj))
         .filter(Boolean) as [number, number][]
 
       if (latlngs.length < 2) continue
@@ -781,7 +824,7 @@ export function drawNetworkLayers(args: {
     if (geom.type === 'Polygon') {
       const rings = (geom.coordinates ?? [])
         .map((ring: [number, number][]) =>
-          ring.map(([x, y]) => toLatLng(x, y)).filter(Boolean)
+          ring.map(([x, y]) => toLatLng(x, y, srcProj)).filter(Boolean)
         )
         .map((ring) => ring as [number, number][])
         .filter((ring) => ring.length >= 3)
