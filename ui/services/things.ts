@@ -74,7 +74,6 @@ export async function getThings(token?: string | null) {
     Datastreams(
       $expand=Network,
               Sensor,
-              Observations($top=1;$orderby=phenomenonTime desc),
               ObservedProperty
     ),
     Locations
@@ -125,9 +124,13 @@ export async function createThing(
   try {
     const resolvedApiRoot = resolveApiRoot(apiRoot)
     const { commitMessage, ...thingPayload } = payload
-    const headers = withAuthHeaders(token, {
-      'Content-Type': 'application/json',
-    }, resolvedApiRoot)
+    const headers = withAuthHeaders(
+      token,
+      {
+        'Content-Type': 'application/json',
+      },
+      resolvedApiRoot
+    )
 
     if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
@@ -177,9 +180,13 @@ export async function updateThing(
     if (!id) return null
 
     const { commitMessage, ...thingPayload } = payload
-    const headers = withAuthHeaders(token, {
-      'Content-Type': 'application/json',
-    }, resolvedApiRoot)
+    const headers = withAuthHeaders(
+      token,
+      {
+        'Content-Type': 'application/json',
+      },
+      resolvedApiRoot
+    )
 
     if (commitMessage?.trim()) {
       headers['commit-message'] = commitMessage.trim()
