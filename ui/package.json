@@ -22,6 +22,7 @@
     "@heroui/link": "2.2.25",
     "@heroui/modal": "2.2.27",
     "@heroui/pagination": "2.2.26",
+    "@heroui/popover": "2.3.31",
     "@heroui/select": "2.4.31",
     "@heroui/slider": "2.4.27",
     "@heroui/spinner": "2.2.27",

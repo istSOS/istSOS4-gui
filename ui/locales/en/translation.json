@@ -24,7 +24,10 @@
     "next": "Next",
     "finish": "Finish",
     "no_data": "No data available.",
-    "reset": "Reset"
+    "select_datastream": "Select a datastream to view the chart",
+    "loading": "Loading...",
+    "reset": "Reset",
+    "read_only": "Read-only access"
   },
   "wizard": {
     "title": "Create SensorThings entities",
@@ -301,5 +304,385 @@
       "observed_properties": "Observed Properties",
       "datastreams": "Datastreams"
     }
+  },
+  "as_of": {
+    "banner": {
+      "snapshot_active": "Snapshot mode active — viewing data as of"
+    },
+    "chart": {
+      "fallback_notice": "No data in the 7 days before the snapshot — showing the latest data available as of {{date}} UTC.",
+      "no_data_in_window": "No data available for this snapshot window.",
+      "no_data_ends_before": "No data available for this snapshot window — this datastream's measurements end {{date}}, before it.",
+      "no_data_starts_after": "No data available for this snapshot window — this datastream's measurements start {{date}}, after it.",
+      "compare_label": "Compare with snapshot",
+      "compare_clear": "Clear comparison",
+      "aligned_axis_name": "Time before each snapshot",
+      "marker_snapshot": "Snapshot",
+      "marker_primary": "A",
+      "marker_compare": "B",
+      "compare_aligned_notice": "Each snapshot shows its own {{days}} days ending at that snapshot — the axis is time before each one. Pick a time range to put both on the same window.",
+      "compare_aligned_fallback_notice": "Neither snapshot has data in the {{days}} days before it — each one shows the latest {{days}} days of data it could see instead, lined up end to end.",
+      "compare_shared_notice": "Both snapshots shown over the same time range — any difference is a change made to the record between them.",
+      "compare_no_changes": "No changes between the two snapshots in this window.",
+      "compare_no_data_one": "Snapshot {{date}} has no data in this window.",
+      "compare_no_data_both": "Neither snapshot has data in this window.",
+      "compare_cutoff": "Snapshot {{date}} holds no data past its own date — those measurements had not been recorded yet.",
+      "compare_live": "Compare with Live",
+      "compare_live_hint": "Compare this snapshot with the data as it is now",
+      "compare_live_stop": "Stop comparing with live data",
+      "commit": {
+        "title": "Change behind this reading",
+        "id": "Commit",
+        "none": "No commit recorded for this reading",
+        "measured": "Measured",
+        "committed": "Committed",
+        "by": "By",
+        "action": "Action"
+      },
+      "compare_quality_only": "Values unchanged — quality flags changed for {{count}} readings between these snapshots.",
+      "compare_quality_and_values": "{{values}} readings changed value and {{quality}} changed quality flag between these snapshots."
+    },
+    "table": {
+      "read_only": "Read-only in snapshot mode"
+    },
+    "navbar": {
+      "live": "Live",
+      "exit_snapshot": "Exit snapshot mode",
+      "open_picker": "Open time travel picker"
+    },
+    "picker": {
+      "title": "View Historical Snapshot",
+      "subtitle": "Select a date — time defaults to 00:00",
+      "preview": "{{date}} at {{time}} (local)",
+      "clear_exit": "Clear & Exit",
+      "quick_times": "Quick Times",
+      "future_title": "Future date selected",
+      "future_detail": "Time travel only works for past timestamps. Please select a date and time in the past.",
+      "future_cell": "Cannot travel to a future date",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "quick_times": {
+      "last_5_minutes": "Last 5 minutes",
+      "last_10_minutes": "Last 10 minutes",
+      "last_30_minutes": "Last 30 minutes",
+      "last_1_hour": "Last 1 hour",
+      "last_3_hours": "Last 3 hours",
+      "last_6_hours": "Last 6 hours",
+      "last_1_day": "Last 1 day",
+      "last_1_week": "Last 1 week"
+    },
+    "calendar": {
+      "day_su": "Su",
+      "day_mo": "Mo",
+      "day_tu": "Tu",
+      "day_we": "We",
+      "day_th": "Th",
+      "day_fr": "Fr",
+      "day_sa": "Sa",
+      "month_1": "January",
+      "month_2": "February",
+      "month_3": "March",
+      "month_4": "April",
+      "month_5": "May",
+      "month_6": "June",
+      "month_7": "July",
+      "month_8": "August",
+      "month_9": "September",
+      "month_10": "October",
+      "month_11": "November",
+      "month_12": "December"
+    },
+    "scrubber": {
+      "title": "Timeline",
+      "commits_count_one": "{{count}} commit",
+      "commits_count_other": "{{count}} commits",
+      "no_history": "no history",
+      "now": "Now",
+      "before_range": "Date is before the navigable range",
+      "after_range": "Date is after the navigable range",
+      "aria_label": "Time travel scrubber",
+      "by": "by"
+    },
+    "existence": {
+      "no_data_before": "No data before this date",
+      "no_data_after": "No data after this date",
+      "detail_before": "\"{{name}}\" has no data before {{date}}.",
+      "detail_after": "\"{{name}}\" has no data after {{date}}.",
+      "jump_earliest": "Jump to earliest data",
+      "jump_latest": "Jump to latest data",
+      "dismiss": "Dismiss"
+    },
+    "map": {
+      "loading": "Loading the map as of this date…",
+      "error": "The map could not be loaded as of this date — markers show live positions.",
+      "failed_sources_one": "{{count}} data source could not be loaded as of this date — its markers show live positions.",
+      "failed_sources_other": "{{count}} data sources could not be loaded as of this date — their markers show live positions.",
+      "readings_unavailable_one": "Latest readings for {{count}} data source took too long to load — its markers show positions as of this date, without values.",
+      "readings_unavailable_other": "Latest readings for {{count}} data sources took too long to load — their markers show positions as of this date, without values.",
+      "approximate_one": "{{count}} Thing has no recorded location history — its marker is at its current Location.",
+      "approximate_other": "{{count}} Things have no recorded location history — their markers are at their current Location.",
+      "lost_one": "{{count}} Thing existed at this date but was deleted since, and where it stood was not preserved — it has no marker.",
+      "lost_other": "{{count}} Things existed at this date but were deleted since, and where they stood was not preserved — they have no marker.",
+      "approximate_marker": "Position not historical"
+    }
+  },
+  "from_to": {
+    "dialog": {
+      "title": "View entity history",
+      "subtitle": "pick the interval to look inside",
+      "from": "From",
+      "to": "To",
+      "local_time_note": "Times are shown in your local timezone; the request is sent in UTC.",
+      "presets": "Presets",
+      "preset_last_24_hours": "Last 24 hours",
+      "preset_last_7_days": "Last 7 days",
+      "preset_last_30_days": "Last 30 days",
+      "preset_all_history": "All recorded history",
+      "system_time_title": "This is not the observation date filter.",
+      "system_time_body": "It selects versions by when the record was edited (system time), not by when the measurement was taken. A station edited yesterday appears here even if its readings are from March.",
+      "opens": "Opens",
+      "overlap_note": "Any version that overlaps the window is included.",
+      "confirm": "Open history",
+      "error_reversed": "The start of the window must be before its end.",
+      "error_incomplete": "Both ends of the window are required."
+    },
+    "table": {
+      "open_history": "Thing history",
+      "open_history_tooltip": "Version history of this Thing — its name, description and properties",
+      "row_history_tooltip": "Version history of {{name}}"
+    },
+    "page": {
+      "back_to_map": "Map",
+      "breadcrumb": "History",
+      "loading": "Reading version history…",
+      "version_count_one": "{{count}} version in this window",
+      "version_count_other": "{{count}} versions in this window",
+      "from_label": "From",
+      "to_label": "To",
+      "copy_link": "Copy link",
+      "copied": "Link copied",
+      "present": "present",
+      "deleted": "No longer exists",
+      "bad_window": "That link has an unusable time window",
+      "load_failed": "The history could not be read",
+      "empty_title": "No versions in this window",
+      "empty_body": "Nothing was written to this entity between those two instants. Widen the window to reach earlier versions.",
+      "not_versioned_title": "This type has no version history",
+      "not_versioned_body": "{{set}} is not kept under system-time versioning, so there are no versions to compare. Commits cause versions rather than having them.",
+      "version_count_truncated": "Showing {{shown}} of {{total}} versions in this window"
+    },
+    "timeline": {
+      "heading": "Validity periods",
+      "create": "Create",
+      "update": "Update",
+      "delete": "Delete",
+      "version_n": "Version {{number}}",
+      "band_label": "Version {{number}}, valid from {{start}}",
+      "held": "held {{duration}}",
+      "open": "current",
+      "present": "Present · open-ended version"
+    },
+    "rail": {
+      "versions": "Versions",
+      "versions_hint": "Newest first · click to compare",
+      "current": "CURRENT",
+      "related": "In this window",
+      "no_related": "Nothing related to show.",
+      "counts_note": "Counts are versions inside the window. A related entity that did not change is listed with zero rather than hidden. A relation too large to list shows its changes instead: edits and deletions.",
+      "too_many": "{{n}} in total — too many to list",
+      "total": "{{n}} in total",
+      "counting": "counting…",
+      "changes_one": "{{n}} change",
+      "changes_other": "{{n}} changes",
+      "no_changes": "no changes",
+      "changes_hint": "Edits and deletions inside this window."
+    },
+    "compare": {
+      "label": "Compare",
+      "base_version": "Base version",
+      "compared_version": "Version to compare against",
+      "current": "current",
+      "swap": "Swap the two versions",
+      "filter_placeholder": "Filter fields…",
+      "show_unchanged": "Show unchanged",
+      "hide_unchanged": "Hide unchanged",
+      "changed_count_one": "{{count}} field changed",
+      "changed_count_other": "{{count}} fields changed"
+    },
+    "diff": {
+      "core_fields": "Core fields",
+      "changed_in_group_one": "{{count}} changed",
+      "changed_in_group_other": "{{count}} changed",
+      "kind_modified": "Modified",
+      "kind_added": "Added",
+      "kind_removed": "Removed",
+      "kind_unchanged": "Unchanged",
+      "single_title": "Only one version in this window",
+      "single_body": "This entity was written once and has not changed since. Widen the window to reach earlier versions.",
+      "same_title": "Both sides are the same version",
+      "same_body": "Pick a different version on either side to see what changed between them.",
+      "identical_title": "These two versions are identical",
+      "identical_body": "Every field matches. The commit still exists — a version can be written without a visible field change.",
+      "no_match_title": "No field matches that filter",
+      "no_match_body": "Clear the filter to see all {{count}} changed fields."
+    }
+  },
+  "quality": {
+    "label": "Quality",
+    "pass": "Pass",
+    "suspect": "Suspect",
+    "outlier": "Outlier",
+    "range": "Out of range",
+    "none": "Not checked",
+    "summary": "{{count}} readings · {{percent}}% pass",
+    "no_values_live": "{{count}} readings · no quality values",
+    "no_values_as_of": "{{count}} readings · no quality values as of {{date}}",
+    "rule": "Rule",
+    "rule_fallback": "fallback",
+    "customize": {
+      "button": "Customize resultQuality",
+      "button_edit": "Edit resultQuality rules",
+      "custom_badge": "Custom rules",
+      "title": "Customize resultQuality",
+      "back_to_chart": "Back to chart",
+      "readings_one": "{{count}} reading",
+      "readings_other": "{{count}} readings",
+      "datastream": "Datastream",
+      "datastream_locked": "Save or cancel your changes before switching datastream.",
+      "apply_to": "Apply to",
+      "scope_datastream": "This datastream",
+      "scope_source": "All from this source",
+      "lane_now": "Now",
+      "lane_new": "New",
+      "preview_hint": "Hover the preview to compare a reading under both rule sets.",
+      "no_readings": "No readings in this window to preview. Pick another time range first.",
+      "source": {
+        "datastream": "Your rules for this datastream",
+        "source": "Your rules for this source",
+        "default": "istSOS default"
+      },
+      "steps": {
+        "start": "Start from",
+        "rules": "Rules",
+        "review": "Review and save"
+      },
+      "start": {
+        "question": "Which values does this datastream use for quality?",
+        "current": "Current rules",
+        "current_default": "Current rules (istSOS default)",
+        "current_desc": "Keep what the chart uses now and adjust it.",
+        "explains": "Explains {{hit}} of {{of}} stored values",
+        "best_fit": "Best fit"
+      },
+      "preset": {
+        "istsos": {
+          "name": "istSOS quality index",
+          "desc": "100 is good; 90–93 are the SaQC codes; anything else below 100 is out of range."
+        },
+        "ftp": {
+          "name": "ftp2istsos4 bit pairs",
+          "desc": "3 means all checks OK, 2 a problem, 1 still pending, 0 not run."
+        },
+        "mqtt": {
+          "name": "mqtt2istsos4",
+          "desc": "11 means OK and 0 means not checked. Anything else is suspect."
+        },
+        "blank": {
+          "name": "Blank",
+          "desc": "Start with no rules and write your own."
+        }
+      },
+      "values": {
+        "title": "Stored in this window",
+        "no_value": "no value",
+        "count": "{{count}}×",
+        "add_rule": "+ Rule",
+        "add_rule_aria": "Add a rule for {{value}}",
+        "note_start": "Colours show the verdict under the option you picked. Highlighted rows change verdict.",
+        "note_rules": "+ Rule adds a rule for that exact value at the top of the list."
+      },
+      "rules": {
+        "intro": "Rules are checked from the top. The first match decides the verdict.",
+        "if": "If quality",
+        "and": "and",
+        "mark": "mark it",
+        "op": {
+          "eq": "is",
+          "ne": "is not",
+          "lt": "is below",
+          "le": "is at most",
+          "gt": "is above",
+          "ge": "is at least",
+          "between": "is between",
+          "in": "is one of"
+        },
+        "condition": "Condition",
+        "value": "Value",
+        "from": "From",
+        "to": "To",
+        "values": "Values, separated by commas",
+        "verdict": "Verdict",
+        "move_up": "Move rule up",
+        "move_down": "Move rule down",
+        "delete": "Delete rule",
+        "count_one": "{{count}} reading in this window",
+        "count_other": "{{count}} readings in this window",
+        "incomplete": "Enter a number to turn this rule on.",
+        "shadowed": "Never used: rule {{rules}} already catches every value this rule could match. Move it up or change it.",
+        "empty": "No rules yet. Add one below, or use + Rule next to a stored value.",
+        "add": "+ Add rule",
+        "otherwise": "Any other value",
+        "fallback_tag": "fallback",
+        "no_value": "No value stored",
+        "fixed_tag": "fixed",
+        "no_value_note": "never judged, never counted in the pass rate"
+      },
+      "review": {
+        "pass_rate": "Pass rate",
+        "changed": "Readings that change verdict",
+        "not_checked": "Not checked",
+        "value": "Stored value",
+        "readings": "Readings",
+        "now": "Now",
+        "new": "New",
+        "same": "These rules give the same verdicts as the current ones for every reading in this window.",
+        "saves_to": "Saves to",
+        "saves_datastream": "{{name}} only, in this browser. Nobody else's chart changes.",
+        "saves_source": "Every datastream from {{source}} without rules of its own, in this browser. Nobody else's chart changes.",
+        "labels_title": "Verdict names",
+        "labels_optional": "optional",
+        "labels_note": "Colours stay fixed so the lane reads the same on every chart."
+      },
+      "footer": {
+        "draft_early": "Draft · nothing is saved until the last step",
+        "draft_final": "Draft · saving applies it to the chart right away",
+        "no_changes": "No changes from the rules in use",
+        "cancel": "Cancel",
+        "back": "Back",
+        "next": "Next",
+        "save": "Save rules",
+        "restore": "Restore default",
+        "discard_question": "Discard your unsaved rules?",
+        "keep": "Keep editing",
+        "discard": "Discard"
+      }
+    }
+  },
+  "users": {
+    "anonymous": "anonymous",
+    "fallback_label": "User {{id}}",
+    "show_details": "Show user details",
+    "username": "Username",
+    "role": "Role",
+    "id": "ID",
+    "contact": "Contact",
+    "contact_none": "None on record",
+    "contact_admin_only": "Contact details are visible to administrators only.",
+    "denied": "User details are only visible to signed-in users.",
+    "missing": "This user no longer exists.",
+    "error": "Could not load user details.",
+    "session_expired": "Your session has expired. Sign in again to see user details.",
+    "forbidden": "Only administrators can see user details on this server."
   }
 }

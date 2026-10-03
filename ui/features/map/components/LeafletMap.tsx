@@ -54,11 +54,17 @@ import {
 export default function LeafletMap({
   things,
   selectedNetwork,
+  asOfLabel,
+  asOfReferenceTime,
   onThingSelect,
   onCreateThingAt,
 }: {
   things: Thing[] | { value: Thing[] }
   selectedNetwork?: string
+  /** Formatted snapshot date label (e.g. "Jun 26 · 01:16 UTC"). When set, markers get amber date pills. */
+  asOfLabel?: string | null
+  /** The snapshot instant (ISO), or null when live. Marker freshness is judged against it. */
+  asOfReferenceTime?: string | null
   onThingSelect?: (
     thing: Thing,
     selection?: { observedPropertyName?: string; datastreamId?: string }
@@ -187,9 +193,27 @@ export default function LeafletMap({
     return Array.isArray(v) ? v : []
   }, [things])
 
+  // Visibility choices outlive the Things they belong to. In snapshot mode a
+  // Thing leaves the list when the scrubber passes its creation (or deletion)
+  // and comes back when it returns; forgetting its entry would switch a Thing
+  // the user had hidden back on.
+  // Where each Thing seen so far was grouped, so a switch flipped for a whole
+  // source or network also reaches the Things not in the list at the moment.
+  const thingGroupMemoryRef = useRef<
+    Map<string, { sourceKey: string; networkKey: string }>
+  >(new Map())
+
   useEffect(() => {
+    for (const thing of thingsArr) {
+      const key = getThingKey(thing)
+      if (!key) continue
+      thingGroupMemoryRef.current.set(key, {
+        sourceKey: getThingSourceKey(thing),
+        networkKey: networkKey(thing?.Datastreams?.[0]?.Network?.name),
+      })
+    }
     setThingEnabled((prev) => {
-      const next: Record<string, boolean> = {}
+      const next: Record<string, boolean> = { ...prev }
 
       for (const thing of thingsArr) {
         const key = getThingKey(thing)
@@ -200,6 +224,9 @@ export default function LeafletMap({
       return next
     })
   }, [thingsArr])
+
+  // Same for observed-property toggles: remembered per key, not per list.
+  const observedEnabledMemoryRef = useRef<Map<string, boolean>>(new Map())
 
   useEffect(() => {
     const keyToLabel = new Map<string, string>()
@@ -219,11 +246,11 @@ export default function LeafletMap({
     )
 
     setObservedPropsMeta((prev) => {
-      const prevEnabled = new Map(prev.map((p) => [p.key, p.enabled] as const))
+      for (const p of prev) observedEnabledMemoryRef.current.set(p.key, p.enabled)
       const next = keys.map((k) => ({
         key: k,
         label: keyToLabel.get(k),
-        enabled: prevEnabled.get(k) ?? false,
+        enabled: observedEnabledMemoryRef.current.get(k) ?? false,
       }))
       observedEnabledRef.current = new Map(next.map((p) => [p.key, p.enabled]))
       return next
@@ -342,7 +369,10 @@ export default function LeafletMap({
         dataSource: t('map.data_source'),
         network: t('map.network'),
         things: t('map.things'),
+        approximatePosition: t('as_of.map.approximate_marker'),
       },
+      asOfLabel: asOfLabel ?? undefined,
+      referenceTime: asOfReferenceTime ?? null,
       onThingSelect,
     })
   }
@@ -519,7 +549,14 @@ export default function LeafletMap({
 
   useEffect(() => {
     redraw()
-  }, [thingsArr, selectedNetwork, thingEnabled, sourceColorByKey])
+  }, [
+    thingsArr,
+    selectedNetwork,
+    thingEnabled,
+    sourceColorByKey,
+    asOfLabel,
+    asOfReferenceTime,
+  ])
 
   useEffect(() => {
     redraw()
@@ -558,6 +595,9 @@ export default function LeafletMap({
   }, [basemap])
 
   const setAllObservedProps = (nextEnabled: boolean) => {
+    for (const key of observedEnabledMemoryRef.current.keys()) {
+      observedEnabledMemoryRef.current.set(key, nextEnabled)
+    }
     observedEnabledRef.current = new Map(
       observedPropsMeta.map((p) => [p.key, nextEnabled] as const)
     )
@@ -569,10 +609,8 @@ export default function LeafletMap({
   const setSourceNetworks = (sourceKey: string, nextEnabled: boolean) => {
     setThingEnabled((prev) => {
       const next = { ...prev }
-      for (const thing of thingsArr) {
-        if (getThingSourceKey(thing) !== sourceKey) continue
-        const key = getThingKey(thing)
-        if (!key) continue
+      for (const [key, group] of thingGroupMemoryRef.current) {
+        if (group.sourceKey !== sourceKey) continue
         next[key] = nextEnabled
       }
       return next
@@ -580,6 +618,11 @@ export default function LeafletMap({
   }
 
   const setSourceObservedProps = (sourceKey: string, nextEnabled: boolean) => {
+    for (const key of observedEnabledMemoryRef.current.keys()) {
+      if (parseObservedPropertyKey(key).sourceKey === sourceKey) {
+        observedEnabledMemoryRef.current.set(key, nextEnabled)
+      }
+    }
     setObservedPropsMeta((prev) => {
       const next = prev.map((item) => {
         const parsed = parseObservedPropertyKey(item.key)
@@ -617,15 +660,9 @@ export default function LeafletMap({
 
     setThingEnabled((prev) => {
       const next = { ...prev }
-      for (const thing of thingsArr) {
-        if (getThingSourceKey(thing) !== sourceKey) continue
-        const thingNetworkKey = networkKey(
-          thing?.Datastreams?.[0]?.Network?.name
-        )
-        if (thingNetworkKey !== networkKeyValue) continue
-
-        const thingKey = getThingKey(thing)
-        if (!thingKey) continue
+      for (const [thingKey, group] of thingGroupMemoryRef.current) {
+        if (group.sourceKey !== sourceKey) continue
+        if (group.networkKey !== networkKeyValue) continue
         next[thingKey] = nextEnabled
       }
       return next
@@ -731,6 +768,7 @@ export default function LeafletMap({
             mapRef.current?.zoomOut?.()
             setContextMenu(null)
           }}
+          isSnapshot={Boolean(asOfLabel)}
         />
       ) : null}
 

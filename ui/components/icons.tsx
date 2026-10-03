@@ -662,6 +662,29 @@ export const CommitIcon = ({
   )
 }
 
+/** Clock with a counter-clockwise arrow — entity history (`$from_to`). */
+export const HistoryIcon = ({
+  size = 24,
+  width,
+  height,
+  ...props
+}: IconSvgProps) => {
+  const { width: w, height: h } = getSize(size, width, height)
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width={w}
+      height={h}
+      {...props}
+    >
+      <path d="M13 3A9 9 0 0 0 4 12H1L4.89 15.89L4.96 16.03L9 12H6A7 7 0 1 1 13 19A6.96 6.96 0 0 1 8.05 16.95L6.63 18.37A9 9 0 1 0 13 3M12 8V13L16.28 15.54L17 14.33L13.5 12.25V8H12Z" />
+    </svg>
+  )
+}
+
 export const EncodingTypeIcon = ({
   size = 24,
   width,

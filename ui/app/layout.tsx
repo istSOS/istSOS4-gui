@@ -16,6 +16,8 @@ import type { ReactNode } from 'react'
 import Navbar from '@/components/layout/Navbar'
 
 import { AuthProvider } from '@/context/AuthContext'
+import { AsOfProvider } from '@/context/AsOfContext'
+import AsOfBanner from '@/features/as-of/components/AsOfBanner'
 
 import '@/styles/globals.css'
 
@@ -32,8 +34,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       >
         <Providers>
           <AuthProvider>
-            <Navbar />
-            {children}
+            <AsOfProvider>
+              <Navbar />
+              <AsOfBanner />
+              {children}
+            </AsOfProvider>
           </AuthProvider>
         </Providers>
       </body>

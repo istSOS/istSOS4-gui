@@ -9,12 +9,14 @@ services:
       - 2000:3000
     volumes:
       - ./ui/:/home/node/app
+      - /home/node/app/node_modules
     environment:
       NEXT_PUBLIC_BASE_PATH: ${NEXT_APP_URL}
       NEXT_PUBLIC_ISTSOS4_URL: ${NEXT_PUBLIC_ISTSOS4_URL}
       NEXT_PUBLIC_MAP_CENTER: ${NEXT_PUBLIC_MAP_CENTER}
       NEXT_PUBLIC_MAP_ZOOM: ${NEXT_PUBLIC_MAP_ZOOM}
       NEXT_PUBLIC_MAP_DEFAULT_BASEMAP: ${NEXT_PUBLIC_MAP_DEFAULT_BASEMAP}
+      NEXT_PUBLIC_VERSIONING_ENABLED: ${NEXT_PUBLIC_VERSIONING_ENABLED}
     command: npm run dev
     networks:
      - istsos4-network
