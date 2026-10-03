@@ -23,7 +23,8 @@ export async function getObservationsByDatastream(
   datastreamId: string,
   start?: string,
   end?: string,
-  apiRoot?: string
+  apiRoot?: string,
+  asOfDate?: string | null
 ) {
   const values: Observation[] = []
   const baseRoot = (apiRoot ?? siteConfig.api_root).trim().replace(/\/+$/, '')
@@ -35,6 +36,12 @@ export async function getObservationsByDatastream(
   let url =
     `${baseRoot}/Datastreams(${datastreamId})/Observations` +
     '?$orderby=phenomenonTime desc' +
+    // The commit each observation carries — what the chart shows when a point
+    // is clicked. Works in live mode and under $as_of alike (a snapshot returns
+    // the commit in effect at that instant), and rides along on the request the
+    // chart already makes. Must be the SINGULAR `Commit`.
+    '&$expand=Commit' +
+    (asOfDate ? `&$as_of=${encodeURIComponent(asOfDate)}` : '') +
     (filters.length ? `&$filter=${filters.join(' and ')}` : '') +
     '&$top=1440'
 
@@ -60,6 +67,33 @@ export async function getObservationsByDatastream(
   }
 
   return { observationData: values }
+}
+
+/**
+ * Timestamp of the most recent observation of a datastream, optionally as it
+ * existed at `asOfDate`. Single top-1 request — used to anchor the chart's
+ * default window when the snapshot window itself holds no observations.
+ *
+ * Returns null when the datastream has no observations at that point in time.
+ */
+export async function getLatestObservationTime(
+  token: string | null | undefined,
+  datastreamId: string,
+  apiRoot?: string,
+  asOfDate?: string | null
+): Promise<string | null> {
+  const baseRoot = (apiRoot ?? siteConfig.api_root).trim().replace(/\/+$/, '')
+  const url =
+    `${baseRoot}/Datastreams(${datastreamId})/Observations` +
+    '?$orderby=phenomenonTime desc&$top=1' +
+    (asOfDate ? `&$as_of=${encodeURIComponent(asOfDate)}` : '')
+
+  const data = await fetchData(url, token)
+  const latest = (data?.value ?? [])[0] as Observation | undefined
+  const raw = latest?.phenomenonTime ?? latest?.resultTime ?? ''
+  // phenomenonTime may be an interval ("start/end") — anchor on its end.
+  const timestamp = String(raw).split('/').pop()?.trim()
+  return timestamp || null
 }
 
 export async function getObservationsCount(token: string) {

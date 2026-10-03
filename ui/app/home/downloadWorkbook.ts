@@ -1,9 +1,33 @@
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import * as XLSX from 'xlsx'
+import { resolveQualityScheme } from '@/features/observations/lib/qualitySchemeStore'
+import {
+  ISTSOS_QUALITY_SCHEME,
+  qualityClassOf,
+  sameQualityScheme,
+} from '@/features/observations/lib/resultQuality'
 import { Datastream, Observation, Thing } from '@/types/domain'
 
 dayjs.extend(utc)
+
+/**
+ * `resultQuality` as it goes into a spreadsheet cell.
+ *
+ * The column is untyped `jsonb`, so the value may be a number, a string or an
+ * object. Primitives are written through unchanged; anything structured is
+ * serialised, because a cell reading `[object Object]` loses the record.
+ */
+function formatQualityForExport(raw: unknown): string | number {
+  if (raw === null || raw === undefined) return ''
+  if (typeof raw === 'number' || typeof raw === 'string') return raw
+  if (typeof raw === 'boolean') return String(raw)
+  try {
+    return JSON.stringify(raw)
+  } catch {
+    return ''
+  }
+}
 
 export type CsvDownloadPayload = {
   filename: string
@@ -60,6 +84,12 @@ export async function buildDatastreamWorkbookPayload({
         sourceEndpoint
       )
 
+      // The viewer's own reading of the column, alongside the column itself —
+      // but only when it is their own: under the default, a verdict column
+      // would restate the istSOS convention for every row.
+      const { scheme } = resolveQualityScheme(ds)
+      const withVerdict = !sameQualityScheme(scheme, ISTSOS_QUALITY_SCHEME)
+
       const rows = (Array.isArray(result.data) ? result.data : [])
         .slice()
         .sort((a: Observation, b: Observation) => {
@@ -73,9 +103,24 @@ export async function buildDatastreamWorkbookPayload({
         .map((obs: Observation) => ({
           phenomenonTime: String(obs?.phenomenonTime ?? ''),
           result: obs?.result ?? '',
+          // The stored value, not this app's reading of it: an export is the
+          // record, so a downstream consumer gets what is actually in the
+          // column rather than a verdict derived from it under an assumed
+          // scale. Objects (the DQ_Element shape) are serialised rather than
+          // flattened to a number, which would silently discard everything the
+          // number is not.
+          resultQuality: formatQualityForExport(obs?.resultQuality),
+          ...(withVerdict
+            ? { qualityVerdict: qualityClassOf(obs?.resultQuality, scheme) }
+            : {}),
         }))
       const sheet = XLSX.utils.json_to_sheet(rows, {
-        header: ['phenomenonTime', 'result'],
+        header: [
+          'phenomenonTime',
+          'result',
+          'resultQuality',
+          ...(withVerdict ? ['qualityVerdict'] : []),
+        ],
       })
       const sheetName = sanitizeSheetName(streamName, `Datastream_${index + 1}`)
       XLSX.utils.book_append_sheet(workbook, sheet, sheetName)
