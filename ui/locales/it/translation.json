@@ -409,6 +409,8 @@
       "no_data_after": "Nessun dato dopo questa data",
       "detail_before": "\"{{name}}\" non ha dati prima del {{date}}.",
       "detail_after": "\"{{name}}\" non ha dati dopo il {{date}}.",
+      "deleted_headline": "Eliminato prima di questa data",
+      "deleted_detail": "\"{{name}}\" è stato eliminato il {{date}}.",
       "jump_earliest": "Vai al dato più vecchio",
       "jump_latest": "Vai al dato più recente",
       "dismiss": "Chiudi"
@@ -527,6 +529,13 @@
       "no_match_title": "Nessun campo corrisponde al filtro",
       "no_match_body": "Cancella il filtro per vedere tutti i {{count}} campi modificati."
     }
+  },
+  "deletion": {
+    "deleted": "Eliminato",
+    "recorded": "Registrata",
+    "inferred": "Dedotta",
+    "inferred_hint": "Dedotta: l'ultima versione termina qui e nessuna l'ha sostituita.",
+    "commit": "commit #{{id}}"
   },
   "quality": {
     "label": "Qualità",

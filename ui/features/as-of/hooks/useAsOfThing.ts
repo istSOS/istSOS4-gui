@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Thing } from '@/types/domain'
 import {
   activeAdapter,
+  type ExistenceRange,
   type ExistenceState,
   type ResolvedThing,
 } from '../adapters/asOfAdapter'
@@ -25,7 +26,7 @@ import {
 // Types (re-exported for consumers)
 // ---------------------------------------------------------------------------
 
-export type { ExistenceState } from '../adapters/asOfAdapter'
+export type { ExistenceRange, ExistenceState } from '../adapters/asOfAdapter'
 
 export type AsOfThingResult = {
   /** The thing as it existed at asOfDate (or the live thing when not in snapshot mode) */
@@ -44,8 +45,8 @@ export type AsOfThingResult = {
    * Always 'exists' in live mode (asOfDate is null).
    */
   existenceState: ExistenceState
-  /** ISO dates of the Thing's creation and (optional) decommission time. */
-  existenceRange: { createdAt: string | null; deletedAt: string | null }
+  /** ISO dates of the Thing's creation and deletion, and how it was deleted. */
+  existenceRange: ExistenceRange
 }
 
 // ---------------------------------------------------------------------------

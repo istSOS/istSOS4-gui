@@ -93,11 +93,13 @@ export async function fetchThingAsOf(
 /**
  * One version of a Thing in transaction time. `end` is null while current,
  * `commit` is the commit that produced this version (null on a backend that
- * cannot report it).
+ * cannot report it). `degenerate` marks a row whose bounds print alike — with
+ * a DELETE commit, that is the row a delete writes (see `lib/deletion.ts`).
  */
 export type ThingVersion = {
   start: string
   end: string | null
+  degenerate: boolean
   commit: BackendCommit | null
 }
 
@@ -118,14 +120,15 @@ const FULL_HISTORY_WINDOW = '1970-01-01T00:00:00Z/2099-01-01T00:00:00Z'
  * `/` here directly used to mis-read the two shapes that carry no upper bound
  * in the usual place: a bare timestamp (a version in force for zero time, which
  * `visitors.py` formats without a `/`) came back as `end: null` and so showed a
- * superseded version as the current one.
+ * superseded version as the current one. `degenerate` is kept: it is half of
+ * what identifies the row a delete writes.
  */
 function parseValidity(
   validity: unknown
-): { start: string; end: string | null } | null {
+): Omit<ThingVersion, 'commit'> | null {
   const parsed = readSystemTimeValidity(validity)
   if (!parsed) return null
-  return { start: parsed.start, end: parsed.end }
+  return { start: parsed.start, end: parsed.end, degenerate: parsed.degenerate }
 }
 
 /**
@@ -338,7 +341,7 @@ async function walkThingVersions(
   let cursor = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
 
   for (let hop = 0; hop < maxVersions; hop += 1) {
-    let range: { start: string; end: string | null } | null = null
+    let range: Omit<ThingVersion, 'commit'> | null = null
     try {
       const response = await fetch(
         `${endpoint}/Things(${id})?$as_of=${encodeURIComponent(cursor)}&$select=systemTimeValidity`,
