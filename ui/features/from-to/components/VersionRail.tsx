@@ -107,7 +107,11 @@ export default function VersionRail({
                 {deletion.commit ? (
                   <>
                     <span className="mt-0.5 block truncate font-mono text-[10px] text-default-400">
-                      #{deletion.commit['@iot.id']} · {deletion.commit.author}
+                      #{deletion.commit['@iot.id']} ·{' '}
+                      <CommitAuthor
+                        author={deletion.commit.author}
+                        className="hover:text-default-600"
+                      />
                     </span>
                     {deletion.commit.message && (
                       <span className="mt-1 block text-[10.5px] text-default-500">

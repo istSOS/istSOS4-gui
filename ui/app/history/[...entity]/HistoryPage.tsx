@@ -546,17 +546,26 @@ function DeletionNotice({ deletion }: { deletion: Deletion }) {
             {deletion.recorded ? t('deletion.recorded') : t('deletion.inferred')}
           </span>
           <span className="min-w-0 [overflow-wrap:anywhere]">
-            {deletion.recorded
-              ? [
+            {deletion.recorded ? (
+              <>
+                {[
                   commit?.message ? `“${commit.message}”` : null,
                   commit?.['@iot.id'] != null
                     ? t('deletion.commit', { id: commit['@iot.id'] })
                     : null,
-                  commit?.author ?? null,
                 ]
                   .filter(Boolean)
-                  .join(' · ')
-              : t('deletion.inferred_hint')}
+                  .join(' · ')}
+                {commit?.author && (
+                  <>
+                    {' · '}
+                    <CommitAuthor author={commit.author} className="font-semibold" />
+                  </>
+                )}
+              </>
+            ) : (
+              t('deletion.inferred_hint')
+            )}
           </span>
         </p>
       </div>

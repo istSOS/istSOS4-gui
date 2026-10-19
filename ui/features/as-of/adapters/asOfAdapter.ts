@@ -611,6 +611,7 @@ const apiAdapter: AsOfAdapter = {
         authoredAt: deletion.at,
         // Free backend text, like the version ticks above.
         message: deletion.commit?.message ?? 'Deleted',
+        author: deletion.commit?.author,
         deletion: deletion.recorded ? 'recorded' : 'inferred',
       })
     }

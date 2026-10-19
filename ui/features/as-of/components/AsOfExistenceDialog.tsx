@@ -28,6 +28,7 @@ import type {
   ExistenceRange,
   ExistenceState,
 } from '@/features/as-of/hooks/useAsOfThing'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
 
 dayjs.extend(utc)
 
@@ -41,6 +42,8 @@ type Props = {
   thingName: string
   existenceState: ExistenceState
   existenceRange: ExistenceRange
+  /** The Thing's data source, where the deleting user is looked up. */
+  endpoint?: string | null
   onDismiss: () => void
 }
 
@@ -55,6 +58,7 @@ export default function AsOfExistenceDialog({
   thingName,
   existenceState,
   existenceRange,
+  endpoint,
   onDismiss,
 }: Props) {
   // Stateless — parent (Home.tsx) fully controls whether this mounts.
@@ -204,7 +208,20 @@ export default function AsOfExistenceDialog({
                   }}>
                     {deletion.recorded ? t('deletion.recorded') : t('deletion.inferred')}
                   </span>
-                  <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{provenance}</span>
+                  <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                    {provenance}
+                    {deletion.recorded && deletion.commit?.author && (
+                      <>
+                        {' · '}
+                        {t('as_of.scrubber.by')}{' '}
+                        <CommitAuthor
+                          author={deletion.commit.author}
+                          endpoint={endpoint}
+                          className="font-semibold"
+                        />
+                      </>
+                    )}
+                  </span>
                 </p>
               )}
             </div>
