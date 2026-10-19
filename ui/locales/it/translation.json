@@ -466,6 +466,7 @@
       "copied": "Link copiato",
       "present": "adesso",
       "deleted": "Non esiste più",
+      "deleted_on": "Eliminato il {{date}}",
       "bad_window": "Questo link ha un intervallo non utilizzabile",
       "load_failed": "Impossibile leggere la cronologia",
       "empty_title": "Nessuna versione in questo intervallo",
@@ -483,6 +484,7 @@
       "band_label": "Versione {{number}}, valida dal {{start}}",
       "held": "durata {{duration}}",
       "open": "attuale",
+      "deleted_at": "Eliminato {{date}}",
       "present": "Adesso · versione ancora valida"
     },
     "rail": {

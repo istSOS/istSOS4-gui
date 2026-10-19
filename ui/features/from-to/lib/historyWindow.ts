@@ -145,7 +145,7 @@ export function parseWindow(value: unknown): HistoryWindow | null {
  *
  * Deletion can only be inferred inside a window that does — a window ending in
  * the past closes the newest version of a perfectly ordinary entity too. See
- * `looksDeleted`.
+ * `resolveDeletion` in `lib/deletion.ts`.
  */
 export function reachesPresent(
   window: HistoryWindow,

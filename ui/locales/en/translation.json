@@ -466,6 +466,7 @@
       "copied": "Link copied",
       "present": "present",
       "deleted": "No longer exists",
+      "deleted_on": "Deleted on {{date}}",
       "bad_window": "That link has an unusable time window",
       "load_failed": "The history could not be read",
       "empty_title": "No versions in this window",
@@ -483,6 +484,7 @@
       "band_label": "Version {{number}}, valid from {{start}}",
       "held": "held {{duration}}",
       "open": "current",
+      "deleted_at": "Deleted {{date}}",
       "present": "Present · open-ended version"
     },
     "rail": {

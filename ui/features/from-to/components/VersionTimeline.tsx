@@ -36,6 +36,7 @@ import {
   computeBands,
   formatDuration,
 } from '@/features/from-to/lib/timelineBands'
+import type { Deletion } from '@/lib/deletion'
 import { validityDurationMs } from '@/lib/systemTimeValidity'
 import { versionKey, type EntityVersion } from '@/features/from-to/lib/versionRows'
 
@@ -60,6 +61,11 @@ function stripeFor(actionType?: string): string {
 
 export type VersionTimelineProps = {
   versions: EntityVersion[]
+  /**
+   * How the entity ended, when it was deleted inside the window. Drawn as an
+   * instant after the last band — it lasted no time, so it gets no band.
+   */
+  deletion?: Deletion | null
   /** End of the window being viewed; open-ended versions are measured to it. */
   windowEnd: string
   indexA: number
@@ -68,6 +74,7 @@ export type VersionTimelineProps = {
 
 export default function VersionTimeline({
   versions,
+  deletion = null,
   windowEnd,
   indexA,
   indexB,
@@ -167,13 +174,34 @@ export default function VersionTimeline({
             </div>
           )
         })}
+        {deletion && (
+          <div
+            role="img"
+            aria-label={t('from_to.timeline.deleted_at', { date: deletion.at })}
+            title={t('from_to.timeline.deleted_at', { date: deletion.at })}
+            // Solid when the history records the deletion, dashed when it is
+            // only deduced from the last band's closed end.
+            className={[
+              'w-1 shrink-0 rounded-sm',
+              deletion.recorded ? 'bg-danger' : 'border border-dashed border-danger',
+            ].join(' ')}
+          />
+        )}
       </div>
 
       <div className="mt-2 flex justify-between font-mono text-[9.5px] text-default-400">
         <span>{dayjs.utc(versions[0].validity.start).format('YYYY-MM-DD HH:mm:ss')}Z</span>
-        <span className="font-semibold text-primary">
-          {t('from_to.timeline.present')}
-        </span>
+        {deletion ? (
+          <span className="font-semibold text-danger">
+            {t('from_to.timeline.deleted_at', {
+              date: `${dayjs.utc(deletion.at).format('YYYY-MM-DD HH:mm:ss')}Z`,
+            })}
+          </span>
+        ) : (
+          <span className="font-semibold text-primary">
+            {t('from_to.timeline.present')}
+          </span>
+        )}
       </div>
     </div>
   )
