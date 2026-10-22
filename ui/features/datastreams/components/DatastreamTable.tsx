@@ -114,6 +114,15 @@ function ageLabel(endRaw?: string) {
 type Props = {
   thing: Thing | null
   observedPropertyNameFilter?: string | null
+  /** True when the app is in as_of snapshot mode */
+  isSnapshot?: boolean
+  /** The ISO snapshot datetime, shown in the read-only banner */
+  asOfDate?: string | null
+  /**
+   * Set when the snapshot could not be resolved — the rows below are then LIVE
+   * data, and the banner has to say so instead of claiming to show the snapshot.
+   */
+  snapshotError?: string | null
   onClose: () => void
   onCreateDatastream?: () => void
   onOpenDetails?: (datastream: Datastream) => void
@@ -144,6 +153,9 @@ type DeletePreview = {
 export default function DatastreamTable({
   thing,
   observedPropertyNameFilter = null,
+  isSnapshot = false,
+  asOfDate = null,
+  snapshotError = null,
   onClose,
   onCreateDatastream,
   onOpenDetails,
@@ -265,6 +277,12 @@ export default function DatastreamTable({
   const renderCell = useCallback(
     (item: Datastream, columnKey: DatastreamColumnKey) => {
       const { start, end, endRaw } = parsePhenomenonTime(item?.phenomenonTime)
+      const locked = isSnapshot || !canWrite
+      const lockedReason = isSnapshot
+        ? t('as_of.table.read_only')
+        : !canWrite
+          ? t('general.read_only')
+          : null
 
       const handleDetails = () => {
         if (onOpenDetails) {
@@ -350,33 +368,46 @@ export default function DatastreamTable({
                   <ChartIcon size={18} />
                 </Button>
               </Tooltip>
-              <Tooltip color="primary" content={t('general.edit')}>
-                <Button
-                  isIconOnly
-                  className="h-6 w-6 min-w-6"
-                  size="sm"
-                  variant="light"
-                  color="primary"
-                  isDisabled={!canWrite}
-                  title={canWrite ? undefined : t('general.read_only')}
-                  onPress={handleEdit}
-                >
-                  <EditIcon size={18} />
-                </Button>
+              {/* In snapshot mode, or without write permission, the write
+                  actions stay visible but greyed out and inert, so a row's
+                  actions read the same everywhere and the reason is one hover
+                  away. The wrapping span keeps the tooltip hoverable — a
+                  disabled button receives no events. */}
+              <Tooltip
+                color={locked ? 'foreground' : 'primary'}
+                content={lockedReason ?? t('general.edit')}
+              >
+                <span className={locked ? 'cursor-not-allowed' : undefined}>
+                  <Button
+                    isIconOnly
+                    isDisabled={locked}
+                    className={`h-6 w-6 min-w-6 ${locked ? 'opacity-40' : ''}`}
+                    size="sm"
+                    variant="light"
+                    color="primary"
+                    onPress={handleEdit}
+                  >
+                    <EditIcon size={18} />
+                  </Button>
+                </span>
               </Tooltip>
-              <Tooltip color="danger" content={t('general.delete')}>
-                <Button
-                  isIconOnly
-                  className="h-6 w-6 min-w-6"
-                  size="sm"
-                  variant="light"
-                  color="danger"
-                  isDisabled={!canWrite}
-                  title={canWrite ? undefined : t('general.read_only')}
-                  onPress={handleDelete}
-                >
-                  <DeleteIcon size={18} />
-                </Button>
+              <Tooltip
+                color={locked ? 'foreground' : 'danger'}
+                content={lockedReason ?? t('general.delete')}
+              >
+                <span className={locked ? 'cursor-not-allowed' : undefined}>
+                  <Button
+                    isIconOnly
+                    isDisabled={locked}
+                    className={`h-6 w-6 min-w-6 ${locked ? 'opacity-40' : ''}`}
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    onPress={handleDelete}
+                  >
+                    <DeleteIcon size={18} />
+                  </Button>
+                </span>
               </Tooltip>
             </div>
           )
@@ -385,7 +416,18 @@ export default function DatastreamTable({
           return <span>{''}</span>
       }
     },
-    [canWrite, lang, onDeleteDatastream, onEditDatastream, onOpenDetails, t, thing]
+    // isSnapshot and canWrite decide whether the write actions render disabled,
+    // so leaving either out would keep the cells stale when they change.
+    [
+      canWrite,
+      isSnapshot,
+      lang,
+      onDeleteDatastream,
+      onEditDatastream,
+      onOpenDetails,
+      t,
+      thing,
+    ]
   )
 
   if (!thing) return null
@@ -408,8 +450,43 @@ export default function DatastreamTable({
         style={{ zIndex: 3000 }}
       >
         <Card className="h-[27vh] overflow-hidden rounded-none">
+          {isSnapshot && (
+            <div
+              className="flex items-center gap-2 px-3 py-1 text-xs font-medium"
+              style={{
+                background: snapshotError
+                  ? 'linear-gradient(90deg, rgba(153,27,27,0.14) 0%, rgba(185,28,28,0.14) 100%)'
+                  : 'linear-gradient(90deg, rgba(120,53,15,0.12) 0%, rgba(146,64,14,0.12) 100%)',
+                borderBottom: snapshotError
+                  ? '1px solid rgba(248,113,113,0.35)'
+                  : '1px solid rgba(251,191,36,0.25)',
+                color: snapshotError ? '#b91c1c' : '#b45309',
+              }}
+            >
+              {snapshotError ? (
+                <span>
+                  ⚠ Snapshot could not be loaded — showing{' '}
+                  <span className="font-bold">live</span> data ({snapshotError})
+                </span>
+              ) : (
+                <span>
+                  ⚙ Snapshot mode — read-only — showing data as of{' '}
+                  <span className="font-bold">
+                    {asOfDate
+                      ? dayjs.utc(asOfDate).format('MMM D, YYYY HH:mm') + ' UTC'
+                      : ''}
+                  </span>
+                </span>
+              )}
+            </div>
+          )}
           <TableComponent
-          key={lang}
+          // Remounted on a snapshot/live switch as well as a language change:
+          // the table's collection caches each row's rendered cells against the
+          // row object, so when the same datastream objects come back (an
+          // unresolved snapshot falls back to the live thing) the disabled
+          // action buttons would otherwise stay disabled in live mode.
+          key={`${lang}-${isSnapshot ? 'snapshot' : 'live'}`}
           items={datastreams}
           columns={columns}
           rowKey={(item, index) =>
@@ -432,49 +509,67 @@ export default function DatastreamTable({
           emptyContent={t('general.no_data')}
           topLeft={
             <div className="min-w-0 flex-1 p-1">
-              <div className="text-xs font-medium ">{thingName}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium">{thingName}</span>
+                {isSnapshot && asOfDate && (
+                  <span
+                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    style={{
+                      background: 'rgba(59,130,246,0.15)',
+                      border: '1px solid rgba(59,130,246,0.4)',
+                      color: '#3b82f6',
+                    }}
+                  >
+                    {dayjs.utc(asOfDate).format('MMM D, YYYY')}
+                  </span>
+                )}
+              </div>
               <div className="text-[10px]">{networkLabel}</div>
             </div>
           }
           topRight={
             <div className="flex gap-2">
-              <Dropdown isDisabled={!canWrite}>
-                <DropdownTrigger>
-                  <Button
-                    endContent={<ChevronDownIcon size={18} />}
-                    size="sm"
-                    color="primary"
-                    isDisabled={!canWrite}
-                    title={canWrite ? undefined : t('general.read_only')}
-                  >
-                    {t('general.new')}
-                  </Button>
-                </DropdownTrigger>
-                <DropdownMenu aria-label="Datastream actions" variant="light">
-                  <DropdownItem
-                    key="new-datastream"
-                    startContent={<LocationIcon size={16} />}
-                    onPress={onCreateDatastream}
-                  >
-                    {t('general.new')}
-                  </DropdownItem>
-                  <DropdownItem
-                    key="import-from-file"
-                    startContent={<ImportFileIcon size={16} />}
-                    onPress={() =>
-                      document
-                        .getElementById('datastream-import-trigger')
-                        ?.click()
-                    }
-                  >
-                    {t('import.actions.import_from_file')}
-                  </DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
-              <ImportFromFileButton
-                buttonId="datastream-import-trigger"
-                className="hidden"
-              />
+              {!isSnapshot && (
+                <>
+                  <Dropdown isDisabled={!canWrite}>
+                    <DropdownTrigger>
+                      <Button
+                        endContent={<ChevronDownIcon size={18} />}
+                        size="sm"
+                        color="primary"
+                        isDisabled={!canWrite}
+                        title={canWrite ? undefined : t('general.read_only')}
+                      >
+                        {t('general.new')}
+                      </Button>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Datastream actions" variant="light">
+                      <DropdownItem
+                        key="new-datastream"
+                        startContent={<LocationIcon size={16} />}
+                        onPress={onCreateDatastream}
+                      >
+                        {t('general.new')}
+                      </DropdownItem>
+                      <DropdownItem
+                        key="import-from-file"
+                        startContent={<ImportFileIcon size={16} />}
+                        onPress={() =>
+                          document
+                            .getElementById('datastream-import-trigger')
+                            ?.click()
+                        }
+                      >
+                        {t('import.actions.import_from_file')}
+                      </DropdownItem>
+                    </DropdownMenu>
+                  </Dropdown>
+                  <ImportFromFileButton
+                    buttonId="datastream-import-trigger"
+                    className="hidden"
+                  />
+                </>
+              )}
 
               <Tooltip content={t('general.close')}>
                 <Button

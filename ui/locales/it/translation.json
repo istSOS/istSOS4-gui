@@ -304,5 +304,267 @@
       "observed_properties": "Observed Properties",
       "datastreams": "Datastreams"
     }
+  },
+  "as_of": {
+    "banner": {
+      "snapshot_active": "Modalità snapshot attiva — dati visualizzati alla data"
+    },
+    "chart": {
+      "fallback_notice": "Nessun dato nei 7 giorni precedenti lo snapshot — vengono mostrati gli ultimi dati disponibili alla data {{date}} UTC.",
+      "no_data_in_window": "Nessun dato disponibile per questa finestra di snapshot.",
+      "no_data_ends_before": "Nessun dato disponibile per questa finestra di snapshot — le misure di questo datastream terminano il {{date}}, prima di essa.",
+      "no_data_starts_after": "Nessun dato disponibile per questa finestra di snapshot — le misure di questo datastream iniziano il {{date}}, dopo di essa.",
+      "compare_label": "Confronta con snapshot",
+      "compare_clear": "Annulla confronto",
+      "aligned_axis_name": "Tempo prima di ciascuno snapshot",
+      "marker_snapshot": "Snapshot",
+      "marker_primary": "A",
+      "marker_compare": "B",
+      "compare_aligned_notice": "Ogni snapshot mostra i propri {{days}} giorni precedenti — l'asse indica il tempo prima di ciascuno. Seleziona un intervallo per portarli entrambi sulla stessa finestra.",
+      "compare_aligned_fallback_notice": "Nessuno dei due snapshot ha dati nei {{days}} giorni precedenti — ciascuno mostra invece gli ultimi {{days}} giorni di dati che poteva vedere, allineati alla fine.",
+      "compare_shared_notice": "Entrambi gli snapshot sono mostrati sullo stesso intervallo — ogni differenza è una modifica ai dati avvenuta tra i due.",
+      "compare_no_changes": "Nessuna modifica tra i due snapshot in questa finestra.",
+      "compare_no_data_one": "Lo snapshot {{date}} non ha dati in questa finestra.",
+      "compare_no_data_both": "Nessuno dei due snapshot ha dati in questa finestra.",
+      "compare_cutoff": "Lo snapshot {{date}} non ha dati oltre la propria data — quelle misure non erano ancora state registrate.",
+      "compare_live": "Confronta con Live",
+      "compare_live_hint": "Confronta questo snapshot con i dati attuali",
+      "compare_live_stop": "Interrompi il confronto con i dati attuali",
+      "commit": {
+        "title": "Modifica dietro questa misura",
+        "id": "Commit",
+        "none": "Nessun commit registrato per questa misura",
+        "measured": "Misurato",
+        "committed": "Registrato",
+        "by": "Da",
+        "action": "Azione"
+      },
+      "compare_quality_only": "Valori invariati — i flag di qualità sono cambiati per {{count}} letture tra questi snapshot.",
+      "compare_quality_and_values": "{{values}} letture hanno cambiato valore e {{quality}} hanno cambiato flag di qualità tra questi snapshot."
+    },
+    "table": {
+      "read_only": "Sola lettura in modalità snapshot"
+    },
+    "navbar": {
+      "live": "Live",
+      "exit_snapshot": "Esci dalla modalità snapshot",
+      "open_picker": "Apri il selettore temporale"
+    },
+    "picker": {
+      "title": "Visualizza snapshot storico",
+      "subtitle": "Seleziona una data — l'orario predefinito è 00:00",
+      "preview": "{{date}} alle {{time}} (locale)",
+      "clear_exit": "Azzera ed esci",
+      "quick_times": "Tempi rapidi",
+      "future_title": "Data futura selezionata",
+      "future_detail": "Il viaggio nel tempo funziona solo con date passate. Seleziona una data e un'ora nel passato.",
+      "future_cell": "Non è possibile spostarsi a una data futura",
+      "previous": "Precedente",
+      "next": "Successivo"
+    },
+    "quick_times": {
+      "last_5_minutes": "Ultimi 5 minuti",
+      "last_10_minutes": "Ultimi 10 minuti",
+      "last_30_minutes": "Ultimi 30 minuti",
+      "last_1_hour": "Ultima ora",
+      "last_3_hours": "Ultime 3 ore",
+      "last_6_hours": "Ultime 6 ore",
+      "last_1_day": "Ultimo giorno",
+      "last_1_week": "Ultima settimana"
+    },
+    "calendar": {
+      "day_su": "Do",
+      "day_mo": "Lu",
+      "day_tu": "Ma",
+      "day_we": "Me",
+      "day_th": "Gi",
+      "day_fr": "Ve",
+      "day_sa": "Sa",
+      "month_1": "Gennaio",
+      "month_2": "Febbraio",
+      "month_3": "Marzo",
+      "month_4": "Aprile",
+      "month_5": "Maggio",
+      "month_6": "Giugno",
+      "month_7": "Luglio",
+      "month_8": "Agosto",
+      "month_9": "Settembre",
+      "month_10": "Ottobre",
+      "month_11": "Novembre",
+      "month_12": "Dicembre"
+    },
+    "scrubber": {
+      "title": "Cronologia",
+      "commits_count_one": "{{count}} commit",
+      "commits_count_other": "{{count}} commit",
+      "no_history": "nessuna cronologia",
+      "now": "Ora",
+      "before_range": "La data precede l'intervallo navigabile",
+      "after_range": "La data supera l'intervallo navigabile",
+      "aria_label": "Cursore temporale"
+    },
+    "existence": {
+      "no_data_before": "Nessun dato prima di questa data",
+      "no_data_after": "Nessun dato dopo questa data",
+      "detail_before": "\"{{name}}\" non ha dati prima del {{date}}.",
+      "detail_after": "\"{{name}}\" non ha dati dopo il {{date}}.",
+      "jump_earliest": "Vai al dato più vecchio",
+      "jump_latest": "Vai al dato più recente",
+      "dismiss": "Chiudi"
+    },
+    "map": {
+      "loading": "Caricamento della mappa a questa data…",
+      "error": "Impossibile caricare la mappa a questa data — i marker mostrano le posizioni attuali.",
+      "failed_sources_one": "{{count}} sorgente dati non è stata caricata a questa data — i suoi marker mostrano le posizioni attuali.",
+      "failed_sources_other": "{{count}} sorgenti dati non sono state caricate a questa data — i loro marker mostrano le posizioni attuali.",
+      "readings_unavailable_one": "Le ultime letture di {{count}} sorgente dati hanno richiesto troppo tempo — i suoi marker mostrano le posizioni a questa data, senza valori.",
+      "readings_unavailable_other": "Le ultime letture di {{count}} sorgenti dati hanno richiesto troppo tempo — i loro marker mostrano le posizioni a questa data, senza valori.",
+      "approximate_one": "{{count}} Thing non ha uno storico delle posizioni — il suo marker è sulla Location attuale.",
+      "approximate_other": "{{count}} Thing non hanno uno storico delle posizioni — i loro marker sono sulla Location attuale.",
+      "lost_one": "{{count}} Thing esisteva a questa data ma è stato eliminato, e la sua posizione non è stata conservata — non ha marker.",
+      "lost_other": "{{count}} Thing esistevano a questa data ma sono stati eliminati, e la loro posizione non è stata conservata — non hanno marker.",
+      "approximate_marker": "Posizione non storica"
+    }
+  },
+  "quality": {
+    "label": "Qualità",
+    "pass": "Valido",
+    "suspect": "Sospetto",
+    "outlier": "Anomalo",
+    "range": "Fuori intervallo",
+    "none": "Non verificato",
+    "summary": "{{count}} letture · {{percent}}% valide",
+    "no_values_live": "{{count}} letture · nessun valore di qualità",
+    "no_values_as_of": "{{count}} letture · nessun valore di qualità al {{date}}",
+    "rule": "Regola",
+    "rule_fallback": "predefinita",
+    "customize": {
+      "button": "Personalizza resultQuality",
+      "button_edit": "Modifica regole resultQuality",
+      "custom_badge": "Regole personalizzate",
+      "title": "Personalizza resultQuality",
+      "back_to_chart": "Torna al grafico",
+      "readings_one": "{{count}} lettura",
+      "readings_other": "{{count}} letture",
+      "datastream": "Datastream",
+      "datastream_locked": "Salva o annulla le modifiche prima di cambiare datastream.",
+      "apply_to": "Applica a",
+      "scope_datastream": "Questo datastream",
+      "scope_source": "Tutti da questa sorgente",
+      "lane_now": "Ora",
+      "lane_new": "Nuove",
+      "preview_hint": "Passa sull'anteprima per confrontare una lettura con entrambe le regole.",
+      "no_readings": "Nessuna lettura da mostrare in questo intervallo. Scegli prima un altro intervallo di tempo.",
+      "source": {
+        "datastream": "Le tue regole per questo datastream",
+        "source": "Le tue regole per questa sorgente",
+        "default": "Predefinito istSOS"
+      },
+      "steps": {
+        "start": "Punto di partenza",
+        "rules": "Regole",
+        "review": "Rivedi e salva"
+      },
+      "start": {
+        "question": "Quali valori usa questo datastream per la qualità?",
+        "current": "Regole attuali",
+        "current_default": "Regole attuali (predefinito istSOS)",
+        "current_desc": "Parti da ciò che il grafico usa ora e modificalo.",
+        "explains": "Spiega {{hit}} valori salvati su {{of}}",
+        "best_fit": "Più adatto"
+      },
+      "preset": {
+        "istsos": {
+          "name": "Indice di qualità istSOS",
+          "desc": "100 è valido; 90–93 sono i codici SaQC; ogni altro valore sotto 100 è fuori intervallo."
+        },
+        "ftp": {
+          "name": "Coppie di bit ftp2istsos4",
+          "desc": "3 indica tutti i controlli superati, 2 un problema, 1 in attesa, 0 non eseguito."
+        },
+        "mqtt": {
+          "name": "mqtt2istsos4",
+          "desc": "11 indica valido e 0 non verificato. Ogni altro valore è sospetto."
+        },
+        "blank": {
+          "name": "Vuoto",
+          "desc": "Parti senza regole e scrivi le tue."
+        }
+      },
+      "values": {
+        "title": "Salvati in questo intervallo",
+        "no_value": "nessun valore",
+        "count": "{{count}}×",
+        "add_rule": "+ Regola",
+        "add_rule_aria": "Aggiungi una regola per {{value}}",
+        "note_start": "I colori mostrano il giudizio con l'opzione scelta. Le righe evidenziate cambiano giudizio.",
+        "note_rules": "+ Regola aggiunge in cima una regola per quel valore esatto."
+      },
+      "rules": {
+        "intro": "Le regole sono verificate dall'alto. La prima che corrisponde decide il giudizio.",
+        "if": "Se la qualità",
+        "and": "e",
+        "mark": "segnala come",
+        "op": {
+          "eq": "è",
+          "ne": "non è",
+          "lt": "è minore di",
+          "le": "è al massimo",
+          "gt": "è maggiore di",
+          "ge": "è almeno",
+          "between": "è tra",
+          "in": "è uno tra"
+        },
+        "condition": "Condizione",
+        "value": "Valore",
+        "from": "Da",
+        "to": "A",
+        "values": "Valori, separati da virgole",
+        "verdict": "Giudizio",
+        "move_up": "Sposta la regola in alto",
+        "move_down": "Sposta la regola in basso",
+        "delete": "Elimina la regola",
+        "count_one": "{{count}} lettura in questo intervallo",
+        "count_other": "{{count}} letture in questo intervallo",
+        "incomplete": "Inserisci un numero per attivare questa regola.",
+        "shadowed": "Mai usata: la regola {{rules}} intercetta già ogni valore di questa regola. Spostala più in alto o modificala.",
+        "empty": "Ancora nessuna regola. Aggiungine una qui sotto, o usa + Regola accanto a un valore salvato.",
+        "add": "+ Aggiungi regola",
+        "otherwise": "Qualsiasi altro valore",
+        "fallback_tag": "predefinita",
+        "no_value": "Nessun valore salvato",
+        "fixed_tag": "fissa",
+        "no_value_note": "mai giudicato, mai contato nella percentuale di validità"
+      },
+      "review": {
+        "pass_rate": "Percentuale valide",
+        "changed": "Letture che cambiano giudizio",
+        "not_checked": "Non verificate",
+        "value": "Valore salvato",
+        "readings": "Letture",
+        "now": "Ora",
+        "new": "Nuove",
+        "same": "Queste regole danno gli stessi giudizi di quelle attuali per ogni lettura in questo intervallo.",
+        "saves_to": "Salva in",
+        "saves_datastream": "Solo {{name}}, in questo browser. I grafici degli altri utenti non cambiano.",
+        "saves_source": "Ogni datastream da {{source}} senza regole proprie, in questo browser. I grafici degli altri utenti non cambiano.",
+        "labels_title": "Nomi dei giudizi",
+        "labels_optional": "facoltativo",
+        "labels_note": "I colori restano fissi, così la fascia si legge allo stesso modo in ogni grafico."
+      },
+      "footer": {
+        "draft_early": "Bozza · nulla viene salvato fino all'ultimo passo",
+        "draft_final": "Bozza · il salvataggio la applica subito al grafico",
+        "no_changes": "Nessuna modifica rispetto alle regole in uso",
+        "cancel": "Annulla",
+        "back": "Indietro",
+        "next": "Avanti",
+        "save": "Salva regole",
+        "restore": "Ripristina predefinito",
+        "discard_question": "Scartare le regole non salvate?",
+        "keep": "Continua a modificare",
+        "discard": "Scarta"
+      }
+    }
   }
 }

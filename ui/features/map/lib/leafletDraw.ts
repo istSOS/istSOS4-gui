@@ -19,6 +19,7 @@ import utc from 'dayjs/plugin/utc'
 import {
   createClusterGroup,
   createThingMarkerIcon,
+  createThingMarkerDivIcon,
   showClusterHullPreview,
 } from './leafletCluster'
 
@@ -72,6 +73,8 @@ export const SOURCE_COLOR_PALETTE = [
   '#14b8a6',
 ]
 const TOOLTIP_VERTICAL_OFFSET = -14
+/** Opacity of a snapshot marker whose position is not known to be historical. */
+const APPROXIMATE_OPACITY = 0.5
 
 export const UNSPECIFIED_NETWORK_KEY = '__unspecified__'
 
@@ -81,12 +84,15 @@ type TooltipLabels = {
   dataSource: string
   network: string
   things: string
+  /** Shown on a snapshot marker whose position is not known to be historical. */
+  approximatePosition?: string
 }
 
 type TooltipRow = {
   source: string
   name: string
   network: string
+  note?: string
 }
 
 type FreshnessStatus = 'fresh' | 'stale' | 'mixed' | 'unknown'
@@ -191,6 +197,7 @@ function resolveTooltipLabels(labels?: TooltipLabels): TooltipLabels {
     dataSource: labels?.dataSource ?? 'Data source',
     network: labels?.network ?? 'Network',
     things: labels?.things ?? 'Things',
+    approximatePosition: labels?.approximatePosition ?? 'Position not historical',
   }
 }
 
@@ -243,6 +250,14 @@ function buildTooltipMount(
     networkLine.textContent = `${t.network}: ${networkLabel}`
     details.appendChild(networkLine)
 
+    if (rowData.note) {
+      const noteLine = document.createElement('div')
+      noteLine.className = 'thing-tooltip-meta-line'
+      noteLine.style.fontStyle = 'italic'
+      noteLine.textContent = rowData.note
+      details.appendChild(noteLine)
+    }
+
     row.appendChild(title)
     row.appendChild(details)
     mount.appendChild(row)
@@ -274,6 +289,17 @@ function bindSelectThing(
   })
 }
 
+/**
+ * True for a snapshot Thing drawn at a position not known to be the one it had
+ * at the instant: only its current Location link is known ('link'), or the
+ * snapshot could not be read and this is live data ('live').
+ */
+function hasApproximatePosition(thing: Thing) {
+  return (
+    thing?.__asOfLocationSource === 'link' || thing?.__asOfLocationSource === 'live'
+  )
+}
+
 function bindHeroTooltip(
   layer: TooltipLayer,
   thing: Thing,
@@ -290,6 +316,9 @@ function bindHeroTooltip(
         source: thingSourceLabel(thing),
         name,
         network: String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim(),
+        note: hasApproximatePosition(thing)
+          ? resolveTooltipLabels(options?.labels).approximatePosition
+          : undefined,
       },
     ],
     options?.labels,
@@ -363,8 +392,27 @@ function isoDurationToMs(iso?: string) {
   return Number.isFinite(ms) && ms > 0 ? ms : 0
 }
 
-function datastreamFreshness(ds: Datastream): 'fresh' | 'stale' | 'unknown' {
-  const endRaw = parsePhenomenonEndRaw(ds?.phenomenonTime)
+/**
+ * Whether a datastream was reporting on time — as of now, or, given a
+ * `referenceMs`, as of that snapshot instant.
+ *
+ * A snapshot cannot use the datastream's own `phenomenonTime`: the versioning
+ * trigger ignores that column, so it is updated in place and even an old
+ * version carries today's value. The latest reading that existed at the
+ * instant says when the datastream last reported then.
+ */
+function datastreamFreshness(
+  ds: Datastream,
+  referenceMs: number | null
+): 'fresh' | 'stale' | 'unknown' {
+  const latest = referenceMs !== null ? latestObservationOfDatastream(ds) : null
+  const endRaw =
+    referenceMs !== null
+      ? (parsePhenomenonEndRaw(latest?.phenomenonTime) ??
+        latest?.phenomenonTime ??
+        latest?.resultTime ??
+        undefined)
+      : parsePhenomenonEndRaw(ds?.phenomenonTime)
   if (!endRaw) return 'unknown'
 
   const endMs = dayjs.utc(endRaw).valueOf()
@@ -373,13 +421,16 @@ function datastreamFreshness(ds: Datastream): 'fresh' | 'stale' | 'unknown' {
   const thresholdMs = isoDurationToMs(ds?.properties?.acquisitionFrequency) * 2
   if (thresholdMs <= 0) return 'unknown'
 
-  return Date.now() - endMs < thresholdMs ? 'fresh' : 'stale'
+  return (referenceMs ?? Date.now()) - endMs < thresholdMs ? 'fresh' : 'stale'
 }
 
-function thingFreshnessStatus(thing: Thing): FreshnessStatus {
+function thingFreshnessStatus(
+  thing: Thing,
+  referenceMs: number | null
+): FreshnessStatus {
   const dss = Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
   const statuses = dss
-    .map((ds) => datastreamFreshness(ds))
+    .map((ds) => datastreamFreshness(ds, referenceMs))
     .filter((status) => status !== 'unknown') as Array<'fresh' | 'stale'>
 
   if (!statuses.length) return 'unknown'
@@ -467,6 +518,10 @@ export function drawNetworkLayers(args: {
   sourceColorByKey?: Record<string, string>
 
   labels?: TooltipLabels
+  /** Formatted date label for snapshot mode (e.g. "Jun 26 · 01:16 UTC"). When set, Point markers get an amber pill. */
+  asOfLabel?: string | null
+  /** The snapshot instant (ISO). Freshness is judged against it instead of now. */
+  referenceTime?: string | null
   onThingSelect?: (
     thing: Thing,
     selection?: { observedPropertyName?: string; datastreamId?: string }
@@ -490,8 +545,14 @@ export function drawNetworkLayers(args: {
     sourceColorByKey,
 
     labels,
+    asOfLabel,
+    referenceTime,
     onThingSelect,
   } = args
+
+  const parsedReference = referenceTime ? dayjs.utc(referenceTime).valueOf() : NaN
+  const referenceMs = Number.isFinite(parsedReference) ? parsedReference : null
+  const approximateLabel = resolveTooltipLabels(labels).approximatePosition
 
   const toLatLng = (
     x: number,
@@ -598,9 +659,11 @@ export function drawNetworkLayers(args: {
 
         const sourceColor =
           sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
-        const freshnessStatus = datastreamFreshness(ds)
+        const freshnessStatus = datastreamFreshness(ds, referenceMs)
         const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
         const marker = L.marker(centerLL, {
+          opacity: hasApproximatePosition(thing) ? APPROXIMATE_OPACITY : 1,
+          title: hasApproximatePosition(thing) ? approximateLabel : undefined,
           icon: L.divIcon({
             className: 'thing-value-icon',
             iconSize: [84, 28],
@@ -800,22 +863,34 @@ export function drawNetworkLayers(args: {
     if (!grp) continue
 
     const base = sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
-    const freshnessStatus = thingFreshnessStatus(thing)
+    const freshnessStatus = thingFreshnessStatus(thing, referenceMs)
     const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
+    const approximate = hasApproximatePosition(thing)
 
     if (geom.type === 'Point') {
       const [x, y] = geom.coordinates ?? []
       const ll = toLatLng(x, y, srcProj)
       if (!ll) continue
 
+      // A position not known to be historical is drawn faded, and its date
+      // pill says "≈": it must never read as where the Thing stood then.
       const m = L.marker(ll, {
-        icon: markerIconFor(base, borderColor),
+        opacity: approximate ? APPROXIMATE_OPACITY : 1,
+        icon: asOfLabel
+          ? createThingMarkerDivIcon(
+              L,
+              base,
+              borderColor,
+              approximate ? `≈ ${asOfLabel}` : asOfLabel
+            )
+          : markerIconFor(base, borderColor),
       })
       ;(m as MarkerWithMeta).__freshnessStatus = freshnessStatus
       ;(m as MarkerWithMeta).__tooltipRow = {
         source: thingSourceLabel(thing),
         name: thingDisplayName(thing),
         network: String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim(),
+        note: approximate ? approximateLabel : undefined,
       } as TooltipRow
 
       bindHeroTooltip(m, thing, { labels })
@@ -834,7 +909,8 @@ export function drawNetworkLayers(args: {
       const l = L.polyline(latlngs, {
         color: base,
         weight: 3,
-        opacity: 0.8,
+        opacity: approximate ? APPROXIMATE_OPACITY * 0.8 : 0.8,
+        dashArray: approximate ? '4 4' : undefined,
       })
 
       bindHeroTooltip(l, thing, { labels })
@@ -857,7 +933,8 @@ export function drawNetworkLayers(args: {
         color: base,
         weight: 2,
         fillColor: base,
-        fillOpacity: 0.25,
+        fillOpacity: approximate ? 0.1 : 0.25,
+        dashArray: approximate ? '4 4' : undefined,
       })
 
       bindHeroTooltip(p, thing, { labels })
