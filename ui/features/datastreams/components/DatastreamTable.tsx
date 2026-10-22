@@ -38,6 +38,7 @@ import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import utc from 'dayjs/plugin/utc'
+import { useRouter } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -47,12 +48,15 @@ import {
   CloseIcon,
   DeleteIcon,
   EditIcon,
+  HistoryIcon,
   ImportFileIcon,
   LocationIcon,
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
 import { useAuth } from '@/context/AuthContext'
 import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
+import HistoryRangeDialog from '@/features/from-to/components/HistoryRangeDialog'
+import { type HistoryWindow } from '@/features/from-to/lib/historyWindow'
 import { Datastream, Thing } from '@/types/domain'
 
 dayjs.extend(duration)
@@ -165,8 +169,58 @@ export default function DatastreamTable({
   const { t, i18n } = useTranslation()
   const { canWrite } = useAuth()
   const lang = i18n.resolvedLanguage ?? i18n.language
+  const router = useRouter()
   const [pendingDelete, setPendingDelete] = useState<Datastream | null>(null)
   const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null)
+
+  /**
+   * Which entity the history dialog is collecting a window for.
+   *
+   * Both entry points — the toolbar button and the per-row clock — open the
+   * same dialog with a different subject, and each addresses its entity by its
+   * OWN top-level path. A datastream must not be addressed as
+   * `Things(1)/Datastreams(3)`: under `$from_to` that path returns each version
+   * once per parent version.
+   */
+  const [historySubject, setHistorySubject] = useState<{
+    name: string
+    kind: string
+    path: string
+  } | null>(null)
+
+  const openThingHistory = useCallback(() => {
+    const id = thing?.['@iot.id'] ?? thing?.id
+    if (id == null) return
+    setHistorySubject({
+      name: String(thing?.name ?? ''),
+      kind: 'Thing',
+      path: `Things(${id})`,
+    })
+  }, [thing])
+
+  const openDatastreamHistory = useCallback((datastream: Datastream) => {
+    const id = datastream?.['@iot.id'] ?? datastream?.id
+    if (id == null) return
+    setHistorySubject({
+      name: String(datastream?.name ?? ''),
+      kind: 'Datastream',
+      path: `Datastreams(${id})`,
+    })
+  }, [])
+
+  /**
+   * History is a page, not a mode: confirming navigates and leaves the map
+   * behind, and the window travels in the URL so the link can be shared.
+   */
+  const goToHistory = useCallback(
+    (window: HistoryWindow) => {
+      if (!historySubject) return
+      const query = new URLSearchParams({ from: window.from, to: window.to })
+      setHistorySubject(null)
+      router.push(`/history/${historySubject.path}?${query.toString()}`)
+    },
+    [historySubject, router]
+  )
 
   const datastreams: Datastream[] = useMemo(() => {
     const ds = thing?.Datastreams
@@ -368,6 +422,36 @@ export default function DatastreamTable({
                   <ChartIcon size={18} />
                 </Button>
               </Tooltip>
+              {/* The toolbar button opens the Thing's history; this opens the
+                  datastream's, which is a different record — a Thing's row does
+                  not change when one of its datastreams is edited. The tooltip
+                  names the datastream so the two are never confused.
+                  Both stay available in snapshot mode: reading the past is what
+                  these features are for, and this is a read. */}
+              <Tooltip
+                color="primary"
+                content={t('from_to.table.row_history_tooltip', {
+                  name: String(item?.name ?? ''),
+                })}
+              >
+                <Button
+                  isIconOnly
+                  className="h-6 w-6 min-w-6"
+                  size="sm"
+                  variant="light"
+                  color="primary"
+                  // An icon-only button needs a name of its own: the tooltip
+                  // only exists on hover, so without this the control is
+                  // unlabelled to a screen reader — and it is precisely the
+                  // label that distinguishes it from the toolbar's button.
+                  aria-label={t('from_to.table.row_history_tooltip', {
+                    name: String(item?.name ?? ''),
+                  })}
+                  onPress={() => openDatastreamHistory(item)}
+                >
+                  <HistoryIcon size={18} />
+                </Button>
+              </Tooltip>
               {/* In snapshot mode, or without write permission, the write
                   actions stay visible but greyed out and inert, so a row's
                   actions read the same everywhere and the reason is one hover
@@ -425,6 +509,7 @@ export default function DatastreamTable({
       onDeleteDatastream,
       onEditDatastream,
       onOpenDetails,
+      openDatastreamHistory,
       t,
       thing,
     ]
@@ -529,6 +614,22 @@ export default function DatastreamTable({
           }
           topRight={
             <div className="flex gap-2">
+              {/* Scoped to the Thing already selected on the map — the user has
+                  picked the entity whose past they want, so the button belongs
+                  here rather than in the navbar. Reading history is not a mode,
+                  so it stays available in snapshot mode too. */}
+              <Tooltip content={t('from_to.table.open_history_tooltip')}>
+                <Button
+                  size="sm"
+                  variant="bordered"
+                  startContent={<HistoryIcon size={16} />}
+                  isDisabled={!thing}
+                  onPress={openThingHistory}
+                >
+                  {t('from_to.table.open_history')}
+                </Button>
+              </Tooltip>
+
               {!isSnapshot && (
                 <>
                   <Dropdown isDisabled={!canWrite}>
@@ -638,6 +739,17 @@ export default function DatastreamTable({
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {historySubject && (
+        <HistoryRangeDialog
+          isOpen
+          entityName={historySubject.name}
+          entityKind={historySubject.kind}
+          entityPath={historySubject.path}
+          onClose={() => setHistorySubject(null)}
+          onConfirm={goToHistory}
+        />
+      )}
     </>
   )
 }

@@ -29,7 +29,7 @@ import 'flag-icons/css/flag-icons.min.css'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 import { DataSourcesIcon, GithubIcon, LogoIstSOS } from '@/components/icons'
 import AsOfNavbarButton from '@/features/as-of/components/AsOfNavbarButton'
@@ -44,6 +44,8 @@ export default function Navbar() {
   const { token, setToken } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
+  const pathname = usePathname()
+  const isHistoryRoute = (pathname ?? '').startsWith('/history')
 
   const languages = [
     { code: 'en', label: 'EN', flag: 'fi fi-gb fis w-12 h-8' },
@@ -111,9 +113,13 @@ export default function Navbar() {
           </div>
         </Link>
 
-        {/* Center: as_of trigger */}
+        {/* Center: as_of trigger.
+            Hidden on the history route: `$as_of` and `$from_to` are mutually
+            exclusive at the API, and the history page is a page rather than a
+            mode — leaving a snapshot control there would suggest the whole
+            application is being re-read, which is exactly what it is not. */}
         <div className="flex justify-center">
-          <AsOfNavbarButton />
+          {!isHistoryRoute && <AsOfNavbarButton />}
         </div>
 
         {/* Right: language / github / data-sources / user */}
