@@ -24,7 +24,10 @@
     "next": "Avanti",
     "finish": "Conferma",
     "no_data": "Nessun dato disponibile.",
-    "reset": "Reset"
+    "select_datastream": "Seleziona un datastream per visualizzare il grafico",
+    "loading": "Caricamento...",
+    "reset": "Reset",
+    "read_only": "Accesso in sola lettura"
   },
   "wizard": {
     "title": "Crea entità SensorThings",

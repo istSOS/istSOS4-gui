@@ -18,19 +18,25 @@ import { deleteCookie, setCookie } from 'cookies-next'
 import React, { createContext, useContext, useEffect, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
-import { decodeTokenPayload } from '@/lib/auth'
-import { removeDataSourceToken, setDataSourceToken } from '@/lib/dataSourceTokens'
+
+import { canWriteWithToken, decodeTokenPayload } from '@/lib/auth'
+import {
+  removeDataSourceToken,
+  setDataSourceToken,
+} from '@/lib/dataSourceTokens'
 
 type AuthContextType = {
   token: string | null
   setToken: (token: string | null) => void
   loading: boolean
+  canWrite: boolean
 }
 
 const AuthContext = createContext<AuthContextType>({
   token: null,
   setToken: () => {},
   loading: true,
+  canWrite: false,
 })
 
 //create the auth provider component
@@ -93,7 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const payload = decodeTokenPayload(newToken)
       const now = Math.floor(Date.now() / 1000)
       const maxAge =
-        typeof payload?.exp === 'number' ? Math.max(payload.exp - now, 0) : undefined
+        typeof payload?.exp === 'number'
+          ? Math.max(payload.exp - now, 0)
+          : undefined
 
       setCookie('token', newToken, {
         httpOnly: false,
@@ -110,7 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ token, setToken, loading }}>
+    <AuthContext.Provider
+      value={{ token, setToken, loading, canWrite: canWriteWithToken(token) }}
+    >
       {children}
     </AuthContext.Provider>
   )

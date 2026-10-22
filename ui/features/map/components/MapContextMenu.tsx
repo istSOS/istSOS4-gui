@@ -25,6 +25,8 @@ import {
   ZoomOutIcon,
 } from '@/components/icons'
 
+import { useAuth } from '@/context/AuthContext'
+
 type Props = {
   x: number
   y: number
@@ -39,16 +41,22 @@ function MenuRow({
   icon,
   label,
   onClick,
+  disabled,
+  title,
 }: {
   icon: ReactNode
   label: string
   onClick: () => void
+  disabled?: boolean
+  title?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-left text-[15px] text-default-700 hover:bg-black/5"
+      disabled={disabled}
+      title={title}
+      className="flex w-full items-center gap-3 rounded-md px-3 py-1.5 text-left text-[15px] text-default-700 enabled:cursor-pointer enabled:hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
     >
       <span className="flex h-5 w-5 items-center justify-center text-default-800">
         {icon}
@@ -68,6 +76,7 @@ export default function MapContextMenu({
   onZoomOut,
 }: Props) {
   const { t } = useTranslation()
+  const { canWrite } = useAuth()
 
   return (
     <div
@@ -84,11 +93,15 @@ export default function MapContextMenu({
           icon={<LocationIcon />}
           label={t('general.new')}
           onClick={onCreateThing}
+          disabled={!canWrite}
+          title={canWrite ? undefined : t('general.read_only')}
         />
         <MenuRow
           icon={<ImportFileIcon />}
           label="Import from file"
           onClick={onImportFromFile}
+          disabled={!canWrite}
+          title={canWrite ? undefined : t('general.read_only')}
         />
 
         <div className="mx-3 my-1 border-t border-default-200" />

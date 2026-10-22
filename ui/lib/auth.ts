@@ -1,5 +1,8 @@
+import { siteConfig } from '@/config/site'
+
 export type TokenPayload = {
   sub?: string
+  role?: string
   user_id?: number | string
   id?: number | string
   uid?: number | string
@@ -7,7 +10,9 @@ export type TokenPayload = {
   [key: string]: unknown
 }
 
-export function decodeTokenPayload(token: string | null | undefined): TokenPayload | null {
+export function decodeTokenPayload(
+  token: string | null | undefined
+): TokenPayload | null {
   if (!token) return null
 
   try {
@@ -30,4 +35,10 @@ export function getTokenUsername(token: string | null | undefined) {
   return typeof payload?.sub === 'string' && payload.sub.trim()
     ? payload.sub
     : 'User'
+}
+
+export function canWriteWithToken(token: string | null | undefined) {
+  if (!siteConfig.authorizationEnabled) return true
+  if (!token) return false
+  return decodeTokenPayload(token)?.role !== 'viewer'
 }

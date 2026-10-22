@@ -51,6 +51,7 @@ import {
   LocationIcon,
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
+import { useAuth } from '@/context/AuthContext'
 import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
 import { Datastream, Thing } from '@/types/domain'
 
@@ -150,6 +151,7 @@ export default function DatastreamTable({
   onDeleteDatastream,
 }: Props) {
   const { t, i18n } = useTranslation()
+  const { canWrite } = useAuth()
   const lang = i18n.resolvedLanguage ?? i18n.language
   const [pendingDelete, setPendingDelete] = useState<Datastream | null>(null)
   const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null)
@@ -300,11 +302,7 @@ export default function DatastreamTable({
           return <span>{item?.unitOfMeasurement?.symbol ?? ''}</span>
 
         case 'last': {
-          const hasObservations = Array.isArray(item?.Observations)
-            ? item.Observations.length > 0
-            : false
-
-          if (!hasObservations || !endRaw) {
+          if (!endRaw) {
             return <span>{''}</span>
           }
 
@@ -359,6 +357,8 @@ export default function DatastreamTable({
                   size="sm"
                   variant="light"
                   color="primary"
+                  isDisabled={!canWrite}
+                  title={canWrite ? undefined : t('general.read_only')}
                   onPress={handleEdit}
                 >
                   <EditIcon size={18} />
@@ -371,6 +371,8 @@ export default function DatastreamTable({
                   size="sm"
                   variant="light"
                   color="danger"
+                  isDisabled={!canWrite}
+                  title={canWrite ? undefined : t('general.read_only')}
                   onPress={handleDelete}
                 >
                   <DeleteIcon size={18} />
@@ -383,7 +385,7 @@ export default function DatastreamTable({
           return <span>{''}</span>
       }
     },
-    [lang, onDeleteDatastream, onEditDatastream, onOpenDetails, t, thing]
+    [canWrite, lang, onDeleteDatastream, onEditDatastream, onOpenDetails, t, thing]
   )
 
   if (!thing) return null
@@ -436,12 +438,14 @@ export default function DatastreamTable({
           }
           topRight={
             <div className="flex gap-2">
-              <Dropdown>
+              <Dropdown isDisabled={!canWrite}>
                 <DropdownTrigger>
                   <Button
                     endContent={<ChevronDownIcon size={18} />}
                     size="sm"
                     color="primary"
+                    isDisabled={!canWrite}
+                    title={canWrite ? undefined : t('general.read_only')}
                   >
                     {t('general.new')}
                   </Button>
