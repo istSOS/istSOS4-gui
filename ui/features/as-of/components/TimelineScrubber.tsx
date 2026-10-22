@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next'
 
 import { useAsOf } from '@/context/AsOfContext'
 import { useAsOfCommits, type AsOfCommit } from '@/features/as-of/hooks/useAsOfCommits'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
 import { firstValidAsOf } from '@/features/as-of/lib/existenceBounds'
 import type { Thing } from '@/types/domain'
 
@@ -194,6 +195,14 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
     ? dayjs.utc(asOfDate).format('MMM D, YYYY · HH:mm') + ' UTC'
     : t('as_of.scrubber.now')
 
+  // The commit the thumb sits on — the same one-minute match that highlights
+  // its tick — so the header can say what changed there and who changed it.
+  const activeCommit = asOfDate
+    ? [...commits]
+        .reverse()
+        .find((commit) => Math.abs(toMs(commit.authoredAt) - toMs(asOfDate)) < 60_000)
+    : undefined
+
   return (
     <div
       className="as-of-scrubber fixed inset-x-0 z-[3900]"
@@ -208,7 +217,7 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
       <div className="mx-auto flex max-w-6xl flex-col gap-1 px-6 py-2">
         {/* Header row */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <span
               style={{
                 fontSize: '10px',
@@ -230,6 +239,25 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
                 ? t('as_of.scrubber.commits_count', { count: commits.length })
                 : t('as_of.scrubber.no_history')}
             </span>
+            {activeCommit && (
+              <span
+                className="min-w-0 truncate"
+                style={{ fontSize: '10px', color: 'rgba(251,191,36,0.8)' }}
+              >
+                · {activeCommit.message}
+                {activeCommit.author && (
+                  <>
+                    {' '}
+                    {t('as_of.scrubber.by')}{' '}
+                    <CommitAuthor
+                      author={activeCommit.author}
+                      endpoint={thing.__sourceEndpoint}
+                      className="font-semibold text-[#fbbf24]"
+                    />
+                  </>
+                )}
+              </span>
+            )}
           </div>
 
           {/* Current selected date display */}

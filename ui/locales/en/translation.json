@@ -401,7 +401,8 @@
       "now": "Now",
       "before_range": "Date is before the navigable range",
       "after_range": "Date is after the navigable range",
-      "aria_label": "Time travel scrubber"
+      "aria_label": "Time travel scrubber",
+      "by": "by"
     },
     "existence": {
       "no_data_before": "No data before this date",
@@ -667,5 +668,21 @@
         "discard": "Discard"
       }
     }
+  },
+  "users": {
+    "anonymous": "anonymous",
+    "fallback_label": "User {{id}}",
+    "show_details": "Show user details",
+    "username": "Username",
+    "role": "Role",
+    "id": "ID",
+    "contact": "Contact",
+    "contact_none": "None on record",
+    "contact_admin_only": "Contact details are visible to administrators only.",
+    "denied": "User details are only visible to signed-in users.",
+    "missing": "This user no longer exists.",
+    "error": "Could not load user details.",
+    "session_expired": "Your session has expired. Sign in again to see user details.",
+    "forbidden": "Only administrators can see user details on this server."
   }
 }

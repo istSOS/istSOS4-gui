@@ -357,6 +357,7 @@ export default function ObservationGraph({
           unit: entry.unit,
           ts: nearest.ts,
           commit: nearest.commit,
+          endpoint: entry.endpoint ?? null,
           qualityClass: nearest.qualityClass,
           quality: nearest.quality,
           qualityScheme: entry.qualityScheme,

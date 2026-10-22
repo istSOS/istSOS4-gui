@@ -35,6 +35,7 @@ import utc from 'dayjs/plugin/utc'
 import { useTranslation } from 'react-i18next'
 
 import { versionKey, type EntityVersion } from '@/features/from-to/lib/versionRows'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
 
 dayjs.extend(utc)
 
@@ -86,25 +87,32 @@ export default function VersionRail({
             const isB = index === indexB
 
             return (
-              <li key={versionKey(version)}>
-                <button
-                  type="button"
-                  onClick={() => onPick(index)}
-                  aria-pressed={isB}
-                  className={[
-                    'grid w-full grid-cols-[12px_minmax(0,1fr)] gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
-                    isB
-                      ? 'border-primary/40 bg-primary/10'
-                      : isA
-                        ? 'border-default-200 bg-default-100'
-                        : 'border-transparent hover:bg-default-100',
-                  ].join(' ')}
-                >
-                  <span
-                    className={`mt-1 h-2.5 w-2.5 rounded-full ${ACTION_DOT[action] ?? 'bg-default-300'}`}
-                    aria-hidden="true"
-                  />
-                  <span className="min-w-0">
+              // The row is a card, not a <button>: the author inside it is a
+              // button of its own, and buttons cannot nest. The pick button's
+              // ::after stretches over the whole card instead, and the author
+              // sits above that overlay.
+              <li
+                key={versionKey(version)}
+                className={[
+                  'relative grid w-full grid-cols-[12px_minmax(0,1fr)] gap-2.5 rounded-lg border p-2.5 text-left transition-colors',
+                  isB
+                    ? 'border-primary/40 bg-primary/10'
+                    : isA
+                      ? 'border-default-200 bg-default-100'
+                      : 'border-transparent hover:bg-default-100',
+                ].join(' ')}
+              >
+                <span
+                  className={`mt-1 h-2.5 w-2.5 rounded-full ${ACTION_DOT[action] ?? 'bg-default-300'}`}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => onPick(index)}
+                    aria-pressed={isB}
+                    className="block w-full text-left after:absolute after:inset-0 after:rounded-lg focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary"
+                  >
                     <span
                       className={[
                         'float-right ml-1.5 rounded px-1.5 py-px text-[8.5px] font-bold tracking-wide',
@@ -118,18 +126,22 @@ export default function VersionRail({
                     <span className="block font-mono text-tiny font-semibold">
                       {dayjs.utc(version.validity.start).format('MM-DD HH:mm:ss')}Z
                     </span>
-                    {version.commit && (
-                      <span className="mt-0.5 block truncate font-mono text-[10px] text-default-400">
-                        #{version.commit['@iot.id']} · {version.commit.author}
-                      </span>
-                    )}
-                    {version.commit?.message && (
-                      <span className="mt-1 block text-[10.5px] text-default-500">
-                        {version.commit.message}
-                      </span>
-                    )}
-                  </span>
-                </button>
+                  </button>
+                  {version.commit && (
+                    <span className="mt-0.5 block truncate font-mono text-[10px] text-default-400">
+                      #{version.commit['@iot.id']} ·{' '}
+                      <CommitAuthor
+                        author={version.commit.author}
+                        className="relative z-10 hover:text-default-600"
+                      />
+                    </span>
+                  )}
+                  {version.commit?.message && (
+                    <span className="mt-1 block text-[10.5px] text-default-500">
+                      {version.commit.message}
+                    </span>
+                  )}
+                </span>
               </li>
             )
           })}

@@ -67,6 +67,7 @@ import {
   singularOf,
   titleOf,
 } from '@/features/from-to/lib/versionedEntities'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
 
 dayjs.extend(utc)
 
@@ -494,7 +495,11 @@ function VersionDetail({
             className={`whitespace-pre-wrap text-tiny [overflow-wrap:anywhere] ${mono ? 'font-mono' : ''}`}
             title={value}
           >
-            {value}
+            {label === 'Author' && version.commit?.author ? (
+              <CommitAuthor author={version.commit.author} />
+            ) : (
+              value
+            )}
           </dd>
         </div>
       ))}

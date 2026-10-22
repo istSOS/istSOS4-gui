@@ -401,7 +401,8 @@
       "now": "Ora",
       "before_range": "La data precede l'intervallo navigabile",
       "after_range": "La data supera l'intervallo navigabile",
-      "aria_label": "Cursore temporale"
+      "aria_label": "Cursore temporale",
+      "by": "di"
     },
     "existence": {
       "no_data_before": "Nessun dato prima di questa data",
@@ -667,5 +668,21 @@
         "discard": "Scarta"
       }
     }
+  },
+  "users": {
+    "anonymous": "anonimo",
+    "fallback_label": "Utente {{id}}",
+    "show_details": "Mostra dettagli utente",
+    "username": "Nome utente",
+    "role": "Ruolo",
+    "id": "ID",
+    "contact": "Contatti",
+    "contact_none": "Nessuno registrato",
+    "contact_admin_only": "I contatti sono visibili solo agli amministratori.",
+    "denied": "I dettagli utente sono visibili solo agli utenti autenticati.",
+    "missing": "Questo utente non esiste più.",
+    "error": "Impossibile caricare i dettagli utente.",
+    "session_expired": "La sessione è scaduta. Accedi di nuovo per vedere i dettagli utente.",
+    "forbidden": "Su questo server solo gli amministratori possono vedere i dettagli utente."
   }
 }

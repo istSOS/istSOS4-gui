@@ -24,8 +24,6 @@
  * snapshot silently degrades to live data. Route handlers call these instead.
  */
 
-import { cookies } from 'next/headers'
-
 import { parseValidity as readSystemTimeValidity } from '@/lib/systemTimeValidity'
 import {
   readAll,
@@ -33,10 +31,6 @@ import {
   SnapshotReadError,
   type ThingsAsOf,
 } from '@/server/as-of/snapshot'
-import {
-  getPrimaryDataSource,
-  readDataSourcesConfigFile,
-} from '@/server/data-sources/config'
 
 /** Commit shape as returned by the backend (`date`, not `authoredAt`). */
 export type BackendCommit = {
@@ -46,43 +40,13 @@ export type BackendCommit = {
   actionType: string
 }
 
-export const normalizeApiRoot = (value: string) =>
-  value.trim().replace(/\/+$/, '')
-
-/**
- * Resolves a client-supplied endpoint against the configured data sources.
- *
- * Only endpoints this deployment is configured to talk to are accepted — the
- * route must never become an open proxy for arbitrary URLs. Returns null when
- * the endpoint is not one of ours.
- */
-export async function resolveConfiguredEndpoint(
-  requested?: string | null
-): Promise<string | null> {
-  const sources = await readDataSourcesConfigFile()
-  const normalizedRequested = requested ? normalizeApiRoot(requested) : ''
-
-  if (!normalizedRequested) {
-    return normalizeApiRoot(getPrimaryDataSource(sources).apiRoot)
-  }
-
-  const match = sources.find(
-    (source) => normalizeApiRoot(source.apiRoot) === normalizedRequested
-  )
-  return match ? normalizeApiRoot(match.apiRoot) : null
-}
-
-/** Bearer token for the request: the caller's, falling back to the cookie. */
-export async function resolveAuthHeaders(
-  token?: string | null
-): Promise<Record<string, string>> {
-  const explicit = typeof token === 'string' ? token.trim() : ''
-  if (explicit) return { Authorization: `Bearer ${explicit}` }
-
-  const cookieStore = await cookies()
-  const cookieToken = cookieStore.get('token')?.value ?? ''
-  return cookieToken ? { Authorization: `Bearer ${cookieToken}` } : {}
-}
+// Moved to server/upstream.ts, shared with the other API-hop routes; kept
+// exported here so existing imports continue to work.
+export {
+  normalizeApiRoot,
+  resolveAuthHeaders,
+  resolveConfiguredEndpoint,
+} from '@/server/upstream'
 
 export type ThingAsOfResult =
   /** The Thing as it existed at that instant. */

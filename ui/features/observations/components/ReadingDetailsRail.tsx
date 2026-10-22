@@ -32,6 +32,7 @@ import utc from 'dayjs/plugin/utc'
 import { useTranslation } from 'react-i18next'
 
 import { CloseIcon } from '@/components/icons'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
 import type { RecordCommit } from '@/types/domain'
 
 import {
@@ -56,6 +57,8 @@ export type ReadingDetailsEntry = {
   /** The real instant, which on the aligned axis differs per series. */
   ts: number
   commit: RecordCommit | null
+  /** Data source of the reading, for looking up the commit's author. */
+  endpoint?: string | null
   /** The chart's reading of this observation's `resultQuality`. */
   qualityClass: QualityClass
   /** The raw index behind it — null when the reading carries none. */
@@ -222,7 +225,10 @@ export default function ReadingDetailsRail({
                   )}
                   {entry.commit.author && (
                     <Row label={t('as_of.chart.commit.by')}>
-                      {entry.commit.author}
+                      <CommitAuthor
+                        author={entry.commit.author}
+                        endpoint={entry.endpoint}
+                      />
                     </Row>
                   )}
                   {entry.commit['@iot.id'] != null && (
