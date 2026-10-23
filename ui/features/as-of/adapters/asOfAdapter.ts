@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 /**
  * @file asOfAdapter.ts
  *
@@ -28,17 +27,21 @@
  *
  * No hook code needs to change — only this env variable.
  */
-
+import type { Datastream, Thing } from '@/types/domain'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 
-import type { Datastream, Thing } from '@/types/domain'
 import { normalizedBasePath } from '@/app/home/utils'
-import { getAllDataSourceTokens, getDataSourceToken } from '@/lib/dataSourceTokens'
+
 import {
-  localDummyThings,
   type LocalTimeTravelVersion,
+  localDummyThings,
 } from '@/config/local-dummy-things'
+
+import {
+  getAllDataSourceTokens,
+  getDataSourceToken,
+} from '@/lib/dataSourceTokens'
 
 dayjs.extend(utc)
 
@@ -162,16 +165,20 @@ function resolveExistenceState(
   return 'exists'
 }
 
-function extractExistenceRange(
-  versions: LocalTimeTravelVersion[]
-): { createdAt: string | null; deletedAt: string | null } {
+function extractExistenceRange(versions: LocalTimeTravelVersion[]): {
+  createdAt: string | null
+  deletedAt: string | null
+} {
   if (versions.length === 0) return { createdAt: null, deletedAt: null }
   const createdAt = versions[0].systemTimeValidity[0] ?? null
   const lastEnd = versions[versions.length - 1].systemTimeValidity[1] ?? null
   return { createdAt, deletedAt: lastEnd }
 }
 
-function applyVersionToThing(baseThing: Thing, version: LocalTimeTravelVersion): Thing {
+function applyVersionToThing(
+  baseThing: Thing,
+  version: LocalTimeTravelVersion
+): Thing {
   const versionStart = dayjs.utc(version.systemTimeValidity[0])
   const patchedDatastreams = (baseThing.Datastreams ?? []).map((ds) => {
     const filteredObs = (ds.Observations ?? []).filter((obs) => {
@@ -179,12 +186,17 @@ function applyVersionToThing(baseThing: Thing, version: LocalTimeTravelVersion):
       return t.isValid() && (t.isBefore(versionStart) || t.isSame(versionStart))
     })
     const patchedSensor =
-      version.sensor && ds.Sensor ? { ...ds.Sensor, name: version.sensor } : ds.Sensor
+      version.sensor && ds.Sensor
+        ? { ...ds.Sensor, name: version.sensor }
+        : ds.Sensor
 
     return {
       ...ds,
       Sensor: patchedSensor,
-      Observations: filteredObs.length > 0 ? filteredObs : ds.Observations?.slice(-1) ?? [],
+      Observations:
+        filteredObs.length > 0
+          ? filteredObs
+          : (ds.Observations?.slice(-1) ?? []),
     }
   })
 
@@ -195,7 +207,10 @@ function applyVersionToThing(baseThing: Thing, version: LocalTimeTravelVersion):
         index === 0 && location.location?.type === 'Point'
           ? {
               ...location,
-              location: { ...location.location, coordinates: version.coordinates },
+              location: {
+                ...location.location,
+                coordinates: version.coordinates,
+              },
             }
           : location
       )
@@ -211,9 +226,10 @@ function applyVersionToThing(baseThing: Thing, version: LocalTimeTravelVersion):
 }
 
 /** Infer existence range from datastream phenomenonTime when no version history exists. */
-function inferExistenceRange(
-  thing: Thing
-): { createdAt: string | null; deletedAt: string | null } {
+function inferExistenceRange(thing: Thing): {
+  createdAt: string | null
+  deletedAt: string | null
+} {
   const datastreams = thing.Datastreams ?? []
   let earliest: ReturnType<typeof dayjs.utc> | null = null
   for (const ds of datastreams) {
@@ -222,9 +238,13 @@ function inferExistenceRange(
     const startRaw = pt.split('/')[0]
     if (!startRaw) continue
     const start = dayjs.utc(startRaw)
-    if (start.isValid() && (!earliest || start.isBefore(earliest))) earliest = start
+    if (start.isValid() && (!earliest || start.isBefore(earliest)))
+      earliest = start
   }
-  return { createdAt: earliest ? earliest.toISOString() : null, deletedAt: null }
+  return {
+    createdAt: earliest ? earliest.toISOString() : null,
+    deletedAt: null,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +303,8 @@ const mockAdapter: AsOfAdapter = {
 
     if (dummyMatch?.properties?.timeTravel?.commits) {
       return [...dummyMatch.properties.timeTravel.commits].sort(
-        (a, b) => dayjs.utc(a.authoredAt).valueOf() - dayjs.utc(b.authoredAt).valueOf()
+        (a, b) =>
+          dayjs.utc(a.authoredAt).valueOf() - dayjs.utc(b.authoredAt).valueOf()
       )
     }
 
@@ -313,7 +334,9 @@ const mockAdapter: AsOfAdapter = {
       })
     )
     return {
-      things: resolved.filter((thing): thing is NonNullable<typeof thing> => !!thing),
+      things: resolved.filter(
+        (thing): thing is NonNullable<typeof thing> => !!thing
+      ),
       failedEndpoints: [],
       readingsUnavailableEndpoints: [],
     }
@@ -443,7 +466,11 @@ const apiAdapter: AsOfAdapter = {
     const id = thingId(thing)
     const endpoint = (thing.__sourceEndpoint ?? '').replace(/\/$/, '')
     if (!endpoint) {
-      return { thing, existenceState: 'exists', existenceRange: { createdAt: null, deletedAt: null } }
+      return {
+        thing,
+        existenceState: 'exists',
+        existenceRange: { createdAt: null, deletedAt: null },
+      }
     }
 
     // A failure is reported, never papered over with live data: showing live
@@ -476,7 +503,11 @@ const apiAdapter: AsOfAdapter = {
         : null
       const existenceState: ExistenceState =
         createdAt && target.isBefore(createdAt) ? 'not-yet-created' : 'deleted'
-      return { thing: { ...thing, Datastreams: [] }, existenceState, existenceRange }
+      return {
+        thing: { ...thing, Datastreams: [] },
+        existenceState,
+        existenceRange,
+      }
     }
 
     if (!payload.thing) {
@@ -515,9 +546,10 @@ const apiAdapter: AsOfAdapter = {
     const versionTicks = (payload.versions ?? [])
       .filter((version) => !!version?.start)
       .map((version) => ({
-        id: version.commit?.['@iot.id'] != null
-          ? String(version.commit['@iot.id'])
-          : `v:${version.start}`,
+        id:
+          version.commit?.['@iot.id'] != null
+            ? String(version.commit['@iot.id'])
+            : `v:${version.start}`,
         // The version boundary, not the commit's own `date`: they agree for an
         // UPDATE but the scrubber is positioned in transaction time, which is
         // what the boundary is.
@@ -547,19 +579,25 @@ const apiAdapter: AsOfAdapter = {
     // creation, where a Location made ahead of it would otherwise pull it.
     const seenCommits = new Set(ticks.map((tick) => tick.id))
     const seenInstants = new Set(
-      ticks.map((tick) => Math.floor(dayjs.utc(tick.authoredAt).valueOf() / 1000))
+      ticks.map((tick) =>
+        Math.floor(dayjs.utc(tick.authoredAt).valueOf() / 1000)
+      )
     )
     const createdAtMs = versionTicks.length
-      ? Math.min(...versionTicks.map((tick) => dayjs.utc(tick.authoredAt).valueOf()))
+      ? Math.min(
+          ...versionTicks.map((tick) => dayjs.utc(tick.authoredAt).valueOf())
+        )
       : -Infinity
     for (const change of payload.locationChanges ?? []) {
       const atMs = dayjs.utc(change.at).valueOf()
       if (!Number.isFinite(atMs) || atMs < createdAtMs) continue
-      const id = change.commit?.['@iot.id'] != null
-        ? String(change.commit['@iot.id'])
-        : `l:${change.at}`
+      const id =
+        change.commit?.['@iot.id'] != null
+          ? String(change.commit['@iot.id'])
+          : `l:${change.at}`
       const second = Math.floor(atMs / 1000)
-      if (seenCommits.has(id) || (!change.commit && seenInstants.has(second))) continue
+      if (seenCommits.has(id) || (!change.commit && seenInstants.has(second)))
+        continue
       seenCommits.add(id)
       seenInstants.add(second)
       ticks.push({
@@ -572,7 +610,8 @@ const apiAdapter: AsOfAdapter = {
     }
 
     return ticks.sort(
-      (a, b) => dayjs.utc(a.authoredAt).valueOf() - dayjs.utc(b.authoredAt).valueOf()
+      (a, b) =>
+        dayjs.utc(a.authoredAt).valueOf() - dayjs.utc(b.authoredAt).valueOf()
     )
   },
 
@@ -631,9 +670,10 @@ const apiAdapter: AsOfAdapter = {
  * Default: `false` (mock mode — works with no backend).
  */
 const VERSIONING_ENABLED =
-  process.env.NEXT_PUBLIC_VERSIONING_ENABLED === 'true'
+  process.env.NEXT_PUBLIC_VERSIONING_ENABLED?.toLowerCase() === 'true'
 
-export const activeAdapter: AsOfAdapter = VERSIONING_ENABLED ? apiAdapter : mockAdapter
+export const activeAdapter: AsOfAdapter = VERSIONING_ENABLED
+  ? apiAdapter
+  : mockAdapter
 
-/** Expose flag so components can show debug hints in development. */
 export const isVersioningEnabled = VERSIONING_ENABLED
