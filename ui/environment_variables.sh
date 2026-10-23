@@ -13,6 +13,7 @@ find "$ROOT_DIR" -type f | while read -r file; do
   sed -i "s|/MAP_DEFAULT_BASEMAP|$NEXT_PUBLIC_MAP_DEFAULT_BASEMAP|g" "$file"
   sed -i "s|/MAP_CENTER|$NEXT_PUBLIC_MAP_CENTER|g" "$file"
   sed -i "s|/MAP_ZOOM|$NEXT_PUBLIC_MAP_ZOOM|g" "$file"
+  sed -i "s|/VERSIONING_ENABLED|$NEXT_PUBLIC_VERSIONING_ENABLED|g" "$file"
 done
 
 cd $ROOT_DIR

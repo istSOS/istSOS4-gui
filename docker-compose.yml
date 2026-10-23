@@ -1,7 +1,7 @@
 services:
   istsos4-gui:
     container_name: istsos4-gui
-    image: ghcr.io/istsos/istsos4/gui:1.4
+    image: ghcr.io/istsos/istsos4/gui:1.5
     restart: always
     ports:
       - 2000:3000
@@ -11,6 +11,7 @@ services:
       NEXT_PUBLIC_MAP_CENTER: ${NEXT_PUBLIC_MAP_CENTER}
       NEXT_PUBLIC_MAP_ZOOM: ${NEXT_PUBLIC_MAP_ZOOM}
       NEXT_PUBLIC_MAP_DEFAULT_BASEMAP: ${NEXT_PUBLIC_MAP_DEFAULT_BASEMAP}
+      NEXT_PUBLIC_VERSIONING_ENABLED: ${NEXT_PUBLIC_VERSIONING_ENABLED}
     networks:
      - istsos4-network
      
