@@ -6,7 +6,9 @@ import {
   ISTSOS_QUALITY_SCHEME,
   matchQuality,
   parseResultQuality,
+  qualityConstraintsOf,
   type QualityClass,
+  type QualityConstraint,
   type QualityRuleRef,
   type QualityScheme,
 } from './resultQuality'
@@ -45,6 +47,11 @@ export type GraphSeriesEntry = {
   rows: GraphRow[]
   /** How this series' quality values are read — see `qualitySchemeStore`. */
   qualityScheme: QualityScheme
+  /**
+   * The datastream's constraints, which the bitmask scheme decodes with; null
+   * when they cannot be read. See `qualityConstraintsOf`.
+   */
+  qualityConstraints: QualityConstraint[] | null
   /**
    * ISO-8601 snapshot this series was read at — set only in As-Of *compare*
    * mode, where two series share one datastream and differ only by `$as_of`.
@@ -254,7 +261,8 @@ export function withAlpha(color: string, alpha: number) {
 
 export function buildRows(
   observations: Observation[],
-  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME
+  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME,
+  constraints: QualityConstraint[] | null = []
 ): GraphRow[] {
   const rows: GraphRow[] = []
   for (const obs of Array.isArray(observations) ? observations : []) {
@@ -268,7 +276,7 @@ export function buildRows(
     // the API's default $select for Observation and ObservationTravelTime alike,
     // so a snapshot returns the quality in effect at that instant for free.
     const quality = parseResultQuality(obs?.resultQuality)
-    const match = matchQuality(quality, scheme)
+    const match = matchQuality(quality, scheme, constraints)
     rows.push({
       ts,
       value,
@@ -297,7 +305,8 @@ export function buildSeriesEntries({
   comparisonChartData: GraphRow[]
   /**
    * The scheme each datastream's quality is read under. `chartData` and
-   * `comparisonChartData` must already have been built with the same one.
+   * `comparisonChartData` must already have been built with the same one, and
+   * with that datastream's `qualityConstraintsOf`.
    */
   schemeFor?: (datastream: Datastream | null) => QualityScheme
 }): GraphSeriesEntry[] {
@@ -317,13 +326,16 @@ export function buildSeriesEntries({
       // which is `asOf` unless that snapshot fell back to older data.
       const anchorIso = entry?.anchorIso ?? asOf
       const qualityScheme = schemeFor(ds ?? null)
+      // Each snapshot's own constraints: the value was written against them.
+      const qualityConstraints = qualityConstraintsOf(ds)
       return {
         id: makeSeriesId(dsId, asOf),
         name: dsName,
         unit: dsUnit,
         observedProperty: dsObservedProperty,
-        rows: buildRows(entry?.observations, qualityScheme),
+        rows: buildRows(entry?.observations, qualityScheme, qualityConstraints),
         qualityScheme,
+        qualityConstraints,
         asOf,
         anchorTs: anchorIso ? dayjs.utc(anchorIso).valueOf() : null,
         endpoint: ds?.__sourceEndpoint ?? null,
@@ -340,6 +352,7 @@ export function buildSeriesEntries({
       rows: chartData,
       qualityScheme: schemeFor(datastream),
       endpoint: datastream?.__sourceEndpoint ?? null,
+      qualityConstraints: qualityConstraintsOf(datastream),
     },
     ...(comparisonDatastream
       ? [
@@ -357,6 +370,7 @@ export function buildSeriesEntries({
             rows: comparisonChartData,
             qualityScheme: schemeFor(comparisonDatastream),
             endpoint: comparisonDatastream?.__sourceEndpoint ?? null,
+            qualityConstraints: qualityConstraintsOf(comparisonDatastream),
           },
         ]
       : []),

@@ -5,6 +5,7 @@ import { resolveQualityScheme } from '@/features/observations/lib/qualitySchemeS
 import {
   ISTSOS_QUALITY_SCHEME,
   qualityClassOf,
+  qualityConstraintsOf,
   sameQualityScheme,
 } from '@/features/observations/lib/resultQuality'
 import { Datastream, Observation, Thing } from '@/types/domain'
@@ -89,6 +90,7 @@ export async function buildDatastreamWorkbookPayload({
       // would restate the istSOS convention for every row.
       const { scheme } = resolveQualityScheme(ds)
       const withVerdict = !sameQualityScheme(scheme, ISTSOS_QUALITY_SCHEME)
+      const constraints = qualityConstraintsOf(ds)
 
       const rows = (Array.isArray(result.data) ? result.data : [])
         .slice()
@@ -111,7 +113,13 @@ export async function buildDatastreamWorkbookPayload({
           // number is not.
           resultQuality: formatQualityForExport(obs?.resultQuality),
           ...(withVerdict
-            ? { qualityVerdict: qualityClassOf(obs?.resultQuality, scheme) }
+            ? {
+                qualityVerdict: qualityClassOf(
+                  obs?.resultQuality,
+                  scheme,
+                  constraints
+                ),
+              }
             : {}),
         }))
       const sheet = XLSX.utils.json_to_sheet(rows, {

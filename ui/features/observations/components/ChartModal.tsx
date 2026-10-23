@@ -32,6 +32,7 @@ import {
   type SeriesSource,
 } from '../lib/observationGraphUtils'
 import type { SnapshotMarker } from '../lib/observationGraphOptions'
+import { qualityConstraintsOf } from '../lib/resultQuality'
 import { useQualitySchemeResolver } from '../lib/useQualitySchemes'
 import CustomizeQualityView, {
   type CustomizeQualityHandle,
@@ -299,8 +300,9 @@ export default function ChartModal({
     // two snapshots under different rules would report a rule change as a
     // change in the data.
     const scheme = resolveScheme(datastream).scheme
-    const primaryRows = buildRows(observations, scheme)
-    const compareRows = buildRows(comparisonObservations, scheme)
+    const constraints = qualityConstraintsOf(datastream)
+    const primaryRows = buildRows(observations, scheme, constraints)
+    const compareRows = buildRows(comparisonObservations, scheme, constraints)
     if (primaryRows.length === 0) return none
 
     // Aligned mode gives each snapshot its own window, and comparing values at

@@ -52,12 +52,14 @@ import {
 } from '../../lib/qualitySchemeStore'
 import {
   ISTSOS_QUALITY_SCHEME,
+  qualityConstraintsOf,
   sameQualityScheme,
   tallyQuality,
   type QualityScheme,
 } from '../../lib/resultQuality'
 import { useQualitySchemeResolver } from '../../lib/useQualitySchemes'
 import QualityLegend from '../QualityLegend'
+import BitmaskStep from './BitmaskStep'
 import QualityPreviewChart from './QualityPreviewChart'
 import ReviewStep from './ReviewStep'
 import RulesStep from './RulesStep'
@@ -155,13 +157,19 @@ export default function CustomizeQualityView({
   }, [])
 
   const observations = target?.observations
+  // What the bitmask decodes with. Every step reads it, because the rules in
+  // use may be the bitmask even while the draft is a list of rules.
+  const constraints = useMemo(
+    () => qualityConstraintsOf(target?.datastream),
+    [target?.datastream]
+  )
   const currentRows = useMemo(
-    () => buildRows(observations ?? [], current.scheme),
-    [observations, current.scheme]
+    () => buildRows(observations ?? [], current.scheme, constraints),
+    [observations, current.scheme, constraints]
   )
   const draftRows = useMemo(
-    () => buildRows(observations ?? [], draft),
-    [observations, draft]
+    () => buildRows(observations ?? [], draft, constraints),
+    [observations, draft, constraints]
   )
   const values = useMemo(() => distinctStoredValues(draftRows), [draftRows])
   const currentTally = useMemo(() => tallyQuality(currentRows), [currentRows])
@@ -177,8 +185,9 @@ export default function CustomizeQualityView({
       observedProperty: String(ds?.ObservedProperty?.name ?? ''),
       rows: draftRows,
       qualityScheme: draft,
+      qualityConstraints: constraints,
     }
-  }, [target, draftRows, draft])
+  }, [target, draftRows, draft, constraints])
 
   if (!target) return null
 
@@ -326,7 +335,13 @@ export default function CustomizeQualityView({
         className="mt-1.5 flex shrink-0 gap-1 overflow-x-auto border-b border-default-200"
       >
         {STEPS.map(({ step: value, key }) =>
-          stepTab(value, key, step > value, step === value)
+          stepTab(
+            value,
+            // The bitmask has no rules: its second step shows the decoding.
+            key === 'rules' && draft.kind === 'bitmask' ? 'decode' : key,
+            step > value,
+            step === value
+          )
         )}
       </nav>
 
@@ -337,21 +352,31 @@ export default function CustomizeQualityView({
             currentScheme={current.scheme}
             draftScheme={draft}
             values={values}
+            constraints={constraints}
             onChoose={(next, scheme) => {
               setChoice(next)
               setDraft(clone(scheme))
             }}
           />
         )}
-        {step === 2 && (
-          <RulesStep
-            draftScheme={draft}
-            currentScheme={current.scheme}
-            draftRows={draftRows}
-            values={values}
-            onChange={editDraft}
-          />
-        )}
+        {step === 2 &&
+          (draft.kind === 'bitmask' ? (
+            <BitmaskStep
+              draftScheme={draft}
+              draftRows={draftRows}
+              values={values}
+              constraints={constraints}
+            />
+          ) : (
+            <RulesStep
+              draftScheme={draft}
+              currentScheme={current.scheme}
+              draftRows={draftRows}
+              values={values}
+              constraints={constraints}
+              onChange={editDraft}
+            />
+          ))}
         {step === 3 && (
           <ReviewStep
             currentScheme={current.scheme}
@@ -359,6 +384,7 @@ export default function CustomizeQualityView({
             currentTally={currentTally}
             draftTally={draftTally}
             values={values}
+            constraints={constraints}
             scope={scope}
             datastreamName={datastreamLabel(target.datastream)}
             sourceName={sourceLabel(target.datastream)}

@@ -36,7 +36,9 @@ import { formatSnapshotLabel } from '../lib/observationGraphUtils'
 import {
   QUALITY_CLASSES,
   QUALITY_COLORS,
+  isPassing,
   judgedCount,
+  passedCount,
   qualityLabel,
   type QualityScheme,
   type QualityTally,
@@ -106,18 +108,25 @@ export default function QualityLegend({
           // "0% pass" would be a verdict. A window nothing has checked has not
           // failed — it has not been judged, and the summary has to say so, for
           // the snapshot it describes: a snapshot taken before a QC pass ran has
-          // no values even though live data may.
+          // no values even though live data may. Raw data under the bitmask
+          // has values all the same, just none that is a verdict yet.
+          const valued = total > lane.tally.none
           const summary = judged
             ? t('quality.summary', {
                 count: total,
-                percent: Math.round((lane.tally.pass / judged) * 100),
+                percent: Math.round((passedCount(lane.tally) / judged) * 100),
               })
             : lane.asOf
-              ? t('quality.no_values_as_of', {
-                  count: total,
-                  date: formatSnapshotLabel(lane.asOf),
-                })
-              : t('quality.no_values_live', { count: total })
+              ? t(
+                  valued
+                    ? 'quality.none_checked_as_of'
+                    : 'quality.no_values_as_of',
+                  { count: total, date: formatSnapshotLabel(lane.asOf) }
+                )
+              : t(
+                  valued ? 'quality.none_checked_live' : 'quality.no_values_live',
+                  { count: total }
+                )
 
           return (
             <div
@@ -137,7 +146,7 @@ export default function QualityLegend({
                   : 0
                 // More passing is the good direction; more of anything else is
                 // not. Colour follows that, and the sign carries it without.
-                const improves = key === 'pass' ? delta > 0 : delta < 0
+                const improves = isPassing(key) ? delta > 0 : delta < 0
                 return (
                   <span
                     key={key}

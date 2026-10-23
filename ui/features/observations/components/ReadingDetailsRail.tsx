@@ -36,10 +36,17 @@ import CommitAuthor from '@/features/users/components/CommitAuthor'
 import type { RecordCommit } from '@/types/domain'
 
 import {
+  OASI_SCORES,
   QUALITY_COLORS,
+  QUALITY_STATUS_COLORS,
+  decodeResultQuality,
+  describeConstraint,
   describeRuleCondition,
   qualityLabel,
+  type OasiQualityClass,
+  type QualityCheck,
   type QualityClass,
+  type QualityConstraint,
   type QualityRuleRef,
   type QualityScheme,
 } from '../lib/resultQuality'
@@ -65,6 +72,8 @@ export type ReadingDetailsEntry = {
   quality: number | null
   /** The scheme the verdict was reached under, and the rule of it that did. */
   qualityScheme: QualityScheme
+  /** The datastream's constraints, which a bitmask value is decoded with. */
+  qualityConstraints: QualityConstraint[] | null
   qualityRule: QualityRuleRef
   /**
    * True when the scheme is the viewer's own. Only then is the rule worth a
@@ -102,6 +111,62 @@ function Row({
         {children}
       </dd>
     </>
+  )
+}
+
+/**
+ * Whether the entry gets a quality line. Under the bitmask a value with no OASI
+ * score still says something — filled data, say — so it is shown regardless.
+ */
+const showsQuality = (entry: ReadingDetailsEntry) =>
+  entry.qualityClass !== 'none' ||
+  (entry.qualityScheme.kind === 'bitmask' && entry.quality !== null)
+
+/**
+ * What each pair of a bitmask value says, one line per pair, in the
+ * maintainers' status colours — the reason behind the OASI score above it.
+ */
+function BitmaskChecks({ entry }: { entry: ReadingDetailsEntry }) {
+  const { t } = useTranslation()
+  const constraints = entry.qualityConstraints
+  if (entry.quality === null) return null
+  if (!constraints) {
+    return (
+      <span className="opacity-70">
+        {t('quality.bitmask.constraints_unreadable')}
+      </span>
+    )
+  }
+  const checks = decodeResultQuality(entry.quality, constraints)
+  if (!checks) {
+    return (
+      <span className="opacity-70">
+        {t('quality.bitmask.does_not_fit', { count: constraints.length })}
+      </span>
+    )
+  }
+  const name = (check: QualityCheck) =>
+    check.kind === 'data'
+      ? t('quality.bitmask.data_state')
+      : check.kind === 'human'
+        ? t('quality.bitmask.human_review')
+        : `#${check.id} ${describeConstraint(check.constraint!)}`
+  return (
+    <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
+      {checks.map((check) => (
+        <li key={check.id} className="flex items-baseline gap-1.5">
+          <span
+            aria-hidden
+            className="inline-block h-2 w-2 shrink-0 translate-y-[1px] rounded-[2px]"
+            style={{ backgroundColor: QUALITY_STATUS_COLORS[check.status] }}
+          />
+          <span className="min-w-0">
+            <span className="opacity-70">{name(check)}:</span>{' '}
+            {t(`quality.status.${check.status}`)}
+          </span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -174,7 +239,7 @@ export default function ReadingDetailsRail({
                   reader assemble it. The raw code rides along because the 100
                   index is a convention, not something the record asserts — and
                   anyone debugging an ingest needs the number actually stored. */}
-              {entry.qualityClass !== 'none' && (
+              {showsQuality(entry) && (
                 <Row label={t('quality.label')}>
                   <span className="inline-flex items-center gap-1.5">
                     <span
@@ -191,16 +256,29 @@ export default function ReadingDetailsRail({
                   </span>
                 </Row>
               )}
-              {entry.qualityClass !== 'none' && entry.qualityCustom && (
-                <Row label={t('quality.rule')}>
-                  {typeof entry.qualityRule === 'number' &&
-                  entry.qualityScheme.rules[entry.qualityRule]
-                    ? `#${entry.qualityRule + 1} · ${describeRuleCondition(
-                        entry.qualityScheme.rules[entry.qualityRule]
-                      )}`
-                    : t('quality.rule_fallback')}
+              {entry.qualityClass in OASI_SCORES && (
+                <Row label={t('quality.oasi')}>
+                  {OASI_SCORES[entry.qualityClass as OasiQualityClass].score} ·{' '}
+                  {OASI_SCORES[entry.qualityClass as OasiQualityClass].level}
                 </Row>
               )}
+              {entry.qualityScheme.kind === 'bitmask' && showsQuality(entry) && (
+                <Row label={t('quality.checks')}>
+                  <BitmaskChecks entry={entry} />
+                </Row>
+              )}
+              {entry.qualityScheme.kind !== 'bitmask' &&
+                entry.qualityClass !== 'none' &&
+                entry.qualityCustom && (
+                  <Row label={t('quality.rule')}>
+                    {typeof entry.qualityRule === 'number' &&
+                    entry.qualityScheme.rules[entry.qualityRule]
+                      ? `#${entry.qualityRule + 1} · ${describeRuleCondition(
+                          entry.qualityScheme.rules[entry.qualityRule]
+                        )}`
+                      : t('quality.rule_fallback')}
+                  </Row>
+                )}
 
               <Row label={t('as_of.chart.commit.measured')}>
                 {/* On the aligned axis the series share an offset but sit at

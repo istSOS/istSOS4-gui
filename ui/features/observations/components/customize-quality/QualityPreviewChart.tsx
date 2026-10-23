@@ -102,10 +102,14 @@ export default function QualityPreviewChart({
       ],
       tooltip: (row) => {
         const before = currentByTs.get(row.ts)
+        const decided =
+          draftScheme.kind !== 'bitmask' && typeof row.qualityRule === 'number'
+            ? draftScheme.rules[row.qualityRule]
+            : undefined
         const rule =
-          typeof row.qualityRule === 'number' && draftScheme.rules[row.qualityRule]
+          decided && typeof row.qualityRule === 'number'
             ? ` <span style="opacity:0.6">#${row.qualityRule + 1} · ${escapeHtml(
-                describeRuleCondition(draftScheme.rules[row.qualityRule])
+                describeRuleCondition(decided)
               )}</span>`
             : row.qualityRule === 'fallback'
               ? ` <span style="opacity:0.6">${escapeHtml(t('quality.rule_fallback'))}</span>`
