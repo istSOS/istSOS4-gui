@@ -24,7 +24,11 @@ import {
   firstValidAsOf,
   lastValidAsOf,
 } from '@/features/as-of/lib/existenceBounds'
-import type { ExistenceState } from '@/features/as-of/hooks/useAsOfThing'
+import type {
+  ExistenceRange,
+  ExistenceState,
+} from '@/features/as-of/hooks/useAsOfThing'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
 
 dayjs.extend(utc)
 
@@ -37,7 +41,9 @@ function fmt(iso: string | null): string {
 type Props = {
   thingName: string
   existenceState: ExistenceState
-  existenceRange: { createdAt: string | null; deletedAt: string | null }
+  existenceRange: ExistenceRange
+  /** The Thing's data source, where the deleting user is looked up. */
+  endpoint?: string | null
   onDismiss: () => void
 }
 
@@ -52,6 +58,7 @@ export default function AsOfExistenceDialog({
   thingName,
   existenceState,
   existenceRange,
+  endpoint,
   onDismiss,
 }: Props) {
   // Stateless — parent (Home.tsx) fully controls whether this mounts.
@@ -72,12 +79,33 @@ export default function AsOfExistenceDialog({
     ? firstValidAsOf(existenceRange.createdAt)
     : lastValidAsOf(existenceRange.deletedAt)
 
+  // What the version history says about how the Thing ended — the same rule
+  // the history page applies (lib/deletion). Without it, only "no data after"
+  // can honestly be said.
+  const deletion = isNotYet ? null : (existenceRange.deletion ?? null)
+
   const headline = isNotYet
     ? t('as_of.existence.no_data_before')
-    : t('as_of.existence.no_data_after')
+    : deletion
+      ? t('as_of.existence.deleted_headline')
+      : t('as_of.existence.no_data_after')
   const detail = isNotYet
     ? t('as_of.existence.detail_before', { name: thingName, date: fmt(existenceRange.createdAt) })
-    : t('as_of.existence.detail_after', { name: thingName, date: fmt(existenceRange.deletedAt) })
+    : deletion
+      ? t('as_of.existence.deleted_detail', { name: thingName, date: fmt(deletion.at) })
+      : t('as_of.existence.detail_after', { name: thingName, date: fmt(existenceRange.deletedAt) })
+  // A recorded deletion says why, in its commit; an inferred one can only say
+  // how it was deduced.
+  const provenance = deletion?.recorded
+    ? [
+        deletion.commit?.message ? `“${deletion.commit.message}”` : null,
+        deletion.commit?.['@iot.id'] != null
+          ? t('deletion.commit', { id: deletion.commit['@iot.id'] })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : t('deletion.inferred_hint')
   const jumpLabel = isNotYet
     ? t('as_of.existence.jump_earliest')
     : t('as_of.existence.jump_latest')
@@ -157,6 +185,45 @@ export default function AsOfExistenceDialog({
               }}>
                 {detail}
               </p>
+              {deletion && (
+                <p style={{
+                  margin: '6px 0 0',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  gap: '4px 6px',
+                  fontSize: '11px',
+                  color: '#475569',
+                  lineHeight: 1.5,
+                }}>
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    letterSpacing: '0.03em',
+                    borderRadius: 4,
+                    padding: '0 5px',
+                    color: deletion.recorded ? '#0b6b46' : '#8a4f06',
+                    background: deletion.recorded ? '#e3f3ea' : '#fdf3e3',
+                    border: `1px solid ${deletion.recorded ? '#b9e0c9' : '#f0d9b0'}`,
+                  }}>
+                    {deletion.recorded ? t('deletion.recorded') : t('deletion.inferred')}
+                  </span>
+                  <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                    {provenance}
+                    {deletion.recorded && deletion.commit?.author && (
+                      <>
+                        {' · '}
+                        {t('as_of.scrubber.by')}{' '}
+                        <CommitAuthor
+                          author={deletion.commit.author}
+                          endpoint={endpoint}
+                          className="font-semibold"
+                        />
+                      </>
+                    )}
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* ✕ close */}

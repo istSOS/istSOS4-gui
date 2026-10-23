@@ -349,6 +349,7 @@ export default function Home({
           thingName={String(selectedThing.name ?? '')}
           existenceState={existenceState}
           existenceRange={existenceRange}
+          endpoint={selectedThing.__sourceEndpoint}
           onDismiss={() => setExistenceDialogDismissed(true)}
         />
       )}

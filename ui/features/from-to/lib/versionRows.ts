@@ -200,33 +200,3 @@ export function sortVersions(versions: EntityVersion[]): EntityVersion[] {
     return Number(a.commit?.['@iot.id'] ?? 0) - Number(b.commit?.['@iot.id'] ?? 0)
   })
 }
-
-/**
- * Whether the entity no longer exists, as far as this window can tell.
- *
- * A deletion leaves no readable version of its own: the row carrying the DELETE
- * commit is written with an empty range, which never satisfies the `&&` that
- * `$from_to` compiles to. Verified by driving the triggers against a local
- * istSOS4 — a deleted Thing returns exactly one row, closed, and carrying the
- * commit *before* the delete.
- *
- * What is left is structural: an edit always leaves a successor still in force,
- * a deletion leaves none. So a newest version with a closed end means the
- * entity is gone — but only if the window reaches the present, since a window
- * that ends in the past closes the last version for an ordinary entity too.
- */
-export function looksDeleted(
-  versions: EntityVersion[],
-  windowEndsAtPresent: boolean,
-  /**
-   * True when the window holds more versions than were fetched. The inference
-   * rests entirely on holding the *newest* version, so a truncated history
-   * cannot support it: reading the oldest 100 of 120 leaves a closed-ended last
-   * row for a perfectly live entity, which reported a busy station as deleted.
-   */
-  truncated = false,
-): boolean {
-  if (truncated || !windowEndsAtPresent || versions.length === 0) return false
-  const newest = versions[versions.length - 1]
-  return newest.validity.end !== null
-}

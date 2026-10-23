@@ -52,9 +52,12 @@ import {
   validateWindow,
   type HistoryWindow,
 } from '@/features/from-to/lib/historyWindow'
+import { isDeletionRecord } from '@/lib/deletion'
 import { parseValidity } from '@/lib/systemTimeValidity'
 import {
+  dedupeVersions,
   readVersions,
+  sortVersions,
   type EntityVersion,
 } from '@/features/from-to/lib/versionRows'
 import {
@@ -65,6 +68,14 @@ import {
 
 /** `$expand=Commit` is the only expand `$from_to` accepts. */
 const COMMIT_EXPAND = 'Commit'
+
+/**
+ * Rows in force for no time at all — in practice, the row a delete writes (see
+ * `lib/deletion.ts`). Both filters are accepted by a local istSOS4 and by
+ * hydromet.supsi.ch; filtering on `Commit/actionType` instead answers 500.
+ */
+const ZERO_LENGTH = 'lower(systemTimeValidity) eq upper(systemTimeValidity)'
+const NOT_ZERO_LENGTH = 'lower(systemTimeValidity) ne upper(systemTimeValidity)'
 
 /** Matches the API's own default page size (TOP_VALUE). */
 export const DEFAULT_PAGE_SIZE = 100
@@ -198,15 +209,58 @@ export async function fetchEntityHistory(
 
   const body = payload as Record<string, unknown>
   const count = body['@iot.count']
+  const hasMore = typeof body['@iot.nextLink'] === 'string'
+  let versions = readVersions(body.value)
+
+  // A history longer than one page ends on a later page, so the row a delete
+  // writes — always the newest — is not among these. It is read on its own, so
+  // the page can still say the entity was deleted, when, and by which commit.
+  if (hasMore && entityIdOf(path) && !versions.some(isDeletionRecord)) {
+    const deletionRows = await fetchDeletionRows(endpoint, path, window, headers)
+    versions = sortVersions(dedupeVersions([...versions, ...deletionRows]))
+  }
 
   return {
     kind: 'history',
-    versions: readVersions(body.value),
+    versions,
     path,
     entitySet: entitySetOf(path),
     entityId: entityIdOf(path),
-    hasMore: typeof body['@iot.nextLink'] === 'string',
+    hasMore,
     total: typeof count === 'number' ? count : null,
+  }
+}
+
+/**
+ * The row a delete wrote inside the window, read on its own.
+ *
+ * Best effort, like every extra read on this page: on any failure the page
+ * goes without, and a deletion it cannot see is simply not claimed.
+ */
+async function fetchDeletionRows(
+  endpoint: string,
+  path: string,
+  window: HistoryWindow,
+  headers: Record<string, string>,
+): Promise<EntityVersion[]> {
+  const fromTo = formatWindow(window)
+  if (!fromTo) return []
+
+  const url =
+    `${endpoint}/${path}` +
+    `?$from_to=${encodeURIComponent(fromTo)}` +
+    `&$filter=${encodeURIComponent(ZERO_LENGTH)}` +
+    `&$expand=${COMMIT_EXPAND}` +
+    `&$top=1`
+
+  try {
+    const response = await fetch(url, { headers, cache: 'no-store' })
+    if (!response.ok) return []
+    const payload = await response.json().catch(() => null)
+    const rows = (payload as Record<string, unknown> | null)?.value
+    return readVersions(rows).filter(isDeletionRecord)
+  } catch {
+    return []
   }
 }
 
@@ -496,10 +550,12 @@ async function readCount(
  * `E`, so its deletion counts as one change. Unchanged children contribute 0.
  * `V − E` is therefore every edit and deletion in the window — checked against
  * the database itself at full precision, e.g. Datastream 7's 6057 versions
- * (4041 both ways). The window is `[from, T)`, end excluded, exactly as the
- * API's `$from_to` compiles it (`tstzrange(from, to)`), and `$as_of T` reads
- * the state that holds just after it, so a change landing at `T` itself is
- * outside the window in both counts.
+ * (4041 both ways). Since istSOS4 `d617df3` a deleted child also leaves the row
+ * its delete wrote, which would count the deletion twice; it is the one row in
+ * force for no time at all, so `V` leaves those out. The window is `[from, T)`,
+ * end excluded, exactly as the API's `$from_to` compiles it
+ * (`tstzrange(from, to)`), and `$as_of T` reads the state that holds just after
+ * it, so a change landing at `T` itself is outside the window in both counts.
  *
  * It counts changes, not distinct children: one Observation edited twice is 2.
  * Counting distinct ones would mean reading every version, because the API
@@ -533,10 +589,13 @@ export async function fetchChangeCount(
   const scope =
     `&$filter=${encodeURIComponent(`${column} eq ${id}`)}` +
     `&$count=true&$top=1&$select=@iot.id`
+  const versionScope =
+    `&$filter=${encodeURIComponent(`${column} eq ${id} and ${NOT_ZERO_LENGTH}`)}` +
+    `&$count=true&$top=1&$select=@iot.id`
 
   const [versions, existing] = await Promise.all([
     readCount(
-      `${endpoint}/${childSet}?$from_to=${encodeURIComponent(fromTo)}${scope}`,
+      `${endpoint}/${childSet}?$from_to=${encodeURIComponent(fromTo)}${versionScope}`,
       headers,
     ),
     readCount(

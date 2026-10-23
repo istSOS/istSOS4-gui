@@ -409,6 +409,8 @@
       "no_data_after": "Nessun dato dopo questa data",
       "detail_before": "\"{{name}}\" non ha dati prima del {{date}}.",
       "detail_after": "\"{{name}}\" non ha dati dopo il {{date}}.",
+      "deleted_headline": "Eliminato prima di questa data",
+      "deleted_detail": "\"{{name}}\" è stato eliminato il {{date}}.",
       "jump_earliest": "Vai al dato più vecchio",
       "jump_latest": "Vai al dato più recente",
       "dismiss": "Chiudi"
@@ -464,6 +466,7 @@
       "copied": "Link copiato",
       "present": "adesso",
       "deleted": "Non esiste più",
+      "deleted_on": "Eliminato il {{date}}",
       "bad_window": "Questo link ha un intervallo non utilizzabile",
       "load_failed": "Impossibile leggere la cronologia",
       "empty_title": "Nessuna versione in questo intervallo",
@@ -481,6 +484,7 @@
       "band_label": "Versione {{number}}, valida dal {{start}}",
       "held": "durata {{duration}}",
       "open": "attuale",
+      "deleted_at": "Eliminato {{date}}",
       "present": "Adesso · versione ancora valida"
     },
     "rail": {
@@ -527,6 +531,13 @@
       "no_match_title": "Nessun campo corrisponde al filtro",
       "no_match_body": "Cancella il filtro per vedere tutti i {{count}} campi modificati."
     }
+  },
+  "deletion": {
+    "deleted": "Eliminato",
+    "recorded": "Registrata",
+    "inferred": "Dedotta",
+    "inferred_hint": "Dedotta: l'ultima versione termina qui e nessuna l'ha sostituita.",
+    "commit": "commit #{{id}}"
   },
   "quality": {
     "label": "Qualità",

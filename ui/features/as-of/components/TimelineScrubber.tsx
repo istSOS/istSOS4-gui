@@ -65,7 +65,19 @@ function CommitTick({
   isActive: boolean
   onClick: () => void
 }) {
+  const { t } = useTranslation()
   const label = dayjs.utc(commit.authoredAt).format('MMM D')
+
+  // The tick where the Thing was deleted is red, and dashed when the history
+  // only implies the deletion rather than recording it (lib/deletion).
+  const deleted = !!commit.deletion
+  const inferred = commit.deletion === 'inferred'
+  const color = deleted
+    ? isActive ? '#f87171' : 'rgba(248,113,113,0.75)'
+    : isActive ? '#f59e0b' : 'rgba(251,191,36,0.45)'
+  const title = deleted
+    ? [t('deletion.deleted'), inferred ? t('deletion.inferred') : commit.message].join(' · ')
+    : commit.message
 
   return (
     <div
@@ -82,10 +94,11 @@ function CommitTick({
         style={{
           position: 'absolute',
           top: '50%',
-          width: '2px',
+          width: inferred ? 0 : '2px',
           height: '14px',
           transform: 'translateY(-50%)',
-          background: isActive ? '#f59e0b' : 'rgba(251,191,36,0.45)',
+          background: inferred ? 'transparent' : color,
+          borderLeft: inferred ? `2px dashed ${color}` : undefined,
           borderRadius: '1px',
           pointerEvents: 'none',
         }}
@@ -93,7 +106,7 @@ function CommitTick({
       {/* clickable label below the track */}
       <button
         onClick={onClick}
-        title={commit.message}
+        title={title}
         style={{
           position: 'absolute',
           bottom: '-2px',
@@ -109,7 +122,7 @@ function CommitTick({
             display: 'inline-block',
             fontSize: '9px',
             fontWeight: isActive ? 700 : 500,
-            color: isActive ? '#f59e0b' : 'rgba(251,191,36,0.7)',
+            color: deleted ? color : isActive ? '#f59e0b' : 'rgba(251,191,36,0.7)',
             whiteSpace: 'nowrap',
             transform: 'translateX(-50%)',
           }}
@@ -242,7 +255,10 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
               }}
             >
               {commits.length > 0
-                ? t('as_of.scrubber.commits_count', { count: commits.length })
+                ? t('as_of.scrubber.commits_count', {
+                    // An inferred deletion has a tick but no commit behind it.
+                    count: commits.filter((commit) => commit.deletion !== 'inferred').length,
+                  })
                 : t('as_of.scrubber.no_history')}
             </span>
             {activeCommit && (

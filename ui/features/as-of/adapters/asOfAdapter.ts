@@ -42,6 +42,7 @@ import {
   getAllDataSourceTokens,
   getDataSourceToken,
 } from '@/lib/dataSourceTokens'
+import { resolveDeletion, type Deletion } from '@/lib/deletion'
 
 dayjs.extend(utc)
 
@@ -56,14 +57,27 @@ export type AsOfCommit = {
   message: string
   /** The commit's `author` URI, e.g. `/Users(1)`; absent when unknown. */
   author?: string
+  /**
+   * Set on the tick where the Thing was deleted: `recorded` when the history
+   * holds the DELETE row, `inferred` when its last version just ends.
+   */
+  deletion?: 'recorded' | 'inferred'
 }
 
 export type ExistenceState = 'exists' | 'not-yet-created' | 'deleted'
 
+/** When a Thing came to exist and stopped existing, in transaction time. */
+export type ExistenceRange = {
+  createdAt: string | null
+  deletedAt: string | null
+  /** How it was deleted, when its version history says so (lib/deletion). */
+  deletion?: Deletion | null
+}
+
 export type ResolvedThing = {
   thing: Thing | null
   existenceState: ExistenceState
-  existenceRange: { createdAt: string | null; deletedAt: string | null }
+  existenceRange: ExistenceRange
 }
 
 /** Every Thing the map should draw at one instant. */
@@ -418,7 +432,30 @@ function withSourceMeta(resolved: Thing, live: Thing): Thing {
 type BackendVersion = {
   start: string
   end: string | null
+  /** Bounds print alike; with a DELETE commit, the row a delete writes. */
+  degenerate?: boolean
   commit: BackendCommit | null
+}
+
+/**
+ * The versions, oldest first, in the shape the shared deletion rule reads.
+ *
+ * The routes read the whole history — every page, over a window reaching past
+ * the present — so the rule may also infer a deletion from a closed last
+ * version, exactly as the history page does for a window that reaches today.
+ */
+function resolveVersions(versions: BackendVersion[]) {
+  const rows = versions
+    .map((version) => ({
+      ...version,
+      validity: {
+        start: version.start,
+        end: version.end,
+        degenerate: !!version.degenerate,
+      },
+    }))
+    .sort((a, b) => dayjs.utc(a.start).valueOf() - dayjs.utc(b.start).valueOf())
+  return resolveDeletion(rows, true)
 }
 
 /**
@@ -430,26 +467,15 @@ type BackendVersion = {
  * The versions come from the `Thing_traveltime` view, which retains a deleted
  * Thing's rows — so unlike the commits collection (which reads the current
  * table, and is empty once a Thing is gone) this can actually observe a
- * deletion. The last version's closed `end` IS the instant the Thing stopped
- * existing; a trailing DELETE commit is the coarser cross-check behind it.
+ * deletion: the DELETE row when the backend writes one, otherwise the closed
+ * end of the last version (see lib/deletion).
  */
-function existenceRangeFromVersions(versions: BackendVersion[]): {
-  createdAt: string | null
-  deletedAt: string | null
-} {
-  if (versions.length === 0) return { createdAt: null, deletedAt: null }
-  const sorted = [...versions].sort(
-    (a, b) => dayjs.utc(a.start).valueOf() - dayjs.utc(b.start).valueOf()
-  )
-  const last = sorted[sorted.length - 1]
-  const deletedByCommit =
-    String(last.commit?.actionType ?? '').toUpperCase() === 'DELETE'
-      ? (last.commit?.date ?? null)
-      : null
+function existenceRangeFromVersions(versions: BackendVersion[]): ExistenceRange {
+  const { versions: lived, deletion } = resolveVersions(versions)
   return {
-    createdAt: sorted[0]?.start ?? null,
-    // A still-current version has an open end; only a closed one is a deletion.
-    deletedAt: last.end ?? deletedByCommit,
+    createdAt: lived[0]?.start ?? null,
+    deletedAt: deletion?.at ?? null,
+    deletion,
   }
 }
 
@@ -542,8 +568,11 @@ const apiAdapter: AsOfAdapter = {
     // collection: istSOS4's `/Commits` returns only the commit of the *current*
     // version, so an edited Thing would look like it has no history before its
     // last edit — collapsing the scrubber to the span since that edit. Each
-    // version start is a real change, and carries the commit that made it.
-    const versionTicks = (payload.versions ?? [])
+    // version start is a real change, and carries the commit that made it. A
+    // delete's own row is not a version: it is split off here and becomes the
+    // deletion tick below.
+    const { versions: lived, deletion } = resolveVersions(payload.versions ?? [])
+    const versionTicks = lived
       .filter((version) => !!version?.start)
       .map((version) => ({
         id:
@@ -560,7 +589,7 @@ const apiAdapter: AsOfAdapter = {
         author: version.commit?.author,
       }))
 
-    const ticks = versionTicks.length
+    const ticks: AsOfCommit[] = versionTicks.length
       ? versionTicks
       : (payload.commits ?? [])
           .filter((commit) => !!commit?.date)
@@ -571,6 +600,21 @@ const apiAdapter: AsOfAdapter = {
             message: commit.message,
             author: commit.author,
           }))
+
+    // How the Thing ended is a change too. Landing on its tick shows the Thing
+    // gone, just as every other tick shows the result of its change.
+    if (deletion) {
+      ticks.push({
+        id: deletion.commit?.['@iot.id'] != null
+          ? String(deletion.commit['@iot.id'])
+          : `d:${deletion.at}`,
+        authoredAt: deletion.at,
+        // Free backend text, like the version ticks above.
+        message: deletion.commit?.message ?? 'Deleted',
+        author: deletion.commit?.author,
+        deletion: deletion.recorded ? 'recorded' : 'inferred',
+      })
+    }
 
     // Where the Thing stood changes without a Thing version (see
     // fetchThingLocationChanges), so those changes are ticks of their own. A

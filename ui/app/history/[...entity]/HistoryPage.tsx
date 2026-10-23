@@ -58,10 +58,8 @@ import {
   reachesPresent,
   type HistoryWindow,
 } from '@/features/from-to/lib/historyWindow'
-import {
-  looksDeleted,
-  type EntityVersion,
-} from '@/features/from-to/lib/versionRows'
+import { type EntityVersion } from '@/features/from-to/lib/versionRows'
+import { resolveDeletion, type Deletion } from '@/lib/deletion'
 import {
   isVersionedSet,
   singularOf,
@@ -112,8 +110,20 @@ export default function HistoryPage({
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
 
-  const { versions, loading, error, hasMore, total } = useEntityHistory(path, window)
+  const { versions: rows, loading, error, hasMore, total } = useEntityHistory(path, window)
   const related = useRelatedEntities(path, window)
+
+  /**
+   * The versions to compare, and how the entity ended — by the same rule As-Of
+   * uses (lib/deletion). A delete's own row is split off rather than listed:
+   * it repeats the last state, so as a version it would diff as "no changes".
+   * A closed last version is only read as a deletion when the window reaches
+   * the present and no rows lie beyond this page.
+   */
+  const { versions, deletion } = useMemo(
+    () => resolveDeletion(rows, !!window && reachesPresent(window) && !hasMore),
+    [rows, window, hasMore],
+  )
 
   /**
    * Which two versions are being compared, as positions in `versions`.
@@ -243,6 +253,10 @@ export default function HistoryPage({
     [entitySet, versions],
   )
 
+  /** Versions in the window; the API counts a delete's own row with them. */
+  const versionTotal =
+    typeof total === 'number' && deletion?.recorded ? total - 1 : total
+
   /**
    * Whether the window holds more versions than were returned.
    *
@@ -250,13 +264,7 @@ export default function HistoryPage({
    * so both have to be present before the truncated wording is used.
    */
   const truncated =
-    hasMore && typeof total === 'number' && total > versions.length
-
-  const deleted = useMemo(
-    () =>
-      window ? looksDeleted(versions, reachesPresent(window), truncated) : false,
-    [versions, window, truncated],
-  )
+    hasMore && typeof versionTotal === 'number' && versionTotal > versions.length
 
   const copyLink = () => {
     navigator.clipboard?.writeText(globalThis.location.href).then(
@@ -320,7 +328,7 @@ export default function HistoryPage({
                 {kind}
               </span>
             )}
-            {deleted && (
+            {deletion && (
               <span className="rounded-md border border-danger/30 bg-danger/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-danger">
                 {t('from_to.page.deleted')}
               </span>
@@ -337,7 +345,7 @@ export default function HistoryPage({
               : truncated
                 ? t('from_to.page.version_count_truncated', {
                     shown: versions.length,
-                    total,
+                    total: versionTotal,
                   })
                 : t('from_to.page.version_count', { count: versions.length })}
           </p>
@@ -403,6 +411,8 @@ export default function HistoryPage({
             />
 
             <div className="min-w-0">
+              {deletion && <DeletionNotice deletion={deletion} />}
+
               {/* The compare row leads: it is the one control for choosing the
                   two sides, and the timeline below only shows where they sit. */}
               <CompareBar
@@ -420,6 +430,7 @@ export default function HistoryPage({
 
               <VersionTimeline
                 versions={versions}
+                deletion={deletion}
                 windowEnd={window!.to}
                 indexA={indexA}
                 indexB={indexB}
@@ -444,6 +455,7 @@ export default function HistoryPage({
 
             <VersionRail
               versions={versions}
+              deletion={deletion}
               indexA={indexA}
               indexB={indexB}
               onPick={pickVersion}
@@ -504,6 +516,60 @@ function VersionDetail({
         </div>
       ))}
     </dl>
+  )
+}
+
+/**
+ * How the entity ended, above the comparison: when, and either the commit that
+ * deleted it or how the deletion was deduced. Worded like As-Of's existence
+ * dialog, from the same rule.
+ */
+function DeletionNotice({ deletion }: { deletion: Deletion }) {
+  const { t } = useTranslation()
+  const commit = deletion.commit
+
+  return (
+    <div className="border-b border-default-100 px-4 py-3">
+      <div className="rounded-lg border border-danger/30 bg-danger/5 px-3.5 py-2.5">
+        <p className="text-small font-semibold text-danger">
+          {t('from_to.page.deleted_on', { date: formatInstant(deletion.at) })}
+        </p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-tiny text-default-600">
+          <span
+            className={[
+              'rounded border px-1.5 py-px text-[9.5px] font-bold tracking-wide',
+              deletion.recorded
+                ? 'border-success/30 bg-success/10 text-success'
+                : 'border-warning/30 bg-warning/10 text-warning',
+            ].join(' ')}
+          >
+            {deletion.recorded ? t('deletion.recorded') : t('deletion.inferred')}
+          </span>
+          <span className="min-w-0 [overflow-wrap:anywhere]">
+            {deletion.recorded ? (
+              <>
+                {[
+                  commit?.message ? `“${commit.message}”` : null,
+                  commit?.['@iot.id'] != null
+                    ? t('deletion.commit', { id: commit['@iot.id'] })
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+                {commit?.author && (
+                  <>
+                    {' · '}
+                    <CommitAuthor author={commit.author} className="font-semibold" />
+                  </>
+                )}
+              </>
+            ) : (
+              t('deletion.inferred_hint')
+            )}
+          </span>
+        </p>
+      </div>
+    </div>
   )
 }
 

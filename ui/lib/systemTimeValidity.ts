@@ -26,19 +26,21 @@
  * Two shapes are *not* the obvious ones and are why this lives in one place:
  *
  * 1. A bare timestamp with no `/`. `visitors.py` formats the column that way
- *    when the range's bounds are equal, i.e. a version that was in force for
- *    zero time. Splitting on `/` and taking `[1]` yields `undefined` there,
- *    which reads as "no upper bound" — the exact opposite of the truth. Such a
- *    version must never be shown as current, so it is returned with
+ *    when the range's bounds are equal, i.e. a row in force for zero time —
+ *    which is what a delete writes since istSOS4 `d617df3` (see
+ *    `lib/deletion.ts`). Splitting on `/` and taking `[1]` yields `undefined`
+ *    there, which reads as "no upper bound" — the exact opposite of the truth.
+ *    Such a row must never be shown as current, so it is returned with
  *    `start === end` and `degenerate: true` rather than as open-ended.
  *
  * 2. `null`, or the literal `"empty"`. An empty Postgres range has NULL bounds,
- *    so `to_char()` yields NULL and the field arrives as JSON null. This is not
- *    hypothetical: deleting an entity writes exactly such a row (the DELETE
- *    branch of `istsos_mutate_history()` closes the range at its own lower
- *    bound). Those rows are unreachable through `$from_to` — the range never
- *    satisfies `&&` — but a caller reading the history tables by another path
- *    can meet one, and it is not a version anyone can display.
+ *    so `to_char()` yields NULL and the field arrives as JSON null. Deletes
+ *    made before `d617df3` wrote exactly such a row (the DELETE branch of
+ *    `istsos_mutate_history()` closed the range at its own lower bound), and
+ *    those rows are still in the history. They are unreachable through
+ *    `$from_to` — the range never satisfies `&&` — but a caller reading the
+ *    history tables by another path can meet one, and it is not a version
+ *    anyone can display.
  *
  * Anything unparseable returns `null` so a single malformed row cannot take a
  * timeline down with it.
@@ -51,8 +53,9 @@ export type Validity = {
   /** ISO instant it was superseded, or `null` while it is still in force. */
   end: string | null
   /**
-   * True when the version was in force for zero time — a bare timestamp with
-   * no `/`. `start` and `end` are equal; it is closed, not open-ended.
+   * True when `start` and `end` print alike: a bare timestamp with no `/` (a
+   * row in force for no time at all, such as a delete's own row), or a version
+   * replaced within the second it was written. Closed, never open-ended.
    */
   degenerate: boolean
 }

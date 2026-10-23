@@ -26,14 +26,16 @@
  *
  * The newest version is labelled CURRENT rather than by its action, since
  * "still in force" is what a reader is actually checking for. A deleted entity
- * has no such row: the version carrying its DELETE commit is written with an
- * empty range and is unreachable through `$from_to`.
+ * has no such row; its deletion heads the list instead — with the DELETE commit
+ * when the history records it, or how it was deduced (see `lib/deletion.ts`).
+ * It is not a version, so it cannot be picked for comparison.
  */
 
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import { useTranslation } from 'react-i18next'
 
+import type { Deletion } from '@/lib/deletion'
 import { versionKey, type EntityVersion } from '@/features/from-to/lib/versionRows'
 import CommitAuthor from '@/features/users/components/CommitAuthor'
 
@@ -53,6 +55,8 @@ const ACTION_BADGE: Record<string, string> = {
 
 export type VersionRailProps = {
   versions: EntityVersion[]
+  /** How the entity ended, when it was deleted inside the window. */
+  deletion?: Deletion | null
   indexA: number
   indexB: number
   onPick: (index: number) => void
@@ -60,6 +64,7 @@ export type VersionRailProps = {
 
 export default function VersionRail({
   versions,
+  deletion = null,
   indexA,
   indexB,
   onPick,
@@ -77,6 +82,52 @@ export default function VersionRail({
       </div>
 
       <ul className="max-h-[420px] overflow-y-auto px-2 pb-3">
+        {deletion && (
+          <li>
+            <div className="grid w-full grid-cols-[12px_minmax(0,1fr)] gap-2.5 rounded-lg border border-danger/30 bg-danger/5 p-2.5 text-left">
+              <span
+                className={[
+                  'mt-1 h-2.5 w-2.5 rounded-full',
+                  deletion.recorded ? 'bg-danger' : 'border border-dashed border-danger',
+                ].join(' ')}
+                aria-hidden="true"
+              />
+              <span className="min-w-0">
+                <span className="float-right ml-1.5 rounded bg-danger/10 px-1.5 py-px text-[8.5px] font-bold tracking-wide text-danger">
+                  {deletion.recorded
+                    ? (deletion.commit?.actionType ?? 'DELETE')
+                    : t('deletion.inferred')}
+                </span>
+                <span className="block font-mono text-tiny font-semibold">
+                  {dayjs.utc(deletion.at).format('MM-DD HH:mm:ss')}Z
+                </span>
+                <span className="mt-0.5 block text-[10.5px] font-semibold text-danger">
+                  {t('deletion.deleted')}
+                </span>
+                {deletion.commit ? (
+                  <>
+                    <span className="mt-0.5 block truncate font-mono text-[10px] text-default-400">
+                      #{deletion.commit['@iot.id']} ·{' '}
+                      <CommitAuthor
+                        author={deletion.commit.author}
+                        className="hover:text-default-600"
+                      />
+                    </span>
+                    {deletion.commit.message && (
+                      <span className="mt-1 block text-[10.5px] text-default-500">
+                        {deletion.commit.message}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="mt-1 block text-[10.5px] text-default-500">
+                    {t('deletion.inferred_hint')}
+                  </span>
+                )}
+              </span>
+            </div>
+          </li>
+        )}
         {versions
           .map((version, index) => ({ version, index }))
           .reverse()

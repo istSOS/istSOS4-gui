@@ -409,6 +409,8 @@
       "no_data_after": "No data after this date",
       "detail_before": "\"{{name}}\" has no data before {{date}}.",
       "detail_after": "\"{{name}}\" has no data after {{date}}.",
+      "deleted_headline": "Deleted before this date",
+      "deleted_detail": "\"{{name}}\" was deleted on {{date}}.",
       "jump_earliest": "Jump to earliest data",
       "jump_latest": "Jump to latest data",
       "dismiss": "Dismiss"
@@ -464,6 +466,7 @@
       "copied": "Link copied",
       "present": "present",
       "deleted": "No longer exists",
+      "deleted_on": "Deleted on {{date}}",
       "bad_window": "That link has an unusable time window",
       "load_failed": "The history could not be read",
       "empty_title": "No versions in this window",
@@ -481,6 +484,7 @@
       "band_label": "Version {{number}}, valid from {{start}}",
       "held": "held {{duration}}",
       "open": "current",
+      "deleted_at": "Deleted {{date}}",
       "present": "Present · open-ended version"
     },
     "rail": {
@@ -527,6 +531,13 @@
       "no_match_title": "No field matches that filter",
       "no_match_body": "Clear the filter to see all {{count}} changed fields."
     }
+  },
+  "deletion": {
+    "deleted": "Deleted",
+    "recorded": "Recorded",
+    "inferred": "Inferred",
+    "inferred_hint": "Deduced: the last version ends here and nothing replaced it.",
+    "commit": "commit #{{id}}"
   },
   "quality": {
     "label": "Quality",
