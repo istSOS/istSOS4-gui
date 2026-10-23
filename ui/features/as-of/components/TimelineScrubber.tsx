@@ -13,17 +13,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+import {
+  type AsOfCommit,
+  useAsOfCommits,
+} from '@/features/as-of/hooks/useAsOfCommits'
+import { firstValidAsOf } from '@/features/as-of/lib/existenceBounds'
+import CommitAuthor from '@/features/users/components/CommitAuthor'
+import type { Thing } from '@/types/domain'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import { useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { useAsOf } from '@/context/AsOfContext'
-import { useAsOfCommits, type AsOfCommit } from '@/features/as-of/hooks/useAsOfCommits'
-import CommitAuthor from '@/features/users/components/CommitAuthor'
-import { firstValidAsOf } from '@/features/as-of/lib/existenceBounds'
-import type { Thing } from '@/types/domain'
 
 dayjs.extend(utc)
 
@@ -188,8 +190,8 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
   // we add a directional indicator so the mismatch is explicit, not silent.
   const rawMs = asOfDate ? toMs(asOfDate) : lastMs
   const isBeforeRange = rawMs < firstMs
-  const isAfterRange  = rawMs > lastMs
-  const isOutOfRange  = isBeforeRange || isAfterRange
+  const isAfterRange = rawMs > lastMs
+  const isOutOfRange = isBeforeRange || isAfterRange
 
   const displayDate = asOfDate
     ? dayjs.utc(asOfDate).format('MMM D, YYYY · HH:mm') + ' UTC'
@@ -200,7 +202,10 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
   const activeCommit = asOfDate
     ? [...commits]
         .reverse()
-        .find((commit) => Math.abs(toMs(commit.authoredAt) - toMs(asOfDate)) < 60_000)
+        .find(
+          (commit) =>
+            Math.abs(toMs(commit.authoredAt) - toMs(asOfDate)) < 60_000
+        )
     : undefined
 
   return (
@@ -208,7 +213,8 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
       className="as-of-scrubber fixed inset-x-0 z-[3900]"
       style={{
         bottom: 'calc(27vh + env(safe-area-inset-bottom))',
-        background: 'linear-gradient(90deg, rgba(120,53,15,0.96) 0%, rgba(92,45,12,0.98) 100%)',
+        background:
+          'linear-gradient(90deg, rgba(120,53,15,0.96) 0%, rgba(92,45,12,0.98) 100%)',
         borderTop: '1px solid rgba(251,191,36,0.35)',
         borderBottom: '1px solid rgba(251,191,36,0.2)',
         boxShadow: '0 -2px 16px rgba(0,0,0,0.35)',
@@ -269,7 +275,9 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
               fontSize: '11px',
               fontWeight: 700,
               color: isOutOfRange ? 'rgba(251,191,36,0.55)' : '#fbbf24',
-              background: isOutOfRange ? 'rgba(251,191,36,0.06)' : 'rgba(251,191,36,0.12)',
+              background: isOutOfRange
+                ? 'rgba(251,191,36,0.06)'
+                : 'rgba(251,191,36,0.12)',
               border: `1px solid ${isOutOfRange ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.3)'}`,
               borderRadius: '6px',
               padding: '1px 8px',
@@ -277,17 +285,30 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
           >
             {/* Directional arrow shows the thumb is pinned at a range edge */}
             {isBeforeRange && (
-              <span title={t('as_of.scrubber.before_range')} style={{ fontSize: '9px', opacity: 0.8 }}>↓</span>
+              <span
+                title={t('as_of.scrubber.before_range')}
+                style={{ fontSize: '9px', opacity: 0.8 }}
+              >
+                ↓
+              </span>
             )}
             {isAfterRange && (
-              <span title={t('as_of.scrubber.after_range')} style={{ fontSize: '9px', opacity: 0.8 }}>↑</span>
+              <span
+                title={t('as_of.scrubber.after_range')}
+                style={{ fontSize: '9px', opacity: 0.8 }}
+              >
+                ↑
+              </span>
             )}
             {displayDate}
           </span>
         </div>
 
         {/* Slider + tick marks */}
-        <div className="relative flex flex-col" style={{ paddingBottom: '16px' }}>
+        <div
+          className="relative flex flex-col"
+          style={{ paddingBottom: '16px' }}
+        >
           {/* Track container — tick marks are absolutely positioned here */}
           <div
             ref={trackRef}
@@ -296,14 +317,17 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
           >
             {/* Commit ticks */}
             {commits.map((commit) => {
-              const fraction = positionOf(toMs(commit.authoredAt), firstMs, lastMs)
-              const isActive =
-                asOfDate
-                  ? Math.abs(toMs(commit.authoredAt) - toMs(asOfDate)) < 60_000 // within 1 min
-                  : false
+              const fraction = positionOf(
+                toMs(commit.authoredAt),
+                firstMs,
+                lastMs
+              )
+              const isActive = asOfDate
+                ? Math.abs(toMs(commit.authoredAt) - toMs(asOfDate)) < 60_000 // within 1 min
+                : false
               return (
                 <CommitTick
-                  key={commit.id}
+                  key={`${commit.id}-${commit.authoredAt}`}
                   commit={commit}
                   fraction={fraction}
                   isActive={isActive}
@@ -315,7 +339,12 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
             {/* "Now" tick on the far right */}
             <div
               className="absolute flex flex-col items-center"
-              style={{ right: 0, top: 0, bottom: 0, transform: 'translateX(50%)' }}
+              style={{
+                right: 0,
+                top: 0,
+                bottom: 0,
+                transform: 'translateX(50%)',
+              }}
             >
               <div
                 style={{
@@ -350,7 +379,7 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
               type="range"
               min={firstMs}
               max={lastMs}
-              step={60_000}          // 1-minute steps
+              step={60_000} // 1-minute steps
               value={currentMs}
               onChange={handleRangeChange}
               aria-label={t('as_of.scrubber.aria_label')}
