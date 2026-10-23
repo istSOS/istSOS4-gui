@@ -18,13 +18,16 @@ import { useTranslation } from 'react-i18next'
 
 import type { QualitySchemeScope } from '../../lib/qualitySchemeStore'
 import {
-  QUALITY_CLASSES,
   QUALITY_COLORS,
   QUALITY_LABEL_KEYS,
   classifyQuality,
   judgedCount,
+  passedCount,
+  qualityClassesOf,
   qualityLabel,
+  uncheckedCount,
   type QualityClass,
+  type QualityConstraint,
   type QualityScheme,
   type QualityTally,
 } from '../../lib/resultQuality'
@@ -56,7 +59,7 @@ function Verdict({
 
 const passRate = (tally: QualityTally) => {
   const judged = judgedCount(tally)
-  return judged ? `${Math.round((tally.pass / judged) * 100)}%` : '—'
+  return judged ? `${Math.round((passedCount(tally) / judged) * 100)}%` : '—'
 }
 
 export default function ReviewStep({
@@ -65,6 +68,7 @@ export default function ReviewStep({
   currentTally,
   draftTally,
   values,
+  constraints,
   scope,
   datastreamName,
   sourceName,
@@ -75,6 +79,7 @@ export default function ReviewStep({
   currentTally: QualityTally
   draftTally: QualityTally
   values: StoredValue[]
+  constraints: QualityConstraint[] | null
   scope: QualitySchemeScope
   datastreamName: string
   sourceName: string
@@ -85,8 +90,8 @@ export default function ReviewStep({
   const changes = values
     .map((value) => ({
       ...value,
-      before: classifyQuality(value.quality, currentScheme),
-      after: classifyQuality(value.quality, draftScheme),
+      before: classifyQuality(value.quality, currentScheme, constraints),
+      after: classifyQuality(value.quality, draftScheme, constraints),
     }))
     .filter((value) => value.before !== value.after)
   const moved = changes.reduce((sum, value) => sum + value.count, 0)
@@ -120,9 +125,9 @@ export default function ReviewStep({
               {t('quality.customize.review.not_checked')}
             </div>
             <div className="text-lg font-semibold tabular-nums">
-              {currentTally.none.toLocaleString()}
+              {uncheckedCount(currentTally).toLocaleString()}
               <span className="mx-1 font-normal text-default-400">→</span>
-              {draftTally.none.toLocaleString()}
+              {uncheckedCount(draftTally).toLocaleString()}
             </div>
           </div>
         </div>
@@ -187,7 +192,7 @@ export default function ReviewStep({
           <p className="m-0 text-[11px] text-default-500">
             {t('quality.customize.review.labels_note')}
           </p>
-          {QUALITY_CLASSES.map((key) => (
+          {qualityClassesOf(draftScheme).map((key) => (
             <label
               key={key}
               className="flex items-center gap-2 rounded-md border border-default-200 px-2 py-1 focus-within:border-primary"

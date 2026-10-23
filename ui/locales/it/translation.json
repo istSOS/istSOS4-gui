@@ -534,12 +534,40 @@
     "suspect": "Sospetto",
     "outlier": "Anomalo",
     "range": "Fuori intervallo",
+    "oasi10": "Valido · revisionato",
+    "oasi3": "Valido · controlli superati",
+    "oasi2": "Sospetto",
+    "oasi1": "Corrotto · controlli falliti",
+    "oasi6": "Corrotto · revisionato",
+    "undecodable": "Non decodificabile",
+    "oasi0": "Dato grezzo",
     "none": "Non verificato",
     "summary": "{{count}} letture · {{percent}}% valide",
     "no_values_live": "{{count}} letture · nessun valore di qualità",
     "no_values_as_of": "{{count}} letture · nessun valore di qualità al {{date}}",
+    "none_checked_live": "{{count}} letture · nessuna ancora verificata",
+    "none_checked_as_of": "{{count}} letture · nessuna verificata al {{date}}",
     "rule": "Regola",
     "rule_fallback": "predefinita",
+    "oasi": "OASI",
+    "checks": "Controlli",
+    "status": {
+      "raw": "grezzo",
+      "filled": "riempito",
+      "no_data": "nessun dato / NaN",
+      "digital": "digitale",
+      "passed": "superato",
+      "failed": "fallito",
+      "not_executed": "non eseguito",
+      "unused": "non usato"
+    },
+    "bitmask": {
+      "data_state": "Stato del dato",
+      "human_review": "Revisione umana",
+      "does_not_fit_one": "Incompatibile con i vincoli di questo datastream ({{count}})",
+      "does_not_fit_other": "Incompatibile con i vincoli di questo datastream ({{count}})",
+      "constraints_unreadable": "I vincoli di questo datastream non sono leggibili, quindi i suoi valori non si possono decodificare."
+    },
     "customize": {
       "button": "Personalizza resultQuality",
       "button_edit": "Modifica regole resultQuality",
@@ -565,6 +593,7 @@
       "steps": {
         "start": "Punto di partenza",
         "rules": "Regole",
+        "decode": "Decodifica",
         "review": "Rivedi e salva"
       },
       "start": {
@@ -573,6 +602,9 @@
         "current_default": "Regole attuali (predefinito istSOS)",
         "current_desc": "Parti da ciò che il grafico usa ora e modificalo.",
         "explains": "Spiega {{hit}} valori salvati su {{of}}",
+        "constraints_zero": "Questo datastream non ha vincoli: i valori contengono solo lo stato del dato e la revisione umana.",
+        "constraints_one": "Questo datastream ha {{count}} vincolo.",
+        "constraints_other": "Questo datastream ha {{count}} vincoli.",
         "best_fit": "Più adatto"
       },
       "preset": {
@@ -580,13 +612,9 @@
           "name": "Indice di qualità istSOS",
           "desc": "100 è valido; 90–93 sono i codici SaQC; ogni altro valore sotto 100 è fuori intervallo."
         },
-        "ftp": {
-          "name": "Coppie di bit ftp2istsos4",
-          "desc": "3 indica tutti i controlli superati, 2 un problema, 1 in attesa, 0 non eseguito."
-        },
-        "mqtt": {
-          "name": "mqtt2istsos4",
-          "desc": "11 indica valido e 0 non verificato. Ogni altro valore è sospetto."
+        "bitmask": {
+          "name": "Bitmask QC istSOS4 (OASI)",
+          "desc": "Ciò che scrivono i job QC di istSOS4: coppie di 2 bit per lo stato del dato, per ciascun vincolo del datastream e per la revisione umana, valutate sulla scala OASI."
         },
         "blank": {
           "name": "Vuoto",
@@ -637,6 +665,30 @@
         "no_value": "Nessun valore salvato",
         "fixed_tag": "fissa",
         "no_value_note": "mai giudicato, mai contato nella percentuale di validità"
+      },
+      "bitmask": {
+        "intro": "Questo modello legge ogni valore come coppie di 2 bit, dai bit più bassi, con i vincoli di questo datastream, come fa il client istSOS4. Non ha regole da modificare: per scriverne di tue, torna indietro e scegli un altro punto di partenza.",
+        "pairs_title": "Come si divide un valore",
+        "pair": "Coppia",
+        "bits": "Bit",
+        "reports_on": "Riguarda",
+        "no_constraints": "Nessun vincolo su questo datastream: un valore contiene solo lo stato del dato e la revisione umana.",
+        "checks_and_review": "Controlli e revisione umana",
+        "no_review_note": "00 nella coppia della revisione umana significa che nessuno ha revisionato la lettura.",
+        "oasi_title": "Dalle coppie a un punteggio OASI",
+        "when": "Quando",
+        "cases": {
+          "oasi10": "Revisione umana superata",
+          "oasi6": "Revisione umana fallita",
+          "oasi1": "Tutti i controlli falliti",
+          "oasi3": "Tutti i controlli superati",
+          "oasi2": "Un controllo fallito, o alcuni superati e gli altri non eseguiti",
+          "oasi0": "Dato grezzo, nessun controllo eseguito",
+          "none": "Qualsiasi altro caso: nessun punteggio OASI",
+          "undecodable": "Incompatibile con questi vincoli: troppo grande, negativo o non intero"
+        },
+        "oasi_note": "Provati dall'alto. Il primo che si applica decide, quindi la revisione umana prevale sui controlli.",
+        "pairs_col": "Coppie (revisione umana → stato del dato)"
       },
       "review": {
         "pass_rate": "Percentuale valide",

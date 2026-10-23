@@ -19,17 +19,19 @@ import { useTranslation } from 'react-i18next'
 
 import type { GraphRow } from '../../lib/observationGraphUtils'
 import {
-  QUALITY_CLASSES,
   QUALITY_COLORS,
   QUALITY_OPS,
+  RULE_QUALITY_CLASSES,
   classifyQuality,
   findShadowedRules,
   isRuleComplete,
   qualityLabel,
-  type QualityClass,
+  type QualityConstraint,
   type QualityOp,
   type QualityRule,
+  type QualityRulesScheme,
   type QualityScheme,
+  type RuleQualityClass,
 } from '../../lib/resultQuality'
 import StoredValues, { type StoredValue } from './StoredValues'
 
@@ -116,10 +118,10 @@ function VerdictSelect({
   allowNone,
   onChange,
 }: {
-  value: QualityClass
+  value: RuleQualityClass
   scheme: QualityScheme
   allowNone: boolean
-  onChange: (value: QualityClass) => void
+  onChange: (value: RuleQualityClass) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -133,9 +135,9 @@ function VerdictSelect({
         className={fieldClass}
         aria-label={t('quality.customize.rules.verdict')}
         value={value}
-        onChange={(event) => onChange(event.target.value as QualityClass)}
+        onChange={(event) => onChange(event.target.value as RuleQualityClass)}
       >
-        {QUALITY_CLASSES.filter((key) => allowNone || key !== 'none').map((key) => (
+        {RULE_QUALITY_CLASSES.filter((key) => allowNone || key !== 'none').map((key) => (
           <option key={key} value={key}>
             {qualityLabel(key, scheme, t)}
           </option>
@@ -153,12 +155,15 @@ export default function RulesStep({
   currentScheme,
   draftRows,
   values,
+  constraints,
   onChange,
 }: {
-  draftScheme: QualityScheme
+  draftScheme: QualityRulesScheme
   currentScheme: QualityScheme
   draftRows: GraphRow[]
   values: StoredValue[]
+  /** The datastream's constraints, in case the rules in use are the bitmask. */
+  constraints: QualityConstraint[] | null
   onChange: (scheme: QualityScheme) => void
 }) {
   const { t } = useTranslation()
@@ -353,7 +358,7 @@ export default function RulesStep({
                 onChange={(verdict) =>
                   onChange({
                     ...draftScheme,
-                    fallback: verdict as QualityScheme['fallback'],
+                    fallback: verdict as QualityRulesScheme['fallback'],
                   })
                 }
               />
@@ -395,6 +400,7 @@ export default function RulesStep({
           values={values}
           currentScheme={currentScheme}
           draftScheme={draftScheme}
+          constraints={constraints}
           onAddRule={addRuleFor}
         />
         <p className="m-0 text-[11px] text-default-500">

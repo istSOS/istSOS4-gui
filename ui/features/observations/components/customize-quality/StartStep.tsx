@@ -19,8 +19,9 @@ import { useTranslation } from 'react-i18next'
 import {
   ISTSOS_QUALITY_SCHEME,
   QUALITY_PRESETS,
-  matchQuality,
+  explainsQuality,
   sameQualityScheme,
+  type QualityConstraint,
   type QualityPresetKey,
   type QualityScheme,
 } from '../../lib/resultQuality'
@@ -31,14 +32,19 @@ export type StartChoice = 'current' | QualityPresetKey | 'edited'
 
 /**
  * How many of the stored values a scheme explains — values a rule names, as
- * opposed to ones left to the fallback. A preset that explains everything in
- * the window is almost certainly the convention the data was written in.
+ * opposed to ones left to the fallback, or values that fit the bitmask. A
+ * preset that explains everything in the window is almost certainly the
+ * convention the data was written in.
  */
-function explains(scheme: QualityScheme, values: StoredValue[]) {
+function explains(
+  scheme: QualityScheme,
+  values: StoredValue[],
+  constraints: QualityConstraint[] | null
+) {
   const stored = values.filter((value) => value.quality !== null)
   return {
-    hit: stored.filter(
-      (value) => typeof matchQuality(value.quality, scheme).rule === 'number'
+    hit: stored.filter((value) =>
+      explainsQuality(value.quality as number, scheme, constraints)
     ).length,
     of: stored.length,
   }
@@ -49,12 +55,14 @@ export default function StartStep({
   currentScheme,
   draftScheme,
   values,
+  constraints,
   onChoose,
 }: {
   choice: StartChoice
   currentScheme: QualityScheme
   draftScheme: QualityScheme
   values: StoredValue[]
+  constraints: QualityConstraint[] | null
   onChoose: (choice: StartChoice, scheme: QualityScheme) => void
 }) {
   const { t } = useTranslation()
@@ -85,7 +93,12 @@ export default function StartStep({
       })),
   ]
 
-  const fits = new Map(options.map((option) => [option.key, explains(option.scheme, values)]))
+  const fits = new Map(
+    options.map((option) => [
+      option.key,
+      explains(option.scheme, values, constraints),
+    ])
+  )
   let bestKey: StartChoice | null = null
   let bestHit = 0
   for (const option of options) {
@@ -136,6 +149,17 @@ export default function StartStep({
                 )}
                 <span className="pr-16 text-[13px] font-semibold">{option.name}</span>
                 <span className="text-xs text-default-500">{option.desc}</span>
+                {/* What the bitmask decodes with differs per datastream, so the
+                    card says what this one has before anyone picks it. */}
+                {option.scheme.kind === 'bitmask' && (
+                  <span className="text-[11px] text-default-500">
+                    {constraints
+                      ? t('quality.customize.start.constraints', {
+                          count: constraints.length,
+                        })
+                      : t('quality.bitmask.constraints_unreadable')}
+                  </span>
+                )}
                 {option.key !== 'blank' && fit && fit.of > 0 && (
                   <span className="text-[11px] text-default-400">
                     {t('quality.customize.start.explains', fit)}
@@ -154,6 +178,7 @@ export default function StartStep({
           values={values}
           currentScheme={currentScheme}
           draftScheme={draftScheme}
+          constraints={constraints}
         />
         <p className="m-0 text-[11px] text-default-500">
           {t('quality.customize.values.note_start')}

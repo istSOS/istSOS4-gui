@@ -20,6 +20,7 @@ import {
   QUALITY_COLORS,
   classifyQuality,
   qualityLabel,
+  type QualityConstraint,
   type QualityScheme,
 } from '../../lib/resultQuality'
 
@@ -55,11 +56,14 @@ export default function StoredValues({
   values,
   currentScheme,
   draftScheme,
+  constraints,
   onAddRule,
 }: {
   values: StoredValue[]
   currentScheme: QualityScheme
   draftScheme: QualityScheme
+  /** The datastream's constraints, for whichever scheme is the bitmask. */
+  constraints: QualityConstraint[] | null
   /** Offers "+ Rule" beside each stored value when given. */
   onAddRule?: (quality: number) => void
 }) {
@@ -68,8 +72,9 @@ export default function StoredValues({
   return (
     <ul className="m-0 flex list-none flex-col overflow-hidden rounded-md border border-default-200 p-0">
       {values.map(({ quality, count }) => {
-        const verdict = classifyQuality(quality, draftScheme)
-        const changed = verdict !== classifyQuality(quality, currentScheme)
+        const verdict = classifyQuality(quality, draftScheme, constraints)
+        const changed =
+          verdict !== classifyQuality(quality, currentScheme, constraints)
         return (
           <li
             key={quality ?? 'none'}

@@ -534,12 +534,40 @@
     "suspect": "Suspect",
     "outlier": "Outlier",
     "range": "Out of range",
+    "oasi10": "Good · reviewed",
+    "oasi3": "Good · checks passed",
+    "oasi2": "Suspect",
+    "oasi1": "Corrupted · checks failed",
+    "oasi6": "Corrupted · reviewed",
+    "undecodable": "Can't decode",
+    "oasi0": "Raw data",
     "none": "Not checked",
     "summary": "{{count}} readings · {{percent}}% pass",
     "no_values_live": "{{count}} readings · no quality values",
     "no_values_as_of": "{{count}} readings · no quality values as of {{date}}",
+    "none_checked_live": "{{count}} readings · none checked yet",
+    "none_checked_as_of": "{{count}} readings · none checked as of {{date}}",
     "rule": "Rule",
     "rule_fallback": "fallback",
+    "oasi": "OASI",
+    "checks": "Checks",
+    "status": {
+      "raw": "raw",
+      "filled": "filled",
+      "no_data": "no data / NaN",
+      "digital": "digital",
+      "passed": "passed",
+      "failed": "failed",
+      "not_executed": "not executed",
+      "unused": "unused"
+    },
+    "bitmask": {
+      "data_state": "Data state",
+      "human_review": "Human review",
+      "does_not_fit_one": "Doesn't fit this datastream's {{count}} constraint",
+      "does_not_fit_other": "Doesn't fit this datastream's {{count}} constraints",
+      "constraints_unreadable": "This datastream's constraints can't be read, so its values can't be decoded."
+    },
     "customize": {
       "button": "Customize resultQuality",
       "button_edit": "Edit resultQuality rules",
@@ -565,6 +593,7 @@
       "steps": {
         "start": "Start from",
         "rules": "Rules",
+        "decode": "Decoding",
         "review": "Review and save"
       },
       "start": {
@@ -573,6 +602,9 @@
         "current_default": "Current rules (istSOS default)",
         "current_desc": "Keep what the chart uses now and adjust it.",
         "explains": "Explains {{hit}} of {{of}} stored values",
+        "constraints_zero": "This datastream has no constraints: values hold only the data state and the human review.",
+        "constraints_one": "This datastream has {{count}} constraint.",
+        "constraints_other": "This datastream has {{count}} constraints.",
         "best_fit": "Best fit"
       },
       "preset": {
@@ -580,13 +612,9 @@
           "name": "istSOS quality index",
           "desc": "100 is good; 90–93 are the SaQC codes; anything else below 100 is out of range."
         },
-        "ftp": {
-          "name": "ftp2istsos4 bit pairs",
-          "desc": "3 means all checks OK, 2 a problem, 1 still pending, 0 not run."
-        },
-        "mqtt": {
-          "name": "mqtt2istsos4",
-          "desc": "11 means OK and 0 means not checked. Anything else is suspect."
+        "bitmask": {
+          "name": "istSOS4 QC bitmask (OASI)",
+          "desc": "What the istSOS4 QC jobs write: 2-bit pairs for the data state, each of the datastream's constraints and the human review, scored on the OASI scale."
         },
         "blank": {
           "name": "Blank",
@@ -637,6 +665,30 @@
         "no_value": "No value stored",
         "fixed_tag": "fixed",
         "no_value_note": "never judged, never counted in the pass rate"
+      },
+      "bitmask": {
+        "intro": "This template reads each value as 2-bit pairs, from the lowest bits up, with this datastream's constraints, as the istSOS4 client does. It has no rules to edit: to write your own, go back and pick another starting point.",
+        "pairs_title": "How a value is split",
+        "pair": "Pair",
+        "bits": "Bits",
+        "reports_on": "Reports on",
+        "no_constraints": "No constraints on this datastream: a value holds only the data state and the human review.",
+        "checks_and_review": "Checks and human review",
+        "no_review_note": "00 in the human review pair means nobody has reviewed the reading.",
+        "oasi_title": "From pairs to one OASI score",
+        "when": "When",
+        "cases": {
+          "oasi10": "Human review passed",
+          "oasi6": "Human review failed",
+          "oasi1": "Every check failed",
+          "oasi3": "Every check passed",
+          "oasi2": "A check failed, or some passed and the rest did not run",
+          "oasi0": "Raw data, no check run",
+          "none": "Anything else: no OASI score",
+          "undecodable": "Doesn't fit these constraints: too large, negative or not a whole number"
+        },
+        "oasi_note": "Tried from the top. The first that applies decides, so a human review wins over the checks.",
+        "pairs_col": "Pairs (human review → data state)"
       },
       "review": {
         "pass_rate": "Pass rate",

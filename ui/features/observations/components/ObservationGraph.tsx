@@ -30,6 +30,7 @@ import {
 import {
   ISTSOS_QUALITY_SCHEME,
   buildQualitySegments,
+  qualityConstraintsOf,
   sameQualityScheme,
   tallyQuality,
 } from '../lib/resultQuality'
@@ -168,13 +169,18 @@ export default function ObservationGraph({
   }, [])
 
   const chartData = useMemo(() => {
-    return buildRows(observations, resolveScheme(datastream).scheme)
+    return buildRows(
+      observations,
+      resolveScheme(datastream).scheme,
+      qualityConstraintsOf(datastream)
+    )
   }, [observations, datastream, resolveScheme])
 
   const comparisonChartData = useMemo(() => {
     return buildRows(
       comparisonObservations,
-      resolveScheme(comparisonDatastream).scheme
+      resolveScheme(comparisonDatastream).scheme,
+      qualityConstraintsOf(comparisonDatastream)
     )
   }, [comparisonObservations, comparisonDatastream, resolveScheme])
 
@@ -361,6 +367,7 @@ export default function ObservationGraph({
           qualityClass: nearest.qualityClass,
           quality: nearest.quality,
           qualityScheme: entry.qualityScheme,
+          qualityConstraints: entry.qualityConstraints,
           qualityRule: nearest.qualityRule,
           qualityCustom: !sameQualityScheme(
             entry.qualityScheme,

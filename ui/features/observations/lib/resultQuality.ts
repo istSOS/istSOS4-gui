@@ -25,14 +25,16 @@
  * runs.
  *
  * That reading is a convention, not something the record asserts, and it is not
- * the only one shipped in this project: `ftp2istsos4` packs two bits per check
- * and sends "3" to mean "every check passed", while `mqtt2istsos4` sends "11".
- * Under the index below both would classify as OUT_OF_RANGE. Nothing in a stored
- * value distinguishes the scales, so the viewer can say which one a datastream
- * uses: a `QualityScheme` is an ordered list of rules, and the istSOS index is
- * simply the scheme used when nobody has chosen another. This module is still
- * the only file that knows what a value means — callers hand it a scheme, they
- * never test a code themselves.
+ * the only one istSOS writes. The istSOS4 QC jobs (Flink, `qc_historical`) and
+ * ingest tools (`ftp2istsos`, `mqtt2istsos`) write a bitmask of 2-bit pairs whose
+ * meaning depends on the datastream's `properties.constraints`; the maintainers
+ * define it in `istsos4_client.quality`. Under the index below its values would
+ * classify as OUT_OF_RANGE. Nothing in a stored value distinguishes the scales,
+ * so the viewer can say which one a datastream uses: a `QualityScheme` is either
+ * an ordered list of rules or the bitmask, and the istSOS index is simply the
+ * scheme used when nobody has chosen another. This module is still the only
+ * file that knows what a value means — callers hand it a scheme and the
+ * datastream's constraints, they never test a code themselves.
  */
 
 /** At or above this, the reading passed. The whole convention, in one constant. */
@@ -52,17 +54,76 @@ export const QUALITY_CODES = {
  * `none` is not a verdict — it is the absence of one. A reading nothing has
  * checked must never render as passing, and must never be counted against the
  * pass rate either.
+ *
+ * Rule schemes judge into the first set. The bitmask scheme judges into OASI
+ * scores instead, named by score (`oasi10` … `oasi0`), plus `undecodable`; the
+ * two share only `none`.
  */
-export type QualityClass = 'pass' | 'suspect' | 'outlier' | 'range' | 'none'
+export type RuleQualityClass = 'pass' | 'suspect' | 'outlier' | 'range' | 'none'
+export type BitmaskQualityClass =
+  | 'oasi10'
+  | 'oasi3'
+  | 'oasi2'
+  | 'oasi1'
+  | 'oasi6'
+  | 'undecodable'
+  | 'oasi0'
+  | 'none'
+export type QualityClass = RuleQualityClass | BitmaskQualityClass
 
-/** Fixed order for legends and tallies, best-to-worst then the non-verdict. */
-export const QUALITY_CLASSES: QualityClass[] = [
+/** The verdicts a rule can give, best-to-worst then the non-verdict. */
+export const RULE_QUALITY_CLASSES: RuleQualityClass[] = [
   'pass',
   'suspect',
   'outlier',
   'range',
   'none',
 ]
+
+/**
+ * The bitmask scheme's verdicts: good after a human review, then good after the
+ * automatic checks, suspect, and the two corrupted; then a value the constraints
+ * cannot explain; then the two that are not verdicts — raw data no check has
+ * run on (OASI 0), and no value at all.
+ */
+export const BITMASK_QUALITY_CLASSES: BitmaskQualityClass[] = [
+  'oasi10',
+  'oasi3',
+  'oasi2',
+  'oasi1',
+  'oasi6',
+  'undecodable',
+  'oasi0',
+  'none',
+]
+
+/**
+ * Every class, in legend order. A lane is judged under one scheme, so it only
+ * ever holds one of the two sets, and filtering this keeps that set's order.
+ */
+export const QUALITY_CLASSES: QualityClass[] = [
+  ...RULE_QUALITY_CLASSES.filter((key) => key !== 'none'),
+  ...BITMASK_QUALITY_CLASSES,
+]
+
+/** The verdicts a scheme can give, for lists that offer every one of them. */
+export function qualityClassesOf(scheme: QualityScheme): QualityClass[] {
+  return scheme.kind === 'bitmask'
+    ? BITMASK_QUALITY_CLASSES
+    : RULE_QUALITY_CLASSES
+}
+
+const PASSING = new Set<QualityClass>(['pass', 'oasi10', 'oasi3'])
+// OASI 0 is raw data no check has run on: as unjudged as no value at all.
+const UNJUDGED = new Set<QualityClass>(['none', 'oasi0'])
+
+/** Counts towards the pass rate's numerator. */
+export const isPassing = (qualityClass: QualityClass) =>
+  PASSING.has(qualityClass)
+
+/** A verdict, as opposed to the absence of one. */
+export const isJudged = (qualityClass: QualityClass) =>
+  !UNJUDGED.has(qualityClass)
 
 /**
  * Lane colours.
@@ -72,12 +133,25 @@ export const QUALITY_CLASSES: QualityClass[] = [
  * read by hue alone. 90 and 91 deliberately share the warning tone — both mean
  * "suspect, not impossible" — which keeps the lane inside four reserved roles
  * rather than inventing a fifth hue that no longer separates under CVD.
+ *
+ * The OASI colours are the maintainers' own (`OASI_QUALITY` in
+ * `istsos4_client.quality`), used as given so the lane matches their plots.
  */
 export const QUALITY_COLORS: Record<QualityClass, string> = {
   pass: '#0ca30c',
   suspect: '#fab219',
   outlier: '#ec835a',
   range: '#d03b3b',
+  oasi10: '#2e7d32',
+  oasi3: '#81c784',
+  oasi2: '#f9a825',
+  oasi1: '#e57373',
+  oasi6: '#b71c1c',
+  // Not an OASI colour, and darker than any of them: a value that does not fit
+  // the datastream's constraints usually means the wrong scheme is chosen, and
+  // it must not pass for a score.
+  undecodable: '#3f3f46',
+  oasi0: '#9e9e9e',
   // Matches the tertiary-series grey already used by the chart, and clears the
   // white plotting surface well enough to read as a filled block.
   none: '#94a3b8',
@@ -89,8 +163,27 @@ export const QUALITY_LABEL_KEYS: Record<QualityClass, string> = {
   suspect: 'quality.suspect',
   outlier: 'quality.outlier',
   range: 'quality.range',
+  oasi10: 'quality.oasi10',
+  oasi3: 'quality.oasi3',
+  oasi2: 'quality.oasi2',
+  oasi1: 'quality.oasi1',
+  oasi6: 'quality.oasi6',
+  undecodable: 'quality.undecodable',
+  oasi0: 'quality.oasi0',
   none: 'quality.none',
 }
+
+/** The OASI score and level behind each scored verdict (`OASI_QUALITY`). */
+export const OASI_SCORES = {
+  oasi10: { score: 10, level: 'HQC' },
+  oasi3: { score: 3, level: 'AQC1' },
+  oasi2: { score: 2, level: 'AQC1' },
+  oasi1: { score: 1, level: 'AQC0' },
+  oasi6: { score: 6, level: 'HQC' },
+  oasi0: { score: 0, level: 'AQC0' },
+} as const
+
+export type OasiQualityClass = keyof typeof OASI_SCORES
 
 /**
  * The quality index behind a raw `resultQuality`, or null when there isn't one.
@@ -154,8 +247,8 @@ export const QUALITY_OPS: QualityOp[] = [
  * One line of a scheme: "if the index <op> <value>, the reading is <verdict>".
  *
  * `verdict` may be `none`: some ingests store a value that means "this check
- * was not run" (ftp2istsos4's 0), and that reading has not been judged any more
- * than one with no value at all.
+ * was not run", and that reading has not been judged any more than one with no
+ * value at all.
  */
 export type QualityRule = {
   op: QualityOp
@@ -165,11 +258,11 @@ export type QualityRule = {
   max?: number | null
   /** `in` only. */
   values?: number[]
-  verdict: QualityClass
+  verdict: RuleQualityClass
 }
 
 /**
- * What a datastream's quality values mean.
+ * What a datastream's quality values mean, as rules.
  *
  * Rules are tried in order and the first match decides. A value no rule
  * matches gets `fallback`, which is always a verdict: an index that is present
@@ -177,13 +270,29 @@ export type QualityRule = {
  * checked" would hide it. A reading with NO index is never judged, whatever the
  * scheme says — that rule is not in the list because it is not negotiable.
  */
-export type QualityScheme = {
+export type QualityRulesScheme = {
   version: 1
+  /** Absent on rules saved before there was another kind. */
+  kind?: 'rules'
   rules: QualityRule[]
-  fallback: Exclude<QualityClass, 'none'>
+  fallback: Exclude<RuleQualityClass, 'none'>
   /** Viewer's own names for the verdicts. The colours never change with them. */
   labels?: Partial<Record<QualityClass, string>>
 }
+
+/**
+ * What a datastream's quality values mean, as the istSOS4 QC bitmask.
+ *
+ * Nothing to configure: what each pair means comes from the datastream's own
+ * constraints, so one scheme reads every datastream, whatever its checks.
+ */
+export type QualityBitmaskScheme = {
+  version: 1
+  kind: 'bitmask'
+  labels?: Partial<Record<QualityClass, string>>
+}
+
+export type QualityScheme = QualityRulesScheme | QualityBitmaskScheme
 
 /**
  * The istSOS quality index, as a scheme.
@@ -192,7 +301,7 @@ export type QualityScheme = {
  * above passes, 90–93 are the SaQC codes, and anything else below 100 is a
  * failure.
  */
-export const ISTSOS_QUALITY_SCHEME: QualityScheme = {
+export const ISTSOS_QUALITY_SCHEME: QualityRulesScheme = {
   version: 1,
   rules: [
     { op: 'ge', value: QUALITY_PASS, verdict: 'pass' },
@@ -208,38 +317,213 @@ export const ISTSOS_QUALITY_SCHEME: QualityScheme = {
   fallback: 'range',
 }
 
+export const QUALITY_BITMASK_SCHEME: QualityBitmaskScheme = {
+  version: 1,
+  kind: 'bitmask',
+}
+
 /**
- * Starting points for the conventions this project itself ships.
+ * Starting points for the conventions istSOS itself writes.
  *
- * ftp2istsos4 packs two bits per check (11 OK, 10 problem, 01 remaining, 00 not
- * executed) and sends the decimal, so one check reads 3/2/1/0. mqtt2istsos4
- * sends the literal "11" for OK; its "00" cannot be stored at all (leading zeros
- * are not JSON), so 0 is what reaches the column.
+ * The bitmask is also what ftp2istsos and mqtt2istsos mean: ftp2istsos writes 3
+ * (raw data, no check run yet) and 0 (no data). Value rules once offered here
+ * read that 3 as "every check passed", which it is not. mqtt2istsos sends the
+ * binary digits "11" and "00", but the column keeps 11 as the number eleven,
+ * which the bitmask reads as raw data a human review failed; and "00" is not
+ * valid JSON, so it is never stored at all.
  */
 export const QUALITY_PRESETS = {
   istsos: ISTSOS_QUALITY_SCHEME,
-  ftp: {
-    version: 1,
-    rules: [
-      { op: 'eq', value: 3, verdict: 'pass' },
-      { op: 'eq', value: 1, verdict: 'suspect' },
-      { op: 'eq', value: 2, verdict: 'range' },
-      { op: 'eq', value: 0, verdict: 'none' },
-    ],
-    fallback: 'suspect',
-  },
-  mqtt: {
-    version: 1,
-    rules: [
-      { op: 'eq', value: 11, verdict: 'pass' },
-      { op: 'eq', value: 0, verdict: 'none' },
-    ],
-    fallback: 'suspect',
-  },
+  bitmask: QUALITY_BITMASK_SCHEME,
   blank: { version: 1, rules: [], fallback: 'suspect' },
 } satisfies Record<string, QualityScheme>
 
 export type QualityPresetKey = keyof typeof QUALITY_PRESETS
+
+// ── the istSOS4 QC bitmask ───────────────────────────────────────────────
+// A port of `decode_result_quality` and `oasi_quality` from the maintainers'
+// istsos4_client (src/istsos4_client/quality.py), so the chart reads a value
+// exactly as their Python client and its JavaScript port do.
+
+/** One entry of a datastream's `properties.constraints`: a SaQC check. */
+export type QualityConstraint = { type: unknown } & Record<string, unknown>
+
+/** What one 2-bit pair says. The first four only occur in the data-state pair. */
+export type QualityCheckStatus =
+  | 'raw'
+  | 'filled'
+  | 'no_data'
+  | 'digital'
+  | 'passed'
+  | 'failed'
+  | 'not_executed'
+  | 'unused'
+
+// Indexed by the pair's value, 0b00 … 0b11.
+const DATA_STATUS: QualityCheckStatus[] = ['no_data', 'digital', 'filled', 'raw']
+const CHECK_STATUS: QualityCheckStatus[] = [
+  'not_executed',
+  'unused',
+  'failed',
+  'passed',
+]
+
+/** The maintainers' legend colour for each pair status (`STATUS_COLORS`). */
+export const QUALITY_STATUS_COLORS: Record<QualityCheckStatus, string> = {
+  raw: '#9e9e9e',
+  filled: '#f9a825',
+  no_data: '#9e9e9e',
+  digital: '#1565c0',
+  passed: '#2e7d32',
+  failed: '#c62828',
+  not_executed: '#000000',
+  unused: '#616161',
+}
+
+/** One decoded pair: the data state, one constraint, or the human review. */
+export type QualityCheck = {
+  /** The pair's position, lowest first: 0 data, 1…N constraints, N+1 human. */
+  id: number
+  kind: 'data' | 'constraint' | 'human'
+  status: QualityCheckStatus
+  /** The constraint the pair reports on, for `kind: 'constraint'` only. */
+  constraint?: QualityConstraint
+}
+
+/**
+ * A datastream's constraints, from `properties.constraints`.
+ *
+ * None at all is a valid answer — no checks are configured, and a value then
+ * holds only the data state and, maybe, the human review — so a missing key
+ * reads as an empty list. A list stored as a JSON string is read as the client
+ * reads it. Anything that is not a list of objects each naming its `type` gives
+ * null: without it the pairs cannot be told apart, so nothing on that
+ * datastream can be decoded.
+ */
+export function qualityConstraintsOf(
+  datastream:
+    | { properties?: Record<string, unknown> | null }
+    | null
+    | undefined
+): QualityConstraint[] | null {
+  let raw = datastream?.properties?.constraints
+  if (raw === undefined || raw === null) return []
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (!Array.isArray(raw)) return null
+  const named = raw.every(
+    (entry) =>
+      !!entry &&
+      typeof entry === 'object' &&
+      !Array.isArray(entry) &&
+      'type' in entry
+  )
+  return named ? (raw as QualityConstraint[]) : null
+}
+
+/**
+ * The pairs of `index`, lowest first: the data state, one per constraint in
+ * list order, then the human review — left out when its pair is 00, which
+ * means nobody has reviewed the reading.
+ *
+ * Null when `index` cannot be such a mask: negative, fractional, or with bits
+ * set beyond the human pair. The client raises there; a chart has to go on
+ * drawing, so the caller shows the value as undecodable instead.
+ *
+ * Plain arithmetic rather than the client's BigInt: by the time a value gets
+ * here it is a JS number, exact only up to 2^53 (26 pairs, so 24 constraints),
+ * and anything past that is reported as undecodable rather than misread.
+ */
+export function decodeResultQuality(
+  index: number,
+  constraints: QualityConstraint[]
+): QualityCheck[] | null {
+  const pairCount = constraints.length + 2
+  if (!Number.isSafeInteger(index) || index < 0 || index >= 4 ** pairCount) {
+    return null
+  }
+  const checks: QualityCheck[] = []
+  for (let i = 0; i < pairCount; i++) {
+    const pair = Math.floor(index / 4 ** i) % 4
+    if (i === 0) {
+      checks.push({ id: 0, kind: 'data', status: DATA_STATUS[pair] })
+    } else if (i <= constraints.length) {
+      checks.push({
+        id: i,
+        kind: 'constraint',
+        status: CHECK_STATUS[pair],
+        constraint: constraints[i - 1],
+      })
+    } else if (pair !== 0) {
+      checks.push({ id: i, kind: 'human', status: CHECK_STATUS[pair] })
+    }
+  }
+  return checks
+}
+
+/**
+ * The OASI verdict a decoded value maps to, or null when it has none: data that
+ * is not raw with no check run, or a pair holding the reserved `unused`. Human
+ * review wins over the constraints, as in `oasi_quality`.
+ */
+export function oasiVerdict(checks: QualityCheck[]): OasiQualityClass | null {
+  const human = checks.find((check) => check.kind === 'human')
+  if (human) {
+    if (human.status === 'passed') return 'oasi10'
+    if (human.status === 'failed') return 'oasi6'
+    return null
+  }
+  const statuses = new Set(
+    checks
+      .filter((check) => check.kind === 'constraint')
+      .map((check) => check.status)
+  )
+  const only = (...wanted: QualityCheckStatus[]) =>
+    statuses.size === wanted.length &&
+    wanted.every((status) => statuses.has(status))
+  if (only('failed')) return 'oasi1'
+  if (only('passed')) return 'oasi3'
+  if (statuses.has('failed') || only('passed', 'not_executed')) return 'oasi2'
+  if (
+    checks[0]?.status === 'raw' &&
+    [...statuses].every((status) => status === 'not_executed')
+  ) {
+    return 'oasi0'
+  }
+  return null
+}
+
+/**
+ * `index` written as its pairs, human review first as the maintainers draw it
+ * ("11 10 11 11" for 239 with two constraints), or null when it does not fit.
+ */
+export function formatQualityPairs(
+  index: number,
+  constraints: QualityConstraint[]
+): string | null {
+  if (!decodeResultQuality(index, constraints)) return null
+  const digits = index.toString(2).padStart(2 * (constraints.length + 2), '0')
+  return (digits.match(/../g) ?? []).join(' ')
+}
+
+/** A constraint as the client describes it: "flagRange: min=0, max=10". */
+export function describeConstraint(constraint: QualityConstraint): string {
+  const params = Object.entries(constraint)
+    .filter(([key]) => key !== 'type')
+    .map(([key, value]) =>
+      // Objects as JSON rather than "[object Object]".
+      value !== null && typeof value === 'object'
+        ? `${key}=${JSON.stringify(value)}`
+        : `${key}=${value}`
+    )
+    .join(', ')
+  return params ? `${constraint.type}: ${params}` : String(constraint.type)
+}
 
 /** A rule that can be evaluated — its operands are filled in. */
 export function isRuleComplete(rule: QualityRule): boolean {
@@ -277,21 +561,40 @@ function ruleMatches(rule: QualityRule, index: number): boolean {
 
 /**
  * Which rule decided an index: its position in the scheme, `'fallback'` when no
- * rule matched, or `'unset'` when there was no index to judge.
+ * rule matched, or `'unset'` when there was no index to judge. The bitmask has
+ * no rules: `'decoded'` when the index fits the datastream's constraints, and
+ * `'undecodable'` when it does not.
  */
-export type QualityRuleRef = number | 'fallback' | 'unset'
+export type QualityRuleRef =
+  | number
+  | 'fallback'
+  | 'unset'
+  | 'decoded'
+  | 'undecodable'
 
 export type QualityMatch = {
   qualityClass: QualityClass
   rule: QualityRuleRef
 }
 
-/** Judge an index under a scheme, and say which rule did it. */
+/**
+ * Judge an index under a scheme, and say which rule did it.
+ *
+ * `constraints` are the datastream's (see `qualityConstraintsOf`), and only the
+ * bitmask reads them. A value that decodes but has no OASI score is not judged,
+ * as the client returns no score for it either.
+ */
 export function matchQuality(
   index: number | null,
-  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME
+  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME,
+  constraints: QualityConstraint[] | null = []
 ): QualityMatch {
   if (index === null) return { qualityClass: 'none', rule: 'unset' }
+  if (scheme.kind === 'bitmask') {
+    const checks = constraints && decodeResultQuality(index, constraints)
+    if (!checks) return { qualityClass: 'undecodable', rule: 'undecodable' }
+    return { qualityClass: oasiVerdict(checks) ?? 'none', rule: 'decoded' }
+  }
   for (let i = 0; i < scheme.rules.length; i++) {
     const rule = scheme.rules[i]
     if (isRuleComplete(rule) && ruleMatches(rule, index)) {
@@ -304,17 +607,32 @@ export function matchQuality(
 /** Where an index sits on the lane. */
 export function classifyQuality(
   index: number | null,
-  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME
+  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME,
+  constraints: QualityConstraint[] | null = []
 ): QualityClass {
-  return matchQuality(index, scheme).qualityClass
+  return matchQuality(index, scheme, constraints).qualityClass
 }
 
 /** Convenience for callers holding a raw value. */
 export function qualityClassOf(
   raw: unknown,
-  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME
+  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME,
+  constraints: QualityConstraint[] | null = []
 ): QualityClass {
-  return classifyQuality(parseResultQuality(raw), scheme)
+  return classifyQuality(parseResultQuality(raw), scheme, constraints)
+}
+
+/**
+ * Whether a scheme accounts for an index: a rule names it, or it fits the
+ * bitmask. A value left to a rule scheme's fallback is not explained.
+ */
+export function explainsQuality(
+  index: number,
+  scheme: QualityScheme,
+  constraints: QualityConstraint[] | null = []
+): boolean {
+  const { rule } = matchQuality(index, scheme, constraints)
+  return typeof rule === 'number' || rule === 'decoded'
 }
 
 /**
@@ -326,7 +644,7 @@ export function qualityClassOf(
  * covers every case a rule can tell apart. That makes the reachability check
  * below exact rather than a sample.
  */
-function representativeIndexes(scheme: QualityScheme): number[] {
+function representativeIndexes(scheme: QualityRulesScheme): number[] {
   const thresholds = new Set<number>()
   for (const rule of scheme.rules) {
     if (!isRuleComplete(rule)) continue
@@ -354,7 +672,9 @@ function representativeIndexes(scheme: QualityScheme): number[] {
  * Returned as 0-based positions. An incomplete rule is reported as reachable:
  * it is flagged for its missing operand instead.
  */
-export function findShadowedRules(scheme: QualityScheme): (number[] | null)[] {
+export function findShadowedRules(
+  scheme: QualityRulesScheme
+): (number[] | null)[] {
   const points = representativeIndexes(scheme)
   return scheme.rules.map((rule, index) => {
     if (!isRuleComplete(rule)) return null
@@ -382,7 +702,9 @@ function normalizeScheme(scheme: QualityScheme) {
       .filter(([, label]) => !!label?.trim())
       .sort(([a], [b]) => a.localeCompare(b))
   )
+  if (scheme.kind === 'bitmask') return { kind: 'bitmask', labels }
   return {
+    kind: 'rules',
     rules: scheme.rules.map((rule) => ({
       op: rule.op,
       value: rule.op === 'in' ? null : rule.value,
@@ -423,7 +745,9 @@ export function qualityLabel(
 export type QualityTally = Record<QualityClass, number>
 
 export function emptyQualityTally(): QualityTally {
-  return { pass: 0, suspect: 0, outlier: 0, range: 0, none: 0 }
+  return Object.fromEntries(
+    QUALITY_CLASSES.map((key) => [key, 0])
+  ) as QualityTally
 }
 
 export function tallyQuality(
@@ -434,9 +758,22 @@ export function tallyQuality(
   return tally
 }
 
+const sumOf = (tally: QualityTally, keep: (key: QualityClass) => boolean) =>
+  QUALITY_CLASSES.reduce((sum, key) => sum + (keep(key) ? tally[key] : 0), 0)
+
 /** Readings that carry a verdict — the denominator the pass rate is out of. */
 export function judgedCount(tally: QualityTally): number {
-  return tally.pass + tally.suspect + tally.outlier + tally.range
+  return sumOf(tally, isJudged)
+}
+
+/** Readings that passed — the pass rate's numerator. */
+export function passedCount(tally: QualityTally): number {
+  return sumOf(tally, isPassing)
+}
+
+/** Readings with no verdict: no value, or raw data no check has run on. */
+export function uncheckedCount(tally: QualityTally): number {
+  return sumOf(tally, (key) => !isJudged(key))
 }
 
 /**

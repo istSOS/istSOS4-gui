@@ -32,13 +32,15 @@ import { siteConfig } from '@/config/site'
 import type { Datastream } from '@/types/domain'
 
 import {
+  BITMASK_QUALITY_CLASSES,
   ISTSOS_QUALITY_SCHEME,
-  QUALITY_CLASSES,
   QUALITY_OPS,
+  RULE_QUALITY_CLASSES,
   sameQualityScheme,
   type QualityClass,
   type QualityRule,
   type QualityScheme,
+  type RuleQualityClass,
 } from './resultQuality'
 
 const STORAGE_KEY = 'quality-schemes'
@@ -84,8 +86,22 @@ function datastreamKeyOf(datastream: Datastream | null | undefined): string {
 // dropped, so a bad entry falls back to the default instead of breaking the
 // chart.
 
-const isVerdict = (value: unknown): value is QualityClass =>
-  QUALITY_CLASSES.includes(value as QualityClass)
+const isVerdict = (value: unknown): value is RuleQualityClass =>
+  RULE_QUALITY_CLASSES.includes(value as RuleQualityClass)
+
+/** The viewer's names for the verdicts `classes` holds; others are dropped. */
+function readLabels(raw: unknown, classes: QualityClass[]) {
+  const labels: Partial<Record<QualityClass, string>> = {}
+  if (raw && typeof raw === 'object') {
+    for (const [key, label] of Object.entries(raw)) {
+      const known = classes.includes(key as QualityClass)
+      if (known && typeof label === 'string' && label.trim()) {
+        labels[key as QualityClass] = label.trim().slice(0, 40)
+      }
+    }
+  }
+  return Object.keys(labels).length ? { labels } : {}
+}
 
 const finiteOrNull = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -112,23 +128,25 @@ function readRule(raw: unknown): QualityRule | null {
 function readScheme(raw: unknown): QualityScheme | null {
   if (!raw || typeof raw !== 'object') return null
   const scheme = raw as Record<string, unknown>
-  if (scheme.version !== 1 || !Array.isArray(scheme.rules)) return null
+  if (scheme.version !== 1) return null
+  if (scheme.kind === 'bitmask') {
+    return {
+      version: 1,
+      kind: 'bitmask',
+      ...readLabels(scheme.labels, BITMASK_QUALITY_CLASSES),
+    }
+  }
+  // Rules saved before the bitmask existed carry no `kind`.
+  if (scheme.kind !== undefined && scheme.kind !== 'rules') return null
+  if (!Array.isArray(scheme.rules)) return null
   if (!isVerdict(scheme.fallback) || scheme.fallback === 'none') return null
   const rules = scheme.rules.map(readRule)
   if (rules.some((rule) => rule === null)) return null
-  const labels: Partial<Record<QualityClass, string>> = {}
-  if (scheme.labels && typeof scheme.labels === 'object') {
-    for (const [key, label] of Object.entries(scheme.labels)) {
-      if (isVerdict(key) && typeof label === 'string' && label.trim()) {
-        labels[key] = label.trim().slice(0, 40)
-      }
-    }
-  }
   return {
     version: 1,
     rules: rules as QualityRule[],
     fallback: scheme.fallback,
-    ...(Object.keys(labels).length ? { labels } : {}),
+    ...readLabels(scheme.labels, RULE_QUALITY_CLASSES),
   }
 }
 
