@@ -8,3 +8,6 @@
 /ui/next-env.d.ts
 
 /ui/package-lock.json
+
+# Python service
+/qc-service/__pycache__/

@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  devIndicators: { position: 'top-left' },
   logging: {
     serverFunctions: false,
   },

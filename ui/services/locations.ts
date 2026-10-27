@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { commitMessageHeaders } from '@/lib/commit'
 import { LocationRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
@@ -112,9 +113,7 @@ export async function createLocation(
       resolvedApiRoot
     )
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Create Location from GUI'))
 
     const existingId = await findEntityIdByName(
       resolvedApiRoot,
@@ -168,9 +167,7 @@ export async function updateLocation(
       resolvedApiRoot
     )
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Update Location from GUI'))
 
     const response = await fetch(`${resolvedApiRoot}/Locations(${id})`, {
       method: 'PATCH',

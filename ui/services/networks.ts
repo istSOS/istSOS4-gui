@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { commitMessageHeaders } from '@/lib/commit'
 import { EntityRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
@@ -84,9 +85,7 @@ export async function createNetwork(
       resolvedApiRoot
     )
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Create Network from GUI'))
 
     const existingId = await findEntityIdByName(
       resolvedApiRoot,

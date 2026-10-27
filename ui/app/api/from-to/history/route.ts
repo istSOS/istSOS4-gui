@@ -14,6 +14,8 @@
 
 import { NextResponse } from 'next/server'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import { type HistoryWindow } from '@/features/from-to/lib/historyWindow'
 import {
   resolveAuthHeaders,
@@ -48,6 +50,10 @@ type RequestPayload = {
  * `$count` is correct even where the rows duplicate.
  */
 export async function POST(request: Request) {
+  if (!isVersioningEnabled) {
+    return NextResponse.json({ ok: false }, { status: 404 })
+  }
+
   const body = (await request.json().catch(() => null)) as RequestPayload | null
 
   const path = String(body?.path ?? '').trim()

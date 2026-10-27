@@ -32,6 +32,7 @@ import utc from 'dayjs/plugin/utc'
 import { useTranslation } from 'react-i18next'
 
 import { CloseIcon } from '@/components/icons'
+import { isVersioningEnabled } from '@/config/versioning'
 import CommitAuthor from '@/features/users/components/CommitAuthor'
 import type { RecordCommit } from '@/types/domain'
 
@@ -286,7 +287,7 @@ export default function ReadingDetailsRail({
                 {dayjs.utc(entry.ts).format('MMM D, YYYY HH:mm')} UTC
               </Row>
 
-              {entry.commit ? (
+              {isVersioningEnabled && (entry.commit ? (
                 <>
                   {entry.commit.actionType && (
                     <Row label={t('as_of.chart.commit.action')}>
@@ -321,13 +322,13 @@ export default function ReadingDetailsRail({
                     {t('as_of.chart.commit.none')}
                   </span>
                 </Row>
-              )}
+              ))}
             </dl>
 
             {/* Last and unlabelled: it is the payload, not another field, and
                 it is the one value whose height varies — keeping it out of the
                 grid means a long message cannot push the labels around. */}
-            {entry.commit?.message && (
+            {isVersioningEnabled && entry.commit?.message && (
               <p className="mt-2 whitespace-pre-wrap break-words text-xs font-medium text-primary">
                 {entry.commit.message}
               </p>

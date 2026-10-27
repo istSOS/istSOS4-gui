@@ -14,6 +14,8 @@
 
 import { NextResponse } from 'next/server'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import { type HistoryWindow } from '@/features/from-to/lib/historyWindow'
 import {
   resolveAuthHeaders,
@@ -42,6 +44,10 @@ type RequestPayload = {
  * cannot be given exactly; the rail then keeps its plain "too many" line.
  */
 export async function POST(request: Request) {
+  if (!isVersioningEnabled) {
+    return NextResponse.json({ ok: false }, { status: 404 })
+  }
+
   const body = (await request.json().catch(() => null)) as RequestPayload | null
 
   const path = String(body?.path ?? '').trim()

@@ -15,6 +15,8 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import { normalizeApiRoot } from '@/server/as-of/read'
 import { clampAsOf, readThingsAsOf } from '@/server/as-of/snapshot'
 import {
@@ -37,6 +39,10 @@ type RequestPayload = {
  * Things are left out, so the client can fall back for that source alone.
  */
 export async function POST(request: Request) {
+  if (!isVersioningEnabled) {
+    return NextResponse.json({ ok: false }, { status: 404 })
+  }
+
   const body = (await request.json().catch(() => null)) as RequestPayload | null
   const asOfDate = String(body?.asOfDate ?? '').trim()
 

@@ -27,7 +27,17 @@ export interface ProvidersProps {
 export default function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <HeroUIProvider>
-      <ThemeProvider {...themeProps}>{children}</ThemeProvider>
+      <ThemeProvider
+        {...themeProps}
+        scriptProps={{
+          ...themeProps?.scriptProps,
+          // The server bootstrap sets the theme before paint. Client remounts
+          // use the provider's effects and must not create executable scripts.
+          ...(typeof window === 'undefined' ? {} : { type: 'text/plain' }),
+        }}
+      >
+        {children}
+      </ThemeProvider>
     </HeroUIProvider>
   )
 }

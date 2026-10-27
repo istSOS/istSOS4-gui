@@ -17,15 +17,8 @@
  * Adapter layer for the As-Of (time-travel) feature.
  *
  * This file provides a single `activeAdapter` that is used by `useAsOfThing`
- * and `useAsOfCommits`. It abstracts two implementations:
- *
- *  - `mockAdapter`  — resolves data from local dummy things (for dev/demo).
- *  - `apiAdapter`   — calls the real backend `$as_of` API endpoint.
- *
- * To switch from mock → real:
- *   Set `NEXT_PUBLIC_VERSIONING_ENABLED=true` in your `.env` file.
- *
- * No hook code needs to change — only this env variable.
+ * and `useAsOfCommits`. Enabled deployments use the backend's historical
+ * reads; disabled deployments return live data without historical requests.
  */
 import type { Datastream, Thing } from '@/types/domain'
 import dayjs from 'dayjs'
@@ -33,10 +26,7 @@ import utc from 'dayjs/plugin/utc'
 
 import { normalizedBasePath } from '@/app/home/utils'
 
-import {
-  type LocalTimeTravelVersion,
-  localDummyThings,
-} from '@/config/local-dummy-things'
+import { isVersioningEnabled } from '@/config/versioning'
 
 import {
   getAllDataSourceTokens,
@@ -143,102 +133,6 @@ function thingId(thing: Thing): string {
   return String(thing['@iot.id'] ?? thing.id ?? '')
 }
 
-// ---------------------------------------------------------------------------
-// Version resolution helpers (used by mockAdapter)
-// ---------------------------------------------------------------------------
-
-function resolveVersionForDate(
-  versions: LocalTimeTravelVersion[],
-  asOfDate: string
-): LocalTimeTravelVersion | null {
-  const target = dayjs.utc(asOfDate)
-  if (!target.isValid()) return null
-
-  for (const version of versions) {
-    const [from, to] = version.systemTimeValidity
-    const fromDt = dayjs.utc(from)
-    const toDt = to ? dayjs.utc(to) : null
-    const afterFrom = target.isAfter(fromDt) || target.isSame(fromDt)
-    const beforeTo = toDt ? target.isBefore(toDt) : true
-    if (afterFrom && beforeTo) return version
-  }
-  return null
-}
-
-function resolveExistenceState(
-  versions: LocalTimeTravelVersion[],
-  asOfDate: string
-): ExistenceState {
-  if (versions.length === 0) return 'exists'
-  const target = dayjs.utc(asOfDate)
-  const earliest = dayjs.utc(versions[0].systemTimeValidity[0])
-  if (target.isBefore(earliest)) return 'not-yet-created'
-  const last = versions[versions.length - 1]
-  const lastEnd = last.systemTimeValidity[1]
-  if (lastEnd && target.isAfter(dayjs.utc(lastEnd))) return 'deleted'
-  return 'exists'
-}
-
-function extractExistenceRange(versions: LocalTimeTravelVersion[]): {
-  createdAt: string | null
-  deletedAt: string | null
-} {
-  if (versions.length === 0) return { createdAt: null, deletedAt: null }
-  const createdAt = versions[0].systemTimeValidity[0] ?? null
-  const lastEnd = versions[versions.length - 1].systemTimeValidity[1] ?? null
-  return { createdAt, deletedAt: lastEnd }
-}
-
-function applyVersionToThing(
-  baseThing: Thing,
-  version: LocalTimeTravelVersion
-): Thing {
-  const versionStart = dayjs.utc(version.systemTimeValidity[0])
-  const patchedDatastreams = (baseThing.Datastreams ?? []).map((ds) => {
-    const filteredObs = (ds.Observations ?? []).filter((obs) => {
-      const t = dayjs.utc(obs.phenomenonTime ?? obs.resultTime ?? '')
-      return t.isValid() && (t.isBefore(versionStart) || t.isSame(versionStart))
-    })
-    const patchedSensor =
-      version.sensor && ds.Sensor
-        ? { ...ds.Sensor, name: version.sensor }
-        : ds.Sensor
-
-    return {
-      ...ds,
-      Sensor: patchedSensor,
-      Observations:
-        filteredObs.length > 0
-          ? filteredObs
-          : (ds.Observations?.slice(-1) ?? []),
-    }
-  })
-
-  // A version's coordinates are where the Thing stood during it. The live
-  // Location keeps its CRS and identity; only the position is historical.
-  const patchedLocations = version.coordinates
-    ? (baseThing.Locations ?? []).map((location, index) =>
-        index === 0 && location.location?.type === 'Point'
-          ? {
-              ...location,
-              location: {
-                ...location.location,
-                coordinates: version.coordinates,
-              },
-            }
-          : location
-      )
-    : baseThing.Locations
-
-  return {
-    ...baseThing,
-    name: version.name ?? baseThing.name,
-    description: version.description ?? baseThing.description,
-    Locations: patchedLocations,
-    Datastreams: patchedDatastreams,
-  }
-}
-
 /** Infer existence range from datastream phenomenonTime when no version history exists. */
 function inferExistenceRange(thing: Thing): {
   createdAt: string | null
@@ -259,102 +153,6 @@ function inferExistenceRange(thing: Thing): {
     createdAt: earliest ? earliest.toISOString() : null,
     deletedAt: null,
   }
-}
-
-// ---------------------------------------------------------------------------
-// mockAdapter — reads from local-dummy-things.ts
-// ---------------------------------------------------------------------------
-
-const mockAdapter: AsOfAdapter = {
-  async resolveThing(thing, asOfDate) {
-    const id = thingId(thing)
-    const dummyMatch = localDummyThings.find(
-      (d) => String(d['@iot.id'] ?? d.id ?? '') === id
-    )
-
-    if (dummyMatch?.properties?.timeTravel?.versions) {
-      const versions = dummyMatch.properties.timeTravel.versions
-      const version = resolveVersionForDate(versions, asOfDate)
-      const existenceRange = extractExistenceRange(versions)
-
-      if (version) {
-        return {
-          thing: applyVersionToThing(thing, version),
-          existenceState: 'exists',
-          existenceRange,
-        }
-      }
-
-      return {
-        thing: { ...thing, Datastreams: [] },
-        existenceState: resolveExistenceState(versions, asOfDate),
-        existenceRange,
-      }
-    }
-
-    // Real thing in mock mode — infer range from phenomenonTime
-    const existenceRange = inferExistenceRange(thing)
-    if (existenceRange.createdAt) {
-      const target = dayjs.utc(asOfDate)
-      const earliest = dayjs.utc(existenceRange.createdAt)
-      if (target.isBefore(earliest)) {
-        return {
-          thing: { ...thing, Datastreams: [] },
-          existenceState: 'not-yet-created',
-          existenceRange,
-        }
-      }
-    }
-
-    return { thing, existenceState: 'exists', existenceRange }
-  },
-
-  async fetchCommits(thing) {
-    const id = thingId(thing)
-    const dummyMatch = localDummyThings.find(
-      (d) => String(d['@iot.id'] ?? d.id ?? '') === id
-    )
-
-    if (dummyMatch?.properties?.timeTravel?.commits) {
-      return [...dummyMatch.properties.timeTravel.commits].sort(
-        (a, b) =>
-          dayjs.utc(a.authoredAt).valueOf() - dayjs.utc(b.authoredAt).valueOf()
-      )
-    }
-
-    return []
-  },
-
-  async resolveMapThings(liveThings, asOfDate) {
-    // The same resolution the panel gets, per Thing, so a marker and its panel
-    // always agree on whether the Thing existed and where it stood.
-    const resolved = await Promise.all(
-      liveThings.map(async (thing) => {
-        const result = await mockAdapter.resolveThing(thing, asOfDate)
-        if (result.existenceState !== 'exists' || !result.thing) return null
-        const id = thingId(thing)
-        const hasVersions = localDummyThings.some(
-          (d) =>
-            String(d['@iot.id'] ?? d.id ?? '') === id &&
-            !!d.properties?.timeTravel?.versions?.length
-        )
-        // Only the dummy Things carry a position history. A real Thing in mock
-        // mode is live data and is flagged so the map does not present it as
-        // historical.
-        return {
-          ...result.thing,
-          __asOfLocationSource: hasVersions ? 'history' : 'live',
-        } satisfies Thing
-      })
-    )
-    return {
-      things: resolved.filter(
-        (thing): thing is NonNullable<typeof thing> => !!thing
-      ),
-      failedEndpoints: [],
-      readingsUnavailableEndpoints: [],
-    }
-  },
 }
 
 // ---------------------------------------------------------------------------
@@ -703,21 +501,27 @@ const apiAdapter: AsOfAdapter = {
   },
 }
 
-// ---------------------------------------------------------------------------
-// Active adapter — controlled by env variable
-// ---------------------------------------------------------------------------
+// Guard adapter calls as well as the UI: disabled mode never reads history.
+const liveAdapter: AsOfAdapter = {
+  async resolveThing(thing) {
+    return {
+      thing,
+      existenceState: 'exists',
+      existenceRange: { createdAt: null, deletedAt: null },
+    }
+  },
+  async fetchCommits() {
+    return []
+  },
+  async resolveMapThings(liveThings) {
+    return {
+      things: liveThings,
+      failedEndpoints: [],
+      readingsUnavailableEndpoints: [],
+    }
+  },
+}
 
-/**
- * Set `NEXT_PUBLIC_VERSIONING_ENABLED=true` in `.env` to switch from
- * mock data to the real backend `$as_of` API.
- *
- * Default: `false` (mock mode — works with no backend).
- */
-const VERSIONING_ENABLED =
-  process.env.NEXT_PUBLIC_VERSIONING_ENABLED?.toLowerCase() === 'true'
-
-export const activeAdapter: AsOfAdapter = VERSIONING_ENABLED
+export const activeAdapter: AsOfAdapter = isVersioningEnabled
   ? apiAdapter
-  : mockAdapter
-
-export const isVersioningEnabled = VERSIONING_ENABLED
+  : liveAdapter

@@ -53,6 +53,7 @@ import {
   LocationIcon,
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
+import { isVersioningEnabled } from '@/config/versioning'
 import { useAuth } from '@/context/AuthContext'
 import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
 import HistoryRangeDialog from '@/features/from-to/components/HistoryRangeDialog'
@@ -190,7 +191,7 @@ export default function DatastreamTable({
 
   const openThingHistory = useCallback(() => {
     const id = thing?.['@iot.id'] ?? thing?.id
-    if (id == null) return
+    if (!isVersioningEnabled || id == null) return
     setHistorySubject({
       name: String(thing?.name ?? ''),
       kind: 'Thing',
@@ -200,7 +201,7 @@ export default function DatastreamTable({
 
   const openDatastreamHistory = useCallback((datastream: Datastream) => {
     const id = datastream?.['@iot.id'] ?? datastream?.id
-    if (id == null) return
+    if (!isVersioningEnabled || id == null) return
     setHistorySubject({
       name: String(datastream?.name ?? ''),
       kind: 'Datastream',
@@ -214,7 +215,7 @@ export default function DatastreamTable({
    */
   const goToHistory = useCallback(
     (window: HistoryWindow) => {
-      if (!historySubject) return
+      if (!isVersioningEnabled || !historySubject) return
       const query = new URLSearchParams({ from: window.from, to: window.to })
       setHistorySubject(null)
       router.push(`/history/${historySubject.path}?${query.toString()}`)
@@ -428,30 +429,32 @@ export default function DatastreamTable({
                   names the datastream so the two are never confused.
                   Both stay available in snapshot mode: reading the past is what
                   these features are for, and this is a read. */}
-              <Tooltip
-                color="primary"
-                content={t('from_to.table.row_history_tooltip', {
-                  name: String(item?.name ?? ''),
-                })}
-              >
-                <Button
-                  isIconOnly
-                  className="h-6 w-6 min-w-6"
-                  size="sm"
-                  variant="light"
+              {isVersioningEnabled && (
+                <Tooltip
                   color="primary"
-                  // An icon-only button needs a name of its own: the tooltip
-                  // only exists on hover, so without this the control is
-                  // unlabelled to a screen reader — and it is precisely the
-                  // label that distinguishes it from the toolbar's button.
-                  aria-label={t('from_to.table.row_history_tooltip', {
+                  content={t('from_to.table.row_history_tooltip', {
                     name: String(item?.name ?? ''),
                   })}
-                  onPress={() => openDatastreamHistory(item)}
                 >
-                  <HistoryIcon size={18} />
-                </Button>
-              </Tooltip>
+                  <Button
+                    isIconOnly
+                    className="h-6 w-6 min-w-6"
+                    size="sm"
+                    variant="light"
+                    color="primary"
+                    // An icon-only button needs a name of its own: the tooltip
+                    // only exists on hover, so without this the control is
+                    // unlabelled to a screen reader — and it is precisely the
+                    // label that distinguishes it from the toolbar's button.
+                    aria-label={t('from_to.table.row_history_tooltip', {
+                      name: String(item?.name ?? ''),
+                    })}
+                    onPress={() => openDatastreamHistory(item)}
+                  >
+                    <HistoryIcon size={18} />
+                  </Button>
+                </Tooltip>
+              )}
               {/* In snapshot mode, or without write permission, the write
                   actions stay visible but greyed out and inert, so a row's
                   actions read the same everywhere and the reason is one hover
@@ -618,17 +621,19 @@ export default function DatastreamTable({
                   picked the entity whose past they want, so the button belongs
                   here rather than in the navbar. Reading history is not a mode,
                   so it stays available in snapshot mode too. */}
-              <Tooltip content={t('from_to.table.open_history_tooltip')}>
-                <Button
-                  size="sm"
-                  variant="bordered"
-                  startContent={<HistoryIcon size={16} />}
-                  isDisabled={!thing}
-                  onPress={openThingHistory}
-                >
-                  {t('from_to.table.open_history')}
-                </Button>
-              </Tooltip>
+              {isVersioningEnabled && (
+                <Tooltip content={t('from_to.table.open_history_tooltip')}>
+                  <Button
+                    size="sm"
+                    variant="bordered"
+                    startContent={<HistoryIcon size={16} />}
+                    isDisabled={!thing}
+                    onPress={openThingHistory}
+                  >
+                    {t('from_to.table.open_history')}
+                  </Button>
+                </Tooltip>
+              )}
 
               {!isSnapshot && (
                 <>
@@ -740,7 +745,7 @@ export default function DatastreamTable({
         </ModalContent>
       </Modal>
 
-      {historySubject && (
+      {isVersioningEnabled && historySubject && (
         <HistoryRangeDialog
           isOpen
           entityName={historySubject.name}

@@ -108,13 +108,26 @@ export async function POST(request: Request) {
   if (mode === 'login-check') {
     try {
       const response = await fetch(`${apiRoot}/Login`, {
-        method: 'GET',
+        // Login is POST-only. GET can reach the generic SensorThings resource
+        // handler and return 404 even when authentication is available.
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        // Missing credentials are intentional: validation errors confirm the
+        // route exists without attempting to sign in as any user.
+        body: new URLSearchParams({ grant_type: 'password' }).toString(),
         cache: 'no-store',
       })
 
       if (response.status === 404) {
         return NextResponse.json(
           { ok: false, errorCode: 'validation_login_missing' },
+          { status: 200 }
+        )
+      }
+
+      if (!response.ok && ![400, 401, 403, 422].includes(response.status)) {
+        return NextResponse.json(
+          { ok: false, errorCode: 'validation_login_check_failed' },
           { status: 200 }
         )
       }
@@ -174,7 +187,13 @@ export async function POST(request: Request) {
 
       if (!loginResponse.ok) {
         return NextResponse.json(
-          { ok: false, errorCode: 'validation_login_failed' },
+          {
+            ok: false,
+            errorCode:
+              loginResponse.status === 404
+                ? 'validation_login_missing'
+                : 'validation_login_failed',
+          },
           { status: 200 }
         )
       }

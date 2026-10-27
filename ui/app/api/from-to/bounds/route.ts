@@ -14,6 +14,8 @@
 
 import { NextResponse } from 'next/server'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import {
   resolveAuthHeaders,
   resolveConfiguredEndpoint,
@@ -36,6 +38,10 @@ type RequestPayload = {
  * anything to see at all.
  */
 export async function POST(request: Request) {
+  if (!isVersioningEnabled) {
+    return NextResponse.json({ ok: false }, { status: 404 })
+  }
+
   const body = (await request.json().catch(() => null)) as RequestPayload | null
 
   const path = String(body?.path ?? '').trim()

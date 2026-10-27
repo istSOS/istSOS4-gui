@@ -2,9 +2,9 @@
   "sources": [
     {
       "id": "0",
-      "name": "SensorThings1",
-      "apiRoot": "/ISTSOS4_URL",
-      "authorizationEnabled": true,
+      "name": "IST",
+      "apiRoot": "https://hydromet.supsi.ch/tsdb/v1.1",
+      "authorizationEnabled": false,
       "networkEnabled": true
     }
   ]

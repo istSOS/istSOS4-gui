@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { commitMessageHeaders } from '@/lib/commit'
 import { Datastream } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
@@ -110,9 +111,7 @@ export async function createDatastream(
       'Content-Type': 'application/json',
     }, resolvedApiRoot)
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Create Datastream from GUI'))
 
     const existingId = await findEntityIdByName(
       resolvedApiRoot,
@@ -162,9 +161,7 @@ export async function updateDatastream(
       'Content-Type': 'application/json',
     }, resolvedApiRoot)
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Update Datastream from GUI'))
 
     const response = await fetch(`${resolvedApiRoot}/Datastreams(${id})`, {
       method: 'PATCH',

@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { commitMessageHeaders } from '@/lib/commit'
 import { ObservedPropertyRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
@@ -98,9 +99,7 @@ export async function createObservedProperty(
       'Content-Type': 'application/json',
     }, resolvedApiRoot)
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Create ObservedProperty from GUI'))
 
     const existingId = await findEntityIdByName(
       resolvedApiRoot,
@@ -150,9 +149,7 @@ export async function updateObservedProperty(
       'Content-Type': 'application/json',
     }, resolvedApiRoot)
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Update ObservedProperty from GUI'))
 
     const response = await fetch(`${resolvedApiRoot}/ObservedProperties(${id})`, {
       method: 'PATCH',

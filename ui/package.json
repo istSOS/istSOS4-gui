@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:qc": "node --test features/qc/lib/model.test.cjs features/qc/lib/useQcEditor.test.cjs features/qc/components/QcGraph.test.cjs",
+    "test:versioning": "node --test config/versioning.test.cjs",
+    "test:data-sources": "node --test app/api/data-sources/inspect/route.test.cjs"
   },
   "dependencies": {
     "@heroui/accordion": "2.2.27",

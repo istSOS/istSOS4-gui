@@ -14,6 +14,7 @@
 import type { BasemapKey } from '@/types'
 
 import { primaryDataSource } from '@/config/dataSources'
+import { isVersioningEnabled } from '@/config/versioning'
 
 export const BASEMAPS: Record<
   BasemapKey,
@@ -57,7 +58,7 @@ const NETWORK_ENABLED = primaryDataSource.networkEnabled
 
 export const siteConfig = {
   name: 'istSOS4 admin ui',
-  versioning: true,
+  versioning: isVersioningEnabled,
   api_root: API_ROOT,
   authorizationEnabled: AUTHORIZATION_ENABLED,
   networkEnabled: NETWORK_ENABLED,

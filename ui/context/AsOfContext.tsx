@@ -22,6 +22,7 @@ import {
   useState,
 } from 'react'
 import type { ReactNode } from 'react'
+import { isVersioningEnabled } from '@/config/versioning'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -54,10 +55,12 @@ AsOfContext.displayName = 'AsOfContext'
 // ---------------------------------------------------------------------------
 
 export function AsOfProvider({ children }: { children: ReactNode }) {
-  const [asOfDate, setAsOfDateState] = useState<string | null>(null)
+  const [snapshotDate, setAsOfDateState] = useState<string | null>(null)
+  // Ignore any stale state immediately, including during development refreshes.
+  const asOfDate = isVersioningEnabled ? snapshotDate : null
 
   const setAsOfDate = useCallback((date: string | null) => {
-    setAsOfDateState(date ?? null)
+    setAsOfDateState(isVersioningEnabled ? (date ?? null) : null)
   }, [])
 
   const clearSnapshot = useCallback(() => {

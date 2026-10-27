@@ -14,6 +14,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import type { Thing } from '@/types/domain'
 import { activeAdapter } from '../adapters/asOfAdapter'
 
@@ -67,11 +69,12 @@ type Resolution = {
  */
 export function useAsOfMapThings({
   liveThings,
-  asOfDate,
+  asOfDate: requestedDate,
 }: {
   liveThings: Thing[]
   asOfDate: string | null
 }): AsOfMapThingsResult {
+  const asOfDate = isVersioningEnabled ? requestedDate : null
   const [resolution, setResolution] = useState<Resolution | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 

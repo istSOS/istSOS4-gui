@@ -1,5 +1,3 @@
-'use server'
-
 // Copyright 2026 SUPSI
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,7 +28,7 @@
  */
 
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import HistoryPage from '@/app/history/[...entity]/HistoryPage'
 import { siteConfig } from '@/config/site'
@@ -40,6 +38,9 @@ import {
   type HistoryWindow,
 } from '@/features/from-to/lib/historyWindow'
 import { isTokenExpired } from '@/lib/auth'
+
+// The production image receives its feature setting when the container starts.
+export const dynamic = 'force-dynamic'
 
 type PageProps = {
   params: Promise<{ entity: string[] }>
@@ -52,6 +53,8 @@ function firstValue(value: string | string[] | undefined): string {
 }
 
 export default async function Page({ params, searchParams }: PageProps) {
+  if (!siteConfig.versioning) notFound()
+
   const cookieStore = await cookies()
   const token = siteConfig.authorizationEnabled
     ? (cookieStore.get('token')?.value ?? null)

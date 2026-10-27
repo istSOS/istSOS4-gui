@@ -16,6 +16,8 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import { useEffect, useRef, useState } from 'react'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import type { Thing } from '@/types/domain'
 import { activeAdapter, type AsOfCommit } from '../adapters/asOfAdapter'
 
@@ -46,11 +48,7 @@ export type AsOfCommitsResult = {
  * Resolves the commit history for a given Thing so the TimelineScrubber
  * knows the range [firstCommit → now] and where to place tick marks.
  *
- * Delegates to `activeAdapter.fetchCommits()` which handles both mock
- * (local dummy data) and real API (`/Things(id)/Commit`) modes.
- *
- * To switch between mock and real modes, set the env variable:
- *   `NEXT_PUBLIC_VERSIONING_ENABLED=true`
+ * Reads backend history only when versioning is enabled; otherwise stays idle.
  *
  * Re-runs whenever the selected Thing changes.
  */
@@ -77,7 +75,7 @@ export function useAsOfCommits({
 
   useEffect(() => {
     const thing = thingRef.current
-    if (!thing) {
+    if (!isVersioningEnabled || !thing) {
       setCommits([])
       setIsLoading(false)
       setError(null)

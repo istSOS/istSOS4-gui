@@ -3,6 +3,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { commitMessageHeaders } from '@/lib/commit'
 import { SensorRef } from '@/types/domain'
 
 const resolveApiRoot = (apiRoot?: string) =>
@@ -98,9 +99,7 @@ export async function createSensor(
       'Content-Type': 'application/json',
     }, resolvedApiRoot)
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Create Sensor from GUI'))
 
     const existingId = await findEntityIdByName(
       resolvedApiRoot,
@@ -150,9 +149,7 @@ export async function updateSensor(
       'Content-Type': 'application/json',
     }, resolvedApiRoot)
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Update Sensor from GUI'))
 
     const response = await fetch(`${resolvedApiRoot}/Sensors(${id})`, {
       method: 'PATCH',

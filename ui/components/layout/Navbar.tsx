@@ -13,6 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import AsOfNavbarButton from '@/features/as-of/components/AsOfNavbarButton'
 import i18n from '@/i18n'
 import { logout } from '@/services/auth'
 import { Avatar } from '@heroui/avatar'
@@ -29,23 +30,29 @@ import 'flag-icons/css/flag-icons.min.css'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import NextLink from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
 import { DataSourcesIcon, GithubIcon, LogoIstSOS } from '@/components/icons'
-import AsOfNavbarButton from '@/features/as-of/components/AsOfNavbarButton'
 
 import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
 import { getTokenUsername } from '@/lib/auth'
+import { canUseQcWithToken } from '@/lib/qcAccess'
 
-export default function Navbar() {
+export default function Navbar({
+  saqcEnabled = false,
+}: {
+  saqcEnabled?: boolean
+}) {
   const { token, setToken } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
   const pathname = usePathname()
   const isHistoryRoute = (pathname ?? '').startsWith('/history')
+  const isQcRoute = (pathname ?? '').startsWith('/qc')
 
   const languages = [
     { code: 'en', label: 'EN', flag: 'fi fi-gb fis w-12 h-8' },
@@ -107,7 +114,7 @@ export default function Navbar() {
     <header className="w-full bg-[var(--color-primary)] text-white">
       <div className="mx-auto grid h-14 w-full grid-cols-3 items-center lg:px-[25px] text-sm">
         {/* Left: logo */}
-        <Link isExternal aria-label="istSOS4" href={siteConfig.links.istSOS}>
+        <Link as={NextLink} aria-label="istSOS4" href="/">
           <div className="w-[150px]">
             <LogoIstSOS className="w-full" />
           </div>
@@ -119,11 +126,22 @@ export default function Navbar() {
             mode — leaving a snapshot control there would suggest the whole
             application is being re-read, which is exactly what it is not. */}
         <div className="flex justify-center">
-          {!isHistoryRoute && <AsOfNavbarButton />}
+          {siteConfig.versioning && !isHistoryRoute && !isQcRoute && (
+            <AsOfNavbarButton />
+          )}
         </div>
 
         {/* Right: language / github / data-sources / user */}
         <div className="flex items-center justify-end gap-1">
+          {saqcEnabled && canUseQcWithToken(token) && (
+            <Button
+              variant="light"
+              className="text-white"
+              onPress={() => router.push('/qc')}
+            >
+              {t('qc.nav_label')}
+            </Button>
+          )}
           <Tooltip content="Change language">
             <Dropdown>
               <DropdownTrigger>

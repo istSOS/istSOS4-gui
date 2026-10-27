@@ -18,6 +18,7 @@ import Navbar from '@/components/layout/Navbar'
 import { AuthProvider } from '@/context/AuthContext'
 import { AsOfProvider } from '@/context/AsOfContext'
 import AsOfBanner from '@/features/as-of/components/AsOfBanner'
+import { getSaqcServiceUrl } from '@/server/qc'
 
 import '@/styles/globals.css'
 
@@ -35,7 +36,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Providers>
           <AuthProvider>
             <AsOfProvider>
-              <Navbar />
+              <Navbar saqcEnabled={!!getSaqcServiceUrl()} />
               <AsOfBanner />
               {children}
             </AsOfProvider>

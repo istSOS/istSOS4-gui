@@ -16,10 +16,18 @@ services:
       NEXT_PUBLIC_MAP_CENTER: ${NEXT_PUBLIC_MAP_CENTER}
       NEXT_PUBLIC_MAP_ZOOM: ${NEXT_PUBLIC_MAP_ZOOM}
       NEXT_PUBLIC_MAP_DEFAULT_BASEMAP: ${NEXT_PUBLIC_MAP_DEFAULT_BASEMAP}
-      NEXT_PUBLIC_VERSIONING_ENABLED: ${NEXT_PUBLIC_VERSIONING_ENABLED}
+      NEXT_PUBLIC_VERSIONING_ENABLED: ${NEXT_PUBLIC_VERSIONING_ENABLED:-false}
+      SAQC_SERVICE_URL: ${SAQC_SERVICE_URL:-}
     command: npm run dev
     networks:
      - istsos4-network
+
+  saqc:
+    profiles: [saqc]
+    build: ./qc-service
+    restart: unless-stopped
+    networks:
+      - istsos4-network
      
 networks:
   istsos4-network:

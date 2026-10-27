@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { EntityRef, Thing } from '@/types/domain'
-import { localDummyThings } from '@/config/local-dummy-things'
-import { isVersioningEnabled } from '@/features/as-of/adapters/asOfAdapter'
 import { getAllDataSourceTokens } from '@/lib/dataSourceTokens'
 
 import {
@@ -9,9 +7,6 @@ import {
   enrichThingsWithSourceMetadata,
 } from './metadata'
 import { mapThingsApiPath } from './utils'
-
-// Only inject dummy stations in mock mode (NEXT_PUBLIC_VERSIONING_ENABLED=false)
-const dummyThingsToInject: Thing[] = isVersioningEnabled ? [] : localDummyThings
 
 export function useDataSourcesSync({
   things,
@@ -30,14 +25,13 @@ export function useDataSourcesSync({
   primarySourceName: string
   refreshKey?: unknown
 }) {
-  const [localThings, setLocalThings] = useState<Thing[]>(() => [
-    ...dummyThingsToInject,
-    ...enrichThingsWithSourceMetadata({
+  const [localThings, setLocalThings] = useState<Thing[]>(() =>
+    enrichThingsWithSourceMetadata({
       items: things,
       primaryEndpoint,
       primarySourceName,
-    }),
-  ])
+    })
+  )
   const [localSensors, setLocalSensors] = useState<EntityRef[]>(() =>
     enrichEntitiesWithSourceMetadata({
       items: sensors,
@@ -64,14 +58,13 @@ export function useDataSourcesSync({
   )
 
   useEffect(() => {
-    setLocalThings([
-      ...dummyThingsToInject,
-      ...enrichThingsWithSourceMetadata({
+    setLocalThings(
+      enrichThingsWithSourceMetadata({
         items: things,
         primaryEndpoint,
         primarySourceName,
-      }),
-    ])
+      })
+    )
     setLocalSensors(
       enrichEntitiesWithSourceMetadata({
         items: sensors,
@@ -126,14 +119,13 @@ export function useDataSourcesSync({
           networks?: EntityRef[]
         }
 
-        setLocalThings([
-          ...dummyThingsToInject,
-          ...enrichThingsWithSourceMetadata({
+        setLocalThings(
+          enrichThingsWithSourceMetadata({
             items: payload.things,
             primaryEndpoint,
             primarySourceName,
-          }),
-        ])
+          })
+        )
         if (Array.isArray(payload?.sensors)) {
           setLocalSensors(
             enrichEntitiesWithSourceMetadata({

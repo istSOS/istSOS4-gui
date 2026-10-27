@@ -235,6 +235,7 @@ export default function FormModal({
   const [isDataSourceLoginSaving, setIsDataSourceLoginSaving] = useState(false)
 
   const requiresCommitMessage =
+    siteConfig.versioning &&
     (wizardMode === 'associated' || wizardMode === 'single') &&
     (singleEntity === 'thing' ||
       singleEntity === 'location' ||
@@ -568,7 +569,7 @@ export default function FormModal({
   const handleAssociatedSubmit = async () => {
     setSubmitError(null)
 
-    if (!commitMessage.trim()) {
+    if (siteConfig.versioning && !commitMessage.trim()) {
       setSubmitError(t('commit.message_required'))
       return
     }
@@ -606,7 +607,7 @@ export default function FormModal({
     try {
       await executeAssociatedSubmitFlow({
         associatedDraft,
-        commitMessage: commitMessage.trim(),
+        commitMessage: siteConfig.versioning ? commitMessage.trim() : '',
         requestToken,
         selectedEndpoint,
       })
@@ -1061,19 +1062,21 @@ export default function FormModal({
                             })}
                           </div>
 
-                          <Textarea
-                            label={t('commit.message')}
-                            labelPlacement="inside"
-                            value={commitMessage}
-                            onValueChange={setCommitMessage}
-                            placeholder={t('commit.message_placeholder')}
-                            variant="underlined"
-                            radius="sm"
-                            minRows={3}
-                            isRequired
-                            startContent={<StepIcon icon={CommitIcon} />}
-                            size="sm"
-                          />
+                          {siteConfig.versioning && (
+                            <Textarea
+                              label={t('commit.message')}
+                              labelPlacement="inside"
+                              value={commitMessage}
+                              onValueChange={setCommitMessage}
+                              placeholder={t('commit.message_placeholder')}
+                              variant="underlined"
+                              radius="sm"
+                              minRows={3}
+                              isRequired
+                              startContent={<StepIcon icon={CommitIcon} />}
+                              size="sm"
+                            />
+                          )}
                           {submitError ? (
                             <div className="rounded-xl border border-danger/20 bg-danger/10 px-3 py-2 text-sm text-danger">
                               {submitError}

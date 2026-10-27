@@ -14,6 +14,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+import { isVersioningEnabled } from '@/config/versioning'
+
 import type { Thing } from '@/types/domain'
 import {
   activeAdapter,
@@ -57,21 +59,19 @@ export type AsOfThingResult = {
  * Resolves the thing a user sees in the DatastreamTable at a given point in time.
  *
  * - When `asOfDate` is null: returns the live thing unchanged.
- * - Delegates to `activeAdapter.resolveThing()` which handles both mock
- *   (local dummy data) and real API (`$as_of` endpoint) modes transparently.
- *
- * To switch between mock and real modes, set the env variable:
- *   `NEXT_PUBLIC_VERSIONING_ENABLED=true`
+ * - Historical resolution uses the backend only when versioning is enabled.
+ *   Otherwise the live Thing is returned, regardless of the requested date.
  *
  * Re-fires automatically when selectedThing or asOfDate changes.
  */
 export function useAsOfThing({
   thing,
-  asOfDate,
+  asOfDate: requestedDate,
 }: {
   thing: Thing | null
   asOfDate: string | null
 }): AsOfThingResult {
+  const asOfDate = isVersioningEnabled ? requestedDate : null
   // The resolution is stored together with the (thing, date) it belongs to, so
   // it can never be rendered for a different thing or a different date.
   const [resolution, setResolution] = useState<{

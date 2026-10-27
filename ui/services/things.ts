@@ -16,6 +16,7 @@
 import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
+import { commitMessageHeaders } from '@/lib/commit'
 
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
@@ -132,9 +133,7 @@ export async function createThing(
       resolvedApiRoot
     )
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Create Thing from GUI'))
 
     const existingId = await findEntityIdByName(
       resolvedApiRoot,
@@ -188,9 +187,7 @@ export async function updateThing(
       resolvedApiRoot
     )
 
-    if (commitMessage?.trim()) {
-      headers['commit-message'] = commitMessage.trim()
-    }
+    Object.assign(headers, commitMessageHeaders(commitMessage, 'Update Thing from GUI'))
 
     const response = await fetch(`${resolvedApiRoot}/Things(${id})`, {
       method: 'PATCH',
