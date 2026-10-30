@@ -33,21 +33,22 @@ type RequestPayload = {
 
 const normalizeApiRoot = (value: string) => value.trim().replace(/\/+$/, '')
 
-const expandClause = `
+const buildExpandClause = (networkEnabled: boolean) =>
+  `
   Datastreams(
-    $expand=Network,
+    $expand=${networkEnabled ? 'Network,' : ''}
             Sensor,
             Observations($top=1;$orderby=phenomenonTime desc),
             ObservedProperty
   ),
   Locations
 `
-  .replace(/\s+/g, ' ')
-  .replace(/\s*([(),;=])\s*/g, '$1')
-  .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*([(),;=])\s*/g, '$1')
+    .trim()
 
-const buildThingsUrl = (apiRoot: string) =>
-  `${apiRoot}/Things?$expand=${expandClause}`
+const buildThingsUrl = (apiRoot: string, networkEnabled: boolean) =>
+  `${apiRoot}/Things?$expand=${buildExpandClause(networkEnabled)}`
 
 const withAuthHeaders = (token?: string | null) => {
   if (!token) return {}
@@ -92,7 +93,12 @@ async function fetchSourceCollection(
 }
 
 async function fetchThingsForSource(
-  source: { id: string; name: string; apiRoot: string },
+  source: {
+    id: string
+    name: string
+    apiRoot: string
+    networkEnabled: boolean
+  },
   token: string | null
 ): Promise<SourceResult> {
   const endpoint = normalizeApiRoot(source.apiRoot)
@@ -104,14 +110,16 @@ async function fetchThingsForSource(
       observedPropertiesValues,
       networkValues,
     ] = await Promise.all([
-      fetch(buildThingsUrl(endpoint), {
+      fetch(buildThingsUrl(endpoint, source.networkEnabled), {
         method: 'GET',
         headers: withAuthHeaders(token),
         cache: 'no-store',
       }),
       fetchSourceCollection(buildSensorsUrl(endpoint), token),
       fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
-      fetchSourceCollection(buildNetworksUrl(endpoint), token),
+      source.networkEnabled
+        ? fetchSourceCollection(buildNetworksUrl(endpoint), token)
+        : Promise.resolve([]),
     ])
 
     if (!thingsResponse.ok) {

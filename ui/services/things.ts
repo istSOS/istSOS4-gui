@@ -72,7 +72,7 @@ export type UpdateThingPayload = {
 export async function getThings(token?: string | null) {
   const expand = `
     Datastreams(
-      $expand=Network,
+      $expand=${siteConfig.networkEnabled ? 'Network,' : ''}
               Sensor,
               ObservedProperty
     ),
