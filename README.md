@@ -32,7 +32,7 @@ docker compose -f dev-docker-compose.yaml down
 
 ## 4. Access the Application
 
-- **Dashboards**: http://localhost:3000/gui
+- **Dashboards**: http://localhost:2000/gui
 
 
 ## 5. Build and Publish Docker Images
