@@ -30,7 +30,7 @@ import {
   hasStoredConstraints,
   storedBitmaskIssue,
 } from './storedBitmask'
-import { formatUtcOffset, validUtcOffset } from './timezone'
+import { browserUtcOffset, formatUtcOffset } from './timezone'
 import type {
   EditRequest,
   LoadedData,
@@ -200,8 +200,7 @@ export function useQcEditor(accessUnavailable: boolean) {
       setLoadedRange(null)
       setSelected([])
       setSlots([])
-      const browserOffset = -new Date().getTimezoneOffset()
-      setUtcOffset(validUtcOffset(browserOffset) ? browserOffset : 0)
+      setUtcOffset(browserUtcOffset())
       // Remove obsolete QC recovery copies without reading or saving drafts.
       try {
         for (let index = sessionStorage.length - 1; index >= 0; index--) {

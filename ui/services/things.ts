@@ -17,6 +17,7 @@ import { fetchData, withAuthHeaders } from '@/services/fetch'
 
 import { siteConfig } from '@/config/site'
 import { commitMessageHeaders } from '@/lib/commit'
+import { readThingsWithDatastreams } from '@/lib/sensorThingsPagination'
 
 const resolveApiRoot = (apiRoot?: string) =>
   apiRoot?.trim().replace(/\/+$/, '') || siteConfig.api_root
@@ -71,21 +72,12 @@ export type UpdateThingPayload = {
 }
 
 export async function getThings(token?: string | null) {
-  const expand = `
-    Datastreams(
-      $expand=Network,
-              Sensor,
-              ObservedProperty
-    ),
-    Locations
-  `
-    .replace(/\s+/g, ' ')
-    .replace(/\s*([(),;=])\s*/g, '$1')
-    .trim()
-
-  const url = `${siteConfig.api_root}/Things?$expand=${expand}`
-  const thingData = await fetchData(url, token)
-  return { thingData: thingData?.value ?? [] }
+  const thingData = await readThingsWithDatastreams(
+    siteConfig.api_root,
+    'Network,Sensor,ObservedProperty',
+    (url) => fetchData(url, token)
+  )
+  return { thingData }
 }
 
 export async function getThingsCount(token: string) {

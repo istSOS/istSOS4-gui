@@ -17,11 +17,13 @@ import duration from 'dayjs/plugin/duration'
 import utc from 'dayjs/plugin/utc'
 
 import {
+  type SelectableMapLayer,
   createClusterGroup,
   createThingMarkerIcon,
-  createThingMarkerDivIcon,
+  setMarkerSelected,
   showClusterHullPreview,
 } from './leafletCluster'
+import { getThingKey } from './leafletMapHelpers'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -86,6 +88,10 @@ type TooltipLabels = {
   things: string
   /** Shown on a snapshot marker whose position is not known to be historical. */
   approximatePosition?: string
+  delayedReadings?: string
+  stations?: string
+  noReading?: string
+  moreReadings?: (count: number) => string
 }
 
 type TooltipRow = {
@@ -96,13 +102,6 @@ type TooltipRow = {
 }
 
 type FreshnessStatus = 'fresh' | 'stale' | 'mixed' | 'unknown'
-
-const FRESHNESS_BORDER_COLOR: Record<FreshnessStatus, string> = {
-  fresh: '#16a34a',
-  stale: '#dc2626',
-  mixed: '#f59e0b',
-  unknown: '#64748b',
-}
 
 export function networkKey(name: unknown) {
   return String(name ?? '').trim() || UNSPECIFIED_NETWORK_KEY
@@ -158,7 +157,10 @@ type ClickableLayer = {
 }
 
 type TooltipLayer = ClickableLayer & {
-  bindTooltip: (mount: HTMLElement, options: Record<string, unknown>) => void
+  bindTooltip: (
+    mount: HTMLElement | string,
+    options: Record<string, unknown>
+  ) => void
 }
 type BoundsLayer = {
   getBounds: () => { getCenter: () => { lat: number; lng: number } }
@@ -169,7 +171,7 @@ type LayerGroupLike = {
   addLayer: (layer: unknown) => void
   remove?: () => void
 }
-type MarkerWithMeta = {
+type MarkerWithMeta = SelectableMapLayer & {
   __sourceColor?: string
   __freshnessStatus?: FreshnessStatus
   __tooltipRow?: TooltipRow
@@ -190,14 +192,20 @@ type ClusterEvent = {
   } & { getConvexHull?: () => unknown[] }
 }
 
-function resolveTooltipLabels(labels?: TooltipLabels): TooltipLabels {
+function resolveTooltipLabels(labels?: TooltipLabels): Required<TooltipLabels> {
   return {
     unspecifiedNetwork: labels?.unspecifiedNetwork ?? 'Unspecified',
     sameLocation: labels?.sameLocation ?? 'Same location',
     dataSource: labels?.dataSource ?? 'Data source',
     network: labels?.network ?? 'Network',
     things: labels?.things ?? 'Things',
-    approximatePosition: labels?.approximatePosition ?? 'Position not historical',
+    approximatePosition:
+      labels?.approximatePosition ?? 'Position not historical',
+    delayedReadings: labels?.delayedReadings ?? 'Some readings are delayed',
+    stations: labels?.stations ?? 'Stations',
+    noReading: labels?.noReading ?? 'No reading available',
+    moreReadings:
+      labels?.moreReadings ?? ((count) => `+${count} more`),
   }
 }
 
@@ -296,7 +304,8 @@ function bindSelectThing(
  */
 function hasApproximatePosition(thing: Thing) {
   return (
-    thing?.__asOfLocationSource === 'link' || thing?.__asOfLocationSource === 'live'
+    thing?.__asOfLocationSource === 'link' ||
+    thing?.__asOfLocationSource === 'live'
   )
 }
 
@@ -366,7 +375,7 @@ function latestObservationOfDatastream(
   return best
 }
 
-function valueTextForDatastream(ds: Datastream): string | null {
+export function valueTextForDatastream(ds: Datastream): string | null {
   const obs = latestObservationOfDatastream(ds)
   if (!obs) return null
 
@@ -439,30 +448,85 @@ function thingFreshnessStatus(
   return 'mixed'
 }
 
-function clusterFreshnessStatus(clusterLayer: {
-  getAllChildMarkers?: () => unknown[]
-}): FreshnessStatus {
-  const childMarkers = clusterLayer?.getAllChildMarkers?.() ?? []
-  let hasFresh = false
-  let hasStale = false
-  let hasUnknown = false
-
-  for (const marker of childMarkers) {
-    const status = (marker as { __freshnessStatus?: FreshnessStatus })
-      ?.__freshnessStatus
-    if (status === 'fresh') hasFresh = true
-    else if (status === 'stale') hasStale = true
-    else if (status === 'mixed') {
-      hasFresh = true
-      hasStale = true
-    } else hasUnknown = true
-  }
-
-  if (hasFresh && hasStale) return 'mixed'
-  if (hasStale) return 'stale'
-  if (hasFresh && hasUnknown) return 'mixed'
-  if (hasFresh) return 'fresh'
-  return 'unknown'
+export function bindClusterTooltips(
+  cluster: { on: (event: string, handler: (event: unknown) => void) => void },
+  labels?: TooltipLabels
+) {
+  cluster.on('clustermouseover', (e: unknown) => {
+    const layer = (e as ClusterEvent).layer
+    const children = (layer?.getAllChildMarkers?.() ?? []) as MarkerWithMeta[]
+    const groups = new Map<string, { color: string; names: string[] }>()
+    for (const child of children) {
+      const row = child.__tooltipRow
+      if (!row) continue
+      const group = groups.get(row.source) ?? {
+        color: child.__sourceColor ?? '#64748b',
+        names: [],
+      }
+      group.names.push(row.name)
+      groups.set(row.source, group)
+    }
+    if (!groups.size || !layer) return
+    const text = resolveTooltipLabels(labels)
+    const mount = document.createElement('div')
+    mount.className = 'thing-tooltip-card'
+    const heading = document.createElement('div')
+    heading.className = 'thing-tooltip-heading'
+    heading.textContent = `${text.stations}: ${children.length}`
+    mount.appendChild(heading)
+    for (const [source, group] of [...groups].sort(([a], [b]) =>
+      a.localeCompare(b)
+    )) {
+      const row = document.createElement('div')
+      row.className = 'map-cluster-source'
+      const dot = document.createElement('span')
+      dot.className = 'map-source-dot'
+      dot.style.backgroundColor = group.color
+      const name = document.createElement('span')
+      name.className = 'map-cluster-source-name'
+      name.textContent = source
+      const count = document.createElement('span')
+      count.className = 'map-cluster-source-count'
+      count.textContent = String(group.names.length)
+      row.append(dot, name, count)
+      mount.appendChild(row)
+      const names = document.createElement('div')
+      names.className = 'map-cluster-station-names'
+      names.textContent =
+        group.names.slice(0, 3).join(', ') + (group.names.length > 3 ? '…' : '')
+      mount.appendChild(names)
+    }
+    if (
+      children.some((child) =>
+        ['stale', 'mixed'].includes(child.__freshnessStatus)
+      )
+    ) {
+      const note = document.createElement('div')
+      note.className = 'map-tooltip-warning'
+      note.textContent = text.delayedReadings
+      mount.appendChild(note)
+    }
+    if (children.some((child) => child.__tooltipRow?.note)) {
+      const note = document.createElement('div')
+      note.className = 'map-tooltip-warning'
+      note.textContent = text.approximatePosition
+      mount.appendChild(note)
+    }
+    if (layer.getTooltip?.()) layer.setTooltipContent?.(mount)
+    else
+      layer.bindTooltip?.(mount, {
+        sticky: false,
+        interactive: false,
+        direction: 'top',
+        offset: [0, TOOLTIP_VERTICAL_OFFSET],
+        opacity: 1,
+        className: 'thing-tooltip',
+      })
+    layer.openTooltip?.()
+  })
+  cluster.on('clustermouseout', (e: unknown) =>
+    (e as ClusterEvent).layer?.closeTooltip?.()
+  )
 }
 
 export function drawNetworkLayers(args: {
@@ -474,7 +538,6 @@ export function drawNetworkLayers(args: {
       ...args: unknown[]
     ) => VectorLike & BoundsLayer & { addTo?: (map: unknown) => void }
     layerGroup: (...args: unknown[]) => LayerGroupLike
-    icon: (...args: unknown[]) => unknown
     markerClusterGroup: (...args: unknown[]) => unknown
     point: (...args: unknown[]) => unknown
   }
@@ -485,7 +548,11 @@ export function drawNetworkLayers(args: {
   }
   things: Thing[]
   isThingVisible?: (thing: Thing) => boolean
+  isDatastreamVisible?: (thing: Thing, ds: Datastream, index: number) => boolean
+  observedMode?: boolean
   selectedNetwork?: string
+  selectedThingKey?: string | null
+  selectedThingKeys?: ReadonlySet<string>
 
   networkLayers: Map<
     string,
@@ -533,7 +600,11 @@ export function drawNetworkLayers(args: {
     map,
     things,
     isThingVisible,
+    isDatastreamVisible,
+    observedMode,
     selectedNetwork,
+    selectedThingKey,
+    selectedThingKeys,
 
     networkLayers,
     overlayWrappersRef,
@@ -550,9 +621,12 @@ export function drawNetworkLayers(args: {
     onThingSelect,
   } = args
 
-  const parsedReference = referenceTime ? dayjs.utc(referenceTime).valueOf() : NaN
+  const parsedReference = referenceTime
+    ? dayjs.utc(referenceTime).valueOf()
+    : NaN
   const referenceMs = Number.isFinite(parsedReference) ? parsedReference : null
-  const approximateLabel = resolveTooltipLabels(labels).approximatePosition
+  const resolvedLabels = resolveTooltipLabels(labels)
+  const approximateLabel = resolvedLabels.approximatePosition
 
   const toLatLng = (
     x: number,
@@ -571,10 +645,11 @@ export function drawNetworkLayers(args: {
   }
 
   const isObservedMode =
-    !!observedPropertyFilter && observedPropertyFilter.size > 0
+    observedMode ??
+    (!!observedPropertyFilter && observedPropertyFilter.size > 0)
   try {
     observedCluster?.clearLayers?.()
-  } catch {}
+  } catch { }
 
   const sourceKeys = new Set<string>()
   for (const thing of things) sourceKeys.add(thingSourceKey(thing))
@@ -582,20 +657,35 @@ export function drawNetworkLayers(args: {
     Array.from(sourceKeys),
     sourceColorByKey
   )
-  const markerIconByColor = new Map<string, unknown>()
-  const markerIconFor = (fillColor: string, borderColor: string) => {
-    const key = `${fillColor}|${borderColor}`
-    if (!markerIconByColor.has(key)) {
-      markerIconByColor.set(
-        key,
-        createThingMarkerIcon(L, fillColor, borderColor)
-      )
+  const prepareMarker = (
+    marker: MarkerLike | (VectorLike & MarkerWithMeta),
+    thing: Thing,
+    freshness: FreshnessStatus
+  ) => {
+    marker.__thingKey = getThingKey(thing)
+    marker.__sourceColor =
+      sourceColorMap.get(thingSourceKey(thing)) ?? SOURCE_COLOR_PALETTE[0]
+    marker.__freshnessStatus = freshness
+    marker.__tooltipRow = {
+      source: thingSourceLabel(thing),
+      name: thingDisplayName(thing),
+      network: String(thing.Datastreams?.[0]?.Network?.name ?? '').trim(),
+      note: hasApproximatePosition(thing) ? approximateLabel : undefined,
     }
-    return markerIconByColor.get(key)
+    setMarkerSelected(
+      marker,
+      selectedThingKeys
+        ? selectedThingKeys.has(marker.__thingKey)
+        : marker.__thingKey === selectedThingKey
+    )
+    marker.on('add', () =>
+      setMarkerSelected(marker, marker.__selected ?? false)
+    )
   }
 
   if (isObservedMode) {
     for (const thing of things) {
+      if (isThingVisible && !isThingVisible(thing)) continue
       const geom = thing?.Locations?.[0]?.location
       if (!geom) continue
 
@@ -614,7 +704,7 @@ export function drawNetworkLayers(args: {
             const l = L.polyline(latlngs)
             const c = l.getBounds().getCenter()
             centerLL = [c.lat, c.lng]
-          } catch {}
+          } catch { }
         }
       } else if (geom.type === 'Polygon') {
         const rings = (geom.coordinates ?? [])
@@ -628,7 +718,7 @@ export function drawNetworkLayers(args: {
             const p = L.polygon(rings)
             const c = p.getBounds().getCenter()
             centerLL = [c.lat, c.lng]
-          } catch {}
+          } catch { }
         }
       }
 
@@ -637,52 +727,111 @@ export function drawNetworkLayers(args: {
       const dss = Array.isArray(thing?.Datastreams) ? thing.Datastreams : []
       const observedMatches: Array<{
         ds: Datastream
-        text: string
-        sourceKey: string
+        text: string | null
       }> = []
-      for (const ds of dss) {
+      for (const [index, ds] of dss.entries()) {
+        if (isDatastreamVisible && !isDatastreamVisible(thing, ds, index))
+          continue
         const opName = ds?.ObservedProperty?.name
-        if (typeof opName !== 'string') continue
-        const sourceKey = String(
-          ds?.__sourceId ?? thing?.__sourceId ?? thing?.__sourceEndpoint ?? '0'
+        if (typeof opName !== 'string' && !isDatastreamVisible) continue
+        const sourceKey = thingSourceKey(thing)
+        const observedPropertyKey = `${sourceKey}||${opName?.trim() ?? ''}`
+        if (
+          typeof opName === 'string' &&
+          !observedPropertyFilter?.has(observedPropertyKey)
         )
-        const observedPropertyKey = `${sourceKey}||${opName.trim()}`
-        if (!observedPropertyFilter!.has(observedPropertyKey)) continue
+          continue
 
         const text = valueTextForDatastream(ds)
-        if (!text) continue
-        observedMatches.push({ ds, text, sourceKey })
+        observedMatches.push({ ds, text })
       }
 
-      for (const { ds, text, sourceKey } of observedMatches) {
-        const compactLabel = text
-
-        const sourceColor =
-          sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
-        const freshnessStatus = datastreamFreshness(ds, referenceMs)
-        const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
-        const marker = L.marker(centerLL, {
-          opacity: hasApproximatePosition(thing) ? APPROXIMATE_OPACITY : 1,
-          title: hasApproximatePosition(thing) ? approximateLabel : undefined,
-          icon: L.divIcon({
-            className: 'thing-value-icon',
-            iconSize: [84, 28],
-            iconAnchor: [42, 14],
-            html: `<div class="thing-value-wrap" style="--thing-value-border:${escapeHtml(
-              borderColor
-            )};--thing-value-accent:${escapeHtml(sourceColor)};">
-              <span class="thing-value-text">${escapeHtml(compactLabel)}</span>
-            </div>`,
-          }),
+      if (!observedMatches.length && (dss.length > 0 || !isDatastreamVisible))
+        continue
+      const single = observedMatches.length === 1 ? observedMatches[0] : null
+      const approximate = hasApproximatePosition(thing)
+      const freshnesses = observedMatches.map(({ ds }) =>
+        datastreamFreshness(ds, referenceMs)
+      )
+      const freshnessStatus = freshnesses.includes('stale')
+        ? freshnesses.includes('fresh')
+          ? 'mixed'
+          : 'stale'
+        : freshnesses.includes('fresh')
+          ? 'fresh'
+          : 'unknown'
+      const sourceColor =
+        sourceColorMap.get(thingSourceKey(thing)) ?? SOURCE_COLOR_PALETTE[0]
+      const warning = ['stale', 'mixed'].includes(freshnessStatus)
+        ? resolvedLabels.delayedReadings
+        : undefined
+      const labelDescription = single
+        ? `${thingDisplayName(thing)} · ${single.ds.name ?? single.ds.ObservedProperty?.name ?? ''}: ${single.text ?? resolvedLabels.noReading}`
+        : thingDisplayName(thing)
+      const icon = createThingMarkerIcon(L, sourceColor, {
+        warning,
+        snapshotLabel: asOfLabel
+          ? approximate
+            ? `≈ ${asOfLabel}`
+            : asOfLabel
+          : undefined,
+        value: single?.text
+          ? { text: single.text, description: labelDescription }
+          : undefined,
+      })
+      const marker = L.marker(centerLL, {
+        icon,
+      })
+      prepareMarker(marker, thing, freshnessStatus)
+      const previewRows = observedMatches
+        .slice(0, 3)
+        .map(({ ds, text }) => {
+          const name = escapeHtml(
+            String(
+              ds.name ?? ds.ObservedProperty?.name ?? ds['@iot.id'] ?? ds.id ?? ''
+            )
+          )
+          const delayed = datastreamFreshness(ds, referenceMs) === 'stale'
+          const missingLabel =
+            text === null
+              ? ` aria-label="${escapeHtml(resolvedLabels.noReading)}"`
+              : ''
+          const status = delayed
+            ? `<span class="map-preview-warning" role="img" aria-label="${escapeHtml(resolvedLabels.delayedReadings)}" title="${escapeHtml(resolvedLabels.delayedReadings)}">!</span>`
+            : ''
+          return `<div class="map-preview-reading"><span title="${name}">${name}</span><strong${missingLabel}>${escapeHtml(text ?? '—')}${status}</strong></div>`
         })
-        ;(marker as MarkerWithMeta).__sourceColor = sourceColor
-        ;(marker as MarkerWithMeta).__freshnessStatus = freshnessStatus
-        bindSelectThing(marker, thing, onThingSelect, {
-          observedPropertyName: String(ds?.ObservedProperty?.name ?? '').trim(),
-          datastreamId: String(ds?.['@iot.id'] ?? ds?.id ?? '').trim(),
-        })
-        observedCluster.addLayer(marker)
-      }
+        .join('')
+      const remaining = observedMatches.length - 3
+      marker.bindTooltip(
+        `<div class="thing-tooltip-card map-datastream-preview">${previewRows || `<span class="thing-tooltip-meta" aria-label="${escapeHtml(resolvedLabels.noReading)}">—</span>`}${remaining > 0 ? `<div class="thing-tooltip-meta map-preview-more">${escapeHtml(resolvedLabels.moreReadings(remaining))}</div>` : ''}</div>`,
+        {
+          direction: 'top',
+          offset: [0, -12],
+          opacity: 1,
+          className: 'thing-tooltip',
+          permanent: false,
+        }
+      )
+      marker.on('click', (e: unknown) => {
+        const event = e as { originalEvent?: MouseEvent }
+        event.originalEvent?.preventDefault?.()
+        event.originalEvent?.stopPropagation?.()
+        const target = event.originalEvent?.target as Element | undefined
+        const clickedValue = target?.closest?.('.map-station-value')
+        onThingSelect?.(
+          thing,
+          clickedValue && single
+            ? {
+              observedPropertyName: single.ds.ObservedProperty?.name?.trim(),
+              datastreamId: String(
+                single.ds['@iot.id'] ?? single.ds.id ?? ''
+              ).trim(),
+            }
+            : undefined
+        )
+      })
+      observedCluster.addLayer(marker)
     }
 
     return
@@ -733,9 +882,7 @@ export function drawNetworkLayers(args: {
 
     const cluster = createClusterGroup({
       L,
-      color,
-      borderColor: (clusterLayer: unknown) =>
-        FRESHNESS_BORDER_COLOR[clusterFreshnessStatus(clusterLayer)],
+      warningLabel: resolvedLabels.delayedReadings,
     })
     const vectors = L.layerGroup()
 
@@ -760,57 +907,7 @@ export function drawNetworkLayers(args: {
       event.layer?.spiderfy?.()
     })
 
-    cluster.on?.('clustermouseover', (e: unknown) => {
-      const clusterLayer = (e as ClusterEvent).layer
-      const childMarkers = clusterLayer?.getAllChildMarkers?.() ?? []
-      const dedup = new Map<string, TooltipRow>()
-
-      for (const child of childMarkers) {
-        const row = (child as MarkerWithMeta)?.__tooltipRow
-        if (!row) continue
-
-        const key = `${row.source}::${row.name}::${row.network}`
-        if (!dedup.has(key)) dedup.set(key, row)
-      }
-
-      if (!dedup.size) {
-        clusterLayer.closeTooltip?.()
-        return
-      }
-
-      const rows = Array.from(dedup.values()).sort((a, b) => {
-        const sourceCompare = a.source.localeCompare(b.source)
-        if (sourceCompare !== 0) return sourceCompare
-        return a.name.localeCompare(b.name)
-      })
-
-      const resolvedLabels = resolveTooltipLabels(labels)
-      const showSource =
-        rows.length === 1 || new Set(rows.map((row) => row.source)).size > 1
-      const mount = buildTooltipMount(rows, resolvedLabels, {
-        showSource,
-      })
-
-      const existingTooltip = clusterLayer.getTooltip?.()
-      if (existingTooltip) {
-        clusterLayer.setTooltipContent?.(mount)
-      } else {
-        clusterLayer.bindTooltip(mount, {
-          sticky: false,
-          interactive: false,
-          direction: 'top',
-          offset: [0, TOOLTIP_VERTICAL_OFFSET],
-          opacity: 1,
-          className: 'thing-tooltip',
-        })
-      }
-      clusterLayer.openTooltip?.()
-    })
-
-    cluster.on?.('clustermouseout', (e: unknown) => {
-      const clusterLayer = (e as ClusterEvent).layer
-      clusterLayer.closeTooltip?.()
-    })
+    bindClusterTooltips(cluster, labels)
 
     networkLayers.set(groupKey, { cluster, vectors, color })
   }
@@ -864,7 +961,6 @@ export function drawNetworkLayers(args: {
 
     const base = sourceColorMap.get(sourceKey) ?? SOURCE_COLOR_PALETTE[0]
     const freshnessStatus = thingFreshnessStatus(thing, referenceMs)
-    const borderColor = FRESHNESS_BORDER_COLOR[freshnessStatus]
     const approximate = hasApproximatePosition(thing)
 
     if (geom.type === 'Point') {
@@ -876,22 +972,19 @@ export function drawNetworkLayers(args: {
       // pill says "≈": it must never read as where the Thing stood then.
       const m = L.marker(ll, {
         opacity: approximate ? APPROXIMATE_OPACITY : 1,
-        icon: asOfLabel
-          ? createThingMarkerDivIcon(
-              L,
-              base,
-              borderColor,
-              approximate ? `≈ ${asOfLabel}` : asOfLabel
-            )
-          : markerIconFor(base, borderColor),
+        title: `${thingDisplayName(thing)} · ${thingSourceLabel(thing)}${['stale', 'mixed'].includes(freshnessStatus) ? ` · ${resolvedLabels.delayedReadings}` : ''}${approximate ? ` · ${approximateLabel}` : ''}`,
+        icon: createThingMarkerIcon(L, base, {
+          warning: ['stale', 'mixed'].includes(freshnessStatus)
+            ? resolvedLabels.delayedReadings
+            : undefined,
+          snapshotLabel: asOfLabel
+            ? approximate
+              ? `≈ ${asOfLabel}`
+              : asOfLabel
+            : undefined,
+        }),
       })
-      ;(m as MarkerWithMeta).__freshnessStatus = freshnessStatus
-      ;(m as MarkerWithMeta).__tooltipRow = {
-        source: thingSourceLabel(thing),
-        name: thingDisplayName(thing),
-        network: String(thing?.Datastreams?.[0]?.Network?.name ?? '').trim(),
-        note: approximate ? approximateLabel : undefined,
-      } as TooltipRow
+      prepareMarker(m, thing, freshnessStatus)
 
       bindHeroTooltip(m, thing, { labels })
       bindSelectThing(m, thing, onThingSelect)
@@ -913,6 +1006,7 @@ export function drawNetworkLayers(args: {
         dashArray: approximate ? '4 4' : undefined,
       })
 
+      prepareMarker(l, thing, freshnessStatus)
       bindHeroTooltip(l, thing, { labels })
       bindSelectThing(l, thing, onThingSelect)
       grp.vectors.addLayer?.(l)
@@ -937,6 +1031,7 @@ export function drawNetworkLayers(args: {
         dashArray: approximate ? '4 4' : undefined,
       })
 
+      prepareMarker(p, thing, freshnessStatus)
       bindHeroTooltip(p, thing, { labels })
       bindSelectThing(p, thing, onThingSelect)
       grp.vectors.addLayer?.(p)

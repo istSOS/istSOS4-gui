@@ -13,15 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { Button } from '@heroui/button'
-import {
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-} from '@heroui/dropdown'
 import { Input } from '@heroui/input'
-import { Pagination } from '@heroui/pagination'
 import {
   Table,
   TableBody,
@@ -33,7 +25,15 @@ import {
 import type { SortDescriptor } from '@react-types/shared'
 import React, { type Key, type ReactNode } from 'react'
 
-import { ChevronDownIcon, SearchIcon } from '@/components/icons'
+import { SearchIcon } from '@/components/icons'
+
+import TableColumnMenu from './TableColumnMenu'
+import TablePagination from './TablePagination'
+import { orderTableItems } from './tableOrdering'
+import { tableStyles } from './tableStyles'
+
+const BROWSE_ROW_HEIGHT = 36
+const BROWSE_PAGE_SIZE = 25
 
 type TableColumn<TColumnKey extends string = string> = {
   name: ReactNode
@@ -47,12 +47,18 @@ type TableProps<TItem, TColumnKey extends string = string> = {
   columns: TableColumn<TColumnKey>[]
   rowKey: (item: TItem, index: number) => Key
   renderCell: (item: TItem, columnKey: TColumnKey) => ReactNode
+  onRowAction?: (item: TItem) => void
 
+  highlightedKeys?: ReadonlySet<Key>
+  pinnedKeys?: ReadonlySet<Key>
+  focusRowKey?: Key | null
+  focusRequest?: unknown
+  scrollable?: boolean
+  continuousScroll?: boolean
+  autoFitRows?: boolean
+  columnSelectorPlacement?: 'toolbar' | 'header'
   initialSort?: SortDescriptor
-  getSortValue?: (
-    item: TItem,
-    columnKey: TColumnKey
-  ) => string | number | null
+  getSortValue?: (item: TItem, columnKey: TColumnKey) => string | number | null
 
   enableSearch?: boolean
   searchPlaceholder?: string
@@ -73,11 +79,23 @@ type TableProps<TItem, TColumnKey extends string = string> = {
   totalLabel?: (total: number) => ReactNode
 }
 
-export default function TableComponent<TItem, TColumnKey extends string = string>({
+export default function TableComponent<
+  TItem,
+  TColumnKey extends string = string,
+>({
   items,
   columns,
   rowKey,
   renderCell,
+  onRowAction,
+  highlightedKeys,
+  pinnedKeys,
+  focusRowKey,
+  focusRequest,
+  scrollable = false,
+  continuousScroll = false,
+  autoFitRows = false,
+  columnSelectorPlacement = 'toolbar',
 
   initialSort = {
     column: String(columns[0]?.uid ?? 'id'),
@@ -105,13 +123,18 @@ export default function TableComponent<TItem, TColumnKey extends string = string
     <span className="text-default-400 text-small">Total {total}</span>
   ),
 }: TableProps<TItem, TColumnKey>) {
+  const continuous = continuousScroll && scrollable && enablePagination
+  const [viewportHeight, setViewportHeight] = React.useState(380)
+  const scrollPosition = React.useRef(0)
   const [filterValue, setFilterValue] = React.useState('')
   const q = filterValue.trim()
 
   const [sortDescriptor, setSortDescriptor] =
     React.useState<SortDescriptor>(initialSort)
 
-  const [rowsPerPage, setRowsPerPage] = React.useState(5)
+  const [rowsPerPage, setRowsPerPage] = React.useState(
+    continuous ? BROWSE_PAGE_SIZE : 5
+  )
   const [page, setPage] = React.useState(1)
 
   const [visibleColumns, setVisibleColumns] = React.useState<
@@ -121,21 +144,21 @@ export default function TableComponent<TItem, TColumnKey extends string = string
     return 'all'
   })
 
-  React.useEffect(() => {
-    setVisibleColumns((prev) => {
-      if (prev === 'all') return 'all'
-      const allowed = new Set(columns.map((c) => String(c.uid)))
-      const next = new Set<string>()
-      for (const k of prev) if (allowed.has(k)) next.add(k)
-      return next.size ? next : new Set(columns.map((c) => String(c.uid)))
-    })
-  }, [columns])
-
+  const availableColumns = React.useMemo(() => {
+    if (visibleColumns === 'all') return 'all'
+    const keys = new Set(
+      columns
+        .filter((column) => visibleColumns.has(String(column.uid)))
+        .map((column) => String(column.uid))
+    )
+    return keys.size
+      ? keys
+      : new Set(columns.map((column) => String(column.uid)))
+  }, [columns, visibleColumns])
   const headerColumns = React.useMemo(() => {
-    if (!enableColumnSelector) return columns
-    if (visibleColumns === 'all') return columns
-    return columns.filter((c) => (visibleColumns as Set<string>).has(c.uid))
-  }, [columns, enableColumnSelector, visibleColumns])
+    if (!enableColumnSelector || availableColumns === 'all') return columns
+    return columns.filter((column) => availableColumns.has(String(column.uid)))
+  }, [columns, enableColumnSelector, availableColumns])
 
   const filteredItems = React.useMemo(() => {
     if (!enableSearch || !q || !searchPredicate) return items
@@ -143,45 +166,184 @@ export default function TableComponent<TItem, TColumnKey extends string = string
     return items.filter((it) => searchPredicate(it, qq))
   }, [items, enableSearch, q, searchPredicate])
 
-  React.useEffect(() => setPage(1), [q, items, rowsPerPage])
-
-  const sortedItems = React.useMemo(() => {
-    if (!getSortValue || !sortDescriptor?.column) return filteredItems
-
-    const columnKey = String(sortDescriptor.column) as TColumnKey
-    const dir = sortDescriptor.direction === 'descending' ? -1 : 1
-
-    return [...filteredItems].sort((a, b) => {
-      const first = getSortValue(a, columnKey)
-      const second = getSortValue(b, columnKey)
-
-      if (typeof first === 'number' && typeof second === 'number') {
-        return (first - second) * dir
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      setPage(1)
+      if (continuous) {
+        scrollPosition.current = 0
+        const wrapper = tableRoot.current?.querySelector('table')?.parentElement
+        if (wrapper) wrapper.scrollTop = 0
       }
-
-      return (
-        String(first ?? '').localeCompare(String(second ?? ''), undefined, {
-          numeric: true,
-          sensitivity: 'base',
-        }) * dir
-      )
     })
-  }, [filteredItems, getSortValue, sortDescriptor])
+    return () => cancelAnimationFrame(frame)
+  }, [q, items, rowsPerPage, continuous])
+
+  const sortedItems = React.useMemo(
+    () =>
+      orderTableItems(
+        filteredItems,
+        sortDescriptor,
+        getSortValue,
+        rowKey,
+        pinnedKeys
+      ),
+    [filteredItems, getSortValue, sortDescriptor, rowKey, pinnedKeys]
+  )
+  const firstPinned = pinnedKeys?.size
+    ? sortedItems.find((item) => pinnedKeys.has(rowKey(item, 0)))
+    : undefined
+  const focusedKey = firstPinned != null ? rowKey(firstPinned, 0) : focusRowKey
 
   const pages = React.useMemo(() => {
     if (!enablePagination) return 1
     return Math.max(1, Math.ceil(sortedItems.length / rowsPerPage))
   }, [enablePagination, sortedItems.length, rowsPerPage])
 
-  React.useEffect(() => {
-    if (page > pages) setPage(pages)
-  }, [page, pages])
+  const currentPage = Math.min(page, pages)
 
   const pageItems = React.useMemo(() => {
-    if (!enablePagination) return sortedItems
-    const start = (page - 1) * rowsPerPage
+    if (!enablePagination || continuous) return sortedItems
+    const start = (currentPage - 1) * rowsPerPage
     return sortedItems.slice(start, start + rowsPerPage)
-  }, [enablePagination, sortedItems, page, rowsPerPage])
+  }, [enablePagination, continuous, sortedItems, currentPage, rowsPerPage])
+
+  const tableRoot = React.useRef<HTMLDivElement>(null)
+  const jumpToPage = (next: number) => {
+    setPage(next)
+    const wrapper = tableRoot.current?.querySelector('table')?.parentElement
+    if (continuous && wrapper) {
+      wrapper.scrollTop = (next - 1) * rowsPerPage * BROWSE_ROW_HEIGHT
+      scrollPosition.current = wrapper.scrollTop
+    }
+  }
+
+  React.useLayoutEffect(() => {
+    const wrapper = tableRoot.current?.querySelector('table')?.parentElement
+    if (continuous && wrapper) wrapper.scrollTop = scrollPosition.current
+  }, [continuous, viewportHeight])
+
+  React.useEffect(() => {
+    const root = tableRoot.current
+    const wrapper = root?.querySelector('table')?.parentElement
+    if (!continuous || !root || !wrapper) return
+    const onScroll = () => {
+      scrollPosition.current = wrapper.scrollTop
+      const atBottom =
+        wrapper.scrollTop > 0 &&
+        wrapper.scrollTop + wrapper.clientHeight >= wrapper.scrollHeight - 1
+      const index = atBottom
+        ? sortedItems.length - 1
+        : Math.floor(wrapper.scrollTop / BROWSE_ROW_HEIGHT)
+      setPage(Math.max(1, Math.min(pages, Math.floor(index / rowsPerPage) + 1)))
+    }
+    let frame = 0
+    const measure = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (wrapper.clientHeight > 0) setViewportHeight(wrapper.clientHeight)
+      })
+    }
+    wrapper.addEventListener('scroll', onScroll, { passive: true })
+    const observer = new ResizeObserver(measure)
+    observer.observe(root)
+    observer.observe(wrapper)
+    measure()
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+      wrapper.removeEventListener('scroll', onScroll)
+    }
+  }, [continuous, pages, rowsPerPage, sortedItems.length, viewportHeight])
+
+  React.useEffect(() => {
+    if (focusedKey == null) return
+    const frame = requestAnimationFrame(() => {
+      if (q && !filteredItems.some((item) => rowKey(item, 0) === focusedKey)) {
+        setFilterValue('')
+        return
+      }
+      const index = sortedItems.findIndex(
+        (item) => rowKey(item, 0) === focusedKey
+      )
+      if (index >= 0 && enablePagination) {
+        setPage(Math.floor(index / rowsPerPage) + 1)
+        const wrapper = tableRoot.current?.querySelector('table')?.parentElement
+        if (continuous && wrapper) {
+          wrapper.scrollTop = index * BROWSE_ROW_HEIGHT
+          scrollPosition.current = wrapper.scrollTop
+        }
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [
+    focusedKey,
+    focusRequest,
+    continuous,
+    sortedItems,
+    rowsPerPage,
+    enablePagination,
+    q,
+    filteredItems,
+    rowKey,
+  ])
+
+  React.useEffect(() => {
+    if (focusedKey == null || continuous) return
+    const frame = requestAnimationFrame(() => {
+      const rows =
+        tableRoot.current?.querySelectorAll<HTMLElement>('[data-focus-row]')
+      const row = Array.from(rows ?? []).find(
+        (element) => element.dataset.focusRow === String(focusedKey)
+      )
+      row?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [focusedKey, focusRequest, pageItems, continuous])
+
+  React.useEffect(() => {
+    if (continuous || !autoFitRows || !scrollable || !enablePagination) return
+    const root = tableRoot.current
+    const wrapper = root?.querySelector('table')?.parentElement
+    const header = root?.querySelector('thead')
+    if (!root || !wrapper || !header) return
+    let frame = 0
+    const measure = () => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (wrapper.clientHeight === 0) return
+        const renderedRows = root.querySelectorAll<HTMLElement>(
+          'tbody tr[data-focus-row]'
+        )
+        const rowHeight = Math.max(
+          28,
+          ...Array.from(
+            renderedRows,
+            (row) => row.getBoundingClientRect().height
+          )
+        )
+        const available =
+          wrapper.clientHeight - header.getBoundingClientRect().height
+        const count = Math.max(1, Math.floor((available - 1) / rowHeight))
+        setRowsPerPage((previous) => (previous === count ? previous : count))
+      })
+    }
+    const observer = new ResizeObserver(measure)
+    observer.observe(root)
+    observer.observe(wrapper)
+    observer.observe(header)
+    measure()
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
+  }, [
+    autoFitRows,
+    scrollable,
+    enablePagination,
+    pageItems,
+    headerColumns,
+    continuous,
+  ])
 
   const onSelectionChangeVisibleCols = (keys: unknown) => {
     if (keys === 'all') return setVisibleColumns('all')
@@ -191,91 +353,74 @@ export default function TableComponent<TItem, TColumnKey extends string = string
     setVisibleColumns(set)
   }
 
-  const topContent = (
-    <div className="flex flex-col">
-      <div className="flex justify-between">
-        {topLeft}
+  const columnMenu = (
+    <TableColumnMenu
+      columns={columns}
+      selectedKeys={availableColumns}
+      onSelectionChange={onSelectionChangeVisibleCols}
+      label={columnSelectorLabel}
+      inHeader={columnSelectorPlacement === 'header'}
+      disallowEmptySelection={disallowEmptyVisibleColumns}
+    />
+  )
+  const displayColumns =
+    enableColumnSelector && columnSelectorPlacement === 'header'
+      ? [
+          ...headerColumns,
+          {
+            uid: '__column-options',
+            name: columnMenu,
+            sortable: false,
+            align: 'center' as const,
+          },
+        ]
+      : headerColumns
 
-        <div className="flex gap-1 items-end">
-          {enableSearch && (
-            <Input
-              isClearable
-              size="sm"
-              variant="bordered"
-              aria-label={searchPlaceholder}
-              placeholder={searchPlaceholder}
-              startContent={<SearchIcon size={18} />}
-              value={filterValue}
-              onClear={() => setFilterValue('')}
-              onValueChange={(v) => setFilterValue(v ?? '')}
-              classNames={{
-                base: 'w-full sm:max-w-[44%]',
-                inputWrapper: 'border-1',
-              }}
-            />
-          )}
+  const topContent =
+    enableSearch ||
+    topLeft ||
+    topRight ||
+    (enableColumnSelector && columnSelectorPlacement === 'toolbar') ? (
+      <div className="flex flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          {topLeft}
 
-          {enableColumnSelector && (
-            <Dropdown>
-              <DropdownTrigger className="hidden sm:flex">
-                <Button
-                  endContent={<ChevronDownIcon className="h-6 w-6 min-w-6" />}
-                  size="sm"
-                  variant="flat"
-                >
-                  {columnSelectorLabel}
-                </Button>
-              </DropdownTrigger>
-              <DropdownMenu
-                closeOnSelect={false}
-                disallowEmptySelection={disallowEmptyVisibleColumns}
-                selectionMode="multiple"
-                selectedKeys={
-                  visibleColumns === 'all'
-                    ? 'all'
-                    : (visibleColumns as Set<string>)
-                }
-                onSelectionChange={onSelectionChangeVisibleCols}
-                aria-label="Table Columns"
-              >
-                {columns.map((c) => (
-                  <DropdownItem key={c.uid} className="capitalize">
-                    {c.name}
-                  </DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          )}
+          <div className="flex flex-wrap items-center gap-1">
+            {enableSearch && (
+              <Input
+                isClearable
+                size="sm"
+                variant="bordered"
+                aria-label={searchPlaceholder}
+                placeholder={searchPlaceholder}
+                startContent={<SearchIcon size={18} />}
+                value={filterValue}
+                onClear={() => setFilterValue('')}
+                onValueChange={(v) => setFilterValue(v ?? '')}
+                classNames={{
+                  base: 'w-full sm:max-w-[44%]',
+                  inputWrapper: 'border-1',
+                }}
+              />
+            )}
 
-          {topRight}
+            {enableColumnSelector &&
+              columnSelectorPlacement === 'toolbar' &&
+              columnMenu}
+
+            {topRight}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    ) : undefined
 
   const bottomContent = enablePagination ? (
-    <div className="py-1 px-1 flex justify-between items-center">
-      <Pagination
-        showControls
-        page={page}
-        total={pages}
-        variant="light"
-        onChange={setPage}
-        color="primary"
-        classNames={{
-          base: 'p-0 gap-1',
-          wrapper: 'p-0 gap-1',
-          item: 'min-w-6 h-6 px-0 text-xs leading-4 cursor-pointer',
-          prev: 'min-w-6 h-6 px-0 cursor-pointer',
-          next: 'min-w-6 h-6 px-0 cursor-pointer',
-          cursor: 'min-w-6 h-6 cursor-pointer',
-        }}
-      />
-
-      <span className="text-default-400 text-small">
-        {showTotal ? totalLabel(sortedItems.length) : null}
-      </span>
-    </div>
+    <TablePagination
+      page={currentPage}
+      pages={pages}
+      onPage={jumpToPage}
+      total={showTotal ? totalLabel(sortedItems.length) : null}
+    />
   ) : (
     <div className="py-2 px-2 flex justify-end">
       <span className="text-default-400 text-small">
@@ -285,61 +430,107 @@ export default function TableComponent<TItem, TColumnKey extends string = string
   )
 
   const classNames = {
-    base: 'gap-1',
-    wrapper: 'min-h-[190px]',
-    th: ['text-[10px]', 'font-semibold', 'px-2', 'py-0.5', 'h-7', 'leading-4'],
-    td: [
-      'px-2',
-      'py-0.5',
-      'h-7',
-      'text-xs',
-      'leading-4',
-      'border-b',
-      'border-default-200',
-    ],
-    tr: 'hover:bg-[color:rgba(0,131,116,0.12)]',
-    table: 'border-collapse',
+    base: scrollable ? 'h-full min-h-0 gap-1' : 'gap-1',
+    wrapper: scrollable
+      ? 'min-h-0 flex-1 overflow-auto rounded-none p-0 shadow-none'
+      : 'min-h-[190px]',
+    th: `${tableStyles.headerCell} ${tableStyles.header}`,
+    td: tableStyles.cell,
+    tr: `${tableStyles.row} bg-content1 ${continuous ? '' : tableStyles.stripedRow}`,
+    emptyWrapper: tableStyles.empty,
+    table: scrollable ? 'min-w-[900px] border-collapse' : 'border-collapse',
   }
 
   return (
-    <Table
-      isCompact
-      isStriped
-      isHeaderSticky
-      removeWrapper
-      layout="fixed"
-      aria-label="Generic table"
-      topContent={topContent}
-      topContentPlacement="outside"
-      bottomContent={bottomContent}
-      bottomContentPlacement="outside"
-      sortDescriptor={sortDescriptor}
-      onSortChange={setSortDescriptor}
-      classNames={classNames}
-    >
-      <TableHeader columns={headerColumns}>
-        {(column) => (
-          <TableColumn
-            key={column.uid}
-            allowsSorting={Boolean(column.sortable)}
-            align={column.align ?? 'start'}
-          >
-            {column.name}
-          </TableColumn>
-        )}
-      </TableHeader>
+    <div ref={tableRoot} className={scrollable ? 'h-full min-h-0' : undefined}>
+      <Table
+        isCompact
+        {...(continuous
+          ? {
+              isVirtualized: true,
+              rowHeight: BROWSE_ROW_HEIGHT,
+              maxTableHeight: viewportHeight,
+            }
+          : {})}
+        isHeaderSticky
+        removeWrapper={!scrollable}
+        layout="fixed"
+        aria-label="Generic table"
+        topContent={topContent}
+        topContentPlacement="outside"
+        bottomContent={bottomContent}
+        bottomContentPlacement="outside"
+        sortDescriptor={sortDescriptor}
+        onSortChange={(next) => {
+          setSortDescriptor(next)
+          jumpToPage(1)
+        }}
+        onRowAction={
+          onRowAction
+            ? (key) => {
+                const item = pageItems.find((entry) => rowKey(entry, 0) === key)
+                if (item !== undefined) onRowAction(item)
+              }
+            : undefined
+        }
+        classNames={classNames}
+      >
+        <TableHeader columns={displayColumns}>
+          {(column) => (
+            <TableColumn
+              key={column.uid}
+              className={
+                column.uid === '__column-options'
+                  ? tableStyles.columnOptions
+                  : undefined
+              }
+              allowsSorting={Boolean(column.sortable)}
+              align={column.align ?? 'start'}
+            >
+              {column.name}
+            </TableColumn>
+          )}
+        </TableHeader>
 
-      <TableBody emptyContent={emptyContent} items={pageItems}>
-        {(item) => (
-          <TableRow key={rowKey(item, 0)}>
-            {(columnKey) => (
-              <TableCell>
-                {renderCell(item, String(columnKey) as TColumnKey)}
-              </TableCell>
-            )}
-          </TableRow>
-        )}
-      </TableBody>
-    </Table>
+        <TableBody emptyContent={emptyContent}>
+          {pageItems.map((item, itemIndex) => (
+            <TableRow
+              key={rowKey(item, 0)}
+              data-focus-row={String(rowKey(item, 0))}
+              data-highlighted={
+                highlightedKeys?.has(rowKey(item, 0)) || undefined
+              }
+              className={
+                [
+                  onRowAction ? 'cursor-pointer' : '',
+                  continuous && itemIndex % 2 ? 'bg-default-100' : '',
+                  highlightedKeys?.has(rowKey(item, 0))
+                    ? tableStyles.selectedRow
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ') || undefined
+              }
+            >
+              {(columnKey) => (
+                <TableCell
+                  className={
+                    columnKey === '__column-options'
+                      ? 'sticky right-0 bg-inherit'
+                      : autoFitRows
+                        ? 'whitespace-nowrap'
+                        : undefined
+                  }
+                >
+                  {columnKey === '__column-options'
+                    ? null
+                    : renderCell(item, String(columnKey) as TColumnKey)}
+                </TableCell>
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

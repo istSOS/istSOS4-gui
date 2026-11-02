@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
-import { normalizedBasePath } from '@/app/home/utils'
+import { normalizedBasePath } from '@/config/paths'
 import type { HistoryWindow } from '@/features/from-to/lib/historyWindow'
 import type { EntityVersion } from '@/features/from-to/lib/versionRows'
 

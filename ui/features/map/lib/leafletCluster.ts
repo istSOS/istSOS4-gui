@@ -11,10 +11,55 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+export type SelectableMapLayer = {
+  __thingKey?: string
+  __selected?: boolean
+  options?: { icon?: { options?: { className?: string } } }
+  getElement?: () => Element | null
+  setZIndexOffset?: (offset: number) => void
+}
+
+export function setMarkerSelected(
+  layer: SelectableMapLayer,
+  selected: boolean
+) {
+  layer.__selected = selected
+  // MarkerCluster can recreate the element after an add or a refresh.
+  // Keep the icon's stored classes in sync with the visible element.
+  const icon = layer.options?.icon?.options
+  if (icon) {
+    const classes = (icon.className ?? '')
+      .split(/\s+/)
+      .filter((name) => name && name !== 'map-marker-selected')
+    if (selected) classes.push('map-marker-selected')
+    icon.className = classes.join(' ')
+  }
+  layer.getElement?.()?.classList.toggle('map-marker-selected', selected)
+  layer.setZIndexOffset?.(selected ? 1000 : 0)
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+export function markerWarningHtml(label: string) {
+  return `<span class="map-marker-warning" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">!</span>`
+}
+
+export function snapshotLabelHtml(label?: string | null) {
+  return label
+    ? `<span class="map-snapshot-label">${escapeHtml(label)}</span>`
+    : ''
+}
+
 export function createClusterGroup({
   L,
-  color,
-  borderColor,
+  warningLabel = 'Some readings are delayed',
   options,
 }: {
   L: {
@@ -22,8 +67,7 @@ export function createClusterGroup({
     divIcon: (options: Record<string, unknown>) => unknown
     point: (x: number, y: number) => unknown
   }
-  color: string | ((cluster: unknown) => string)
-  borderColor?: string | ((cluster: unknown) => string)
+  warningLabel?: string
   options?: Partial<{
     spiderfyDistanceMultiplier: number
     maxClusterRadius: number
@@ -33,6 +77,7 @@ export function createClusterGroup({
 }): {
   on: (event: string, handler: (event: unknown) => void) => void
   addLayer: (layer: unknown) => void
+  eachLayer?: (callback: (layer: SelectableMapLayer) => void) => void
   clearLayers?: () => void
   off?: () => void
   remove?: () => void
@@ -42,102 +87,53 @@ export function createClusterGroup({
     spiderfyOnMaxZoom: true,
     showCoverageOnHover: false,
     zoomToBoundsOnClick: false,
-
     spiderfyDistanceMultiplier: 1.2,
-
     ...(options ?? {}),
-
     iconCreateFunction: (cl: unknown) => {
-      const cluster = cl as { getChildCount: () => number }
+      const cluster = cl as {
+        getChildCount: () => number
+        getAllChildMarkers?: () => Array<
+          SelectableMapLayer & { __freshnessStatus?: string }
+        >
+      }
       const total = cluster.getChildCount()
-      const size = total < 10 ? 'small' : total < 100 ? 'medium' : 'large'
-      const resolvedColor = typeof color === 'function' ? color(cluster) : color
-      const resolvedBorderColor =
-        typeof borderColor === 'function'
-          ? borderColor(cluster)
-          : borderColor ?? '#ffffff'
-
+      const children = cluster.getAllChildMarkers?.() ?? []
+      const warning = children.some((child) =>
+        ['stale', 'mixed'].includes(child.__freshnessStatus)
+      )
+      const selected = children.some((child) => child.__selected)
+      const size = total < 100 ? 32 : 38
       return L.divIcon({
-        html: `<div class="marker-cluster-net-inner" style="background:${resolvedColor}; border: 3px solid ${resolvedBorderColor}; box-sizing: border-box;"><span>${total}</span></div>`,
-        className: `marker-cluster marker-cluster-${size} marker-cluster-net`,
-        iconSize: L.point(40, 40),
+        html: `<span class="map-cluster-count">${total}</span>${warning ? markerWarningHtml(warningLabel) : ''}`,
+        className: `map-cluster-icon${selected ? ' map-marker-selected' : ''}`,
+        iconSize: L.point(size, size),
+        iconAnchor: L.point(size / 2, size / 2),
       })
     },
-  }) as {
-    on: (event: string, handler: (event: unknown) => void) => void
-    addLayer: (layer: unknown) => void
-    clearLayers?: () => void
-    off?: () => void
-    remove?: () => void
-    refreshClusters?: () => void
-  }
+  }) as ReturnType<typeof createClusterGroup>
 }
 
 export function createThingMarkerIcon(
-  L: {
-    icon: (options: Record<string, unknown>) => unknown
-  },
+  L: { divIcon: (options: Record<string, unknown>) => unknown },
   color: string,
-  borderColor: string
+  {
+    warning,
+    snapshotLabel,
+    value,
+  }: {
+    warning?: string
+    snapshotLabel?: string
+    value?: { text: string; description: string }
+  } = {}
 ) {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 41">
-      <path d="M12.5 0.8C6.54 0.8 1.7 5.64 1.7 11.6c0 2.64 1.46 5.96 2.57 8L12.5 40.2l8.23-20.6c1.12-2.04 2.57-5.36 2.57-8 0-5.96-4.84-10.8-10.8-10.8z" fill="${color}" stroke="${borderColor}" stroke-width="2.2"/>
-      <circle cx="12.5" cy="11.6" r="4.1" fill="#ffffff"/>
-    </svg>
-  `
-  const iconUrl = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-  return L.icon({
-    iconUrl,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    tooltipAnchor: [1, -34],
-  })
-}
-
-/**
- * Snapshot-mode variant: same SVG pin but as a divIcon so an amber date
- * label pill appears beneath the marker.
- */
-export function createThingMarkerDivIcon(
-  L: {
-    divIcon: (options: Record<string, unknown>) => unknown
-  },
-  color: string,
-  borderColor: string,
-  label: string
-) {
-  const svgEncoded = encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 41">
-      <path d="M12.5 0.8C6.54 0.8 1.7 5.64 1.7 11.6c0 2.64 1.46 5.96 2.57 8L12.5 40.2l8.23-20.6c1.12-2.04 2.57-5.36 2.57-8 0-5.96-4.84-10.8-10.8-10.8z" fill="${color}" stroke="${borderColor}" stroke-width="2.2"/>
-      <circle cx="12.5" cy="11.6" r="4.1" fill="#ffffff"/>
-    </svg>
-  `)
-
-  const html = `
-    <div style="position:relative;width:25px;">
-      <img src="data:image/svg+xml;charset=UTF-8,${svgEncoded}"
-           style="width:25px;height:41px;display:block;" />
-      <div style="
-        position:absolute;top:43px;left:50%;transform:translateX(-50%);
-        white-space:nowrap;background:rgba(251,191,36,0.92);
-        border:1px solid rgba(180,83,9,0.6);color:#78350f;
-        padding:1px 5px;border-radius:5px;font-size:9px;font-weight:700;
-        line-height:1.4;box-shadow:0 1px 4px rgba(0,0,0,0.25);
-        pointer-events:none;
-      ">${label}</div>
-    </div>
-  `
-
   return L.divIcon({
-    html,
-    className: '',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    tooltipAnchor: [1, -34],
+    html: `<span class="map-station-dot" style="--map-source-color:${escapeHtml(color)}">${warning ? markerWarningHtml(warning) : ''}</span>${snapshotLabelHtml(snapshotLabel)}${value ? `<button type="button" class="map-station-value" aria-label="${escapeHtml(value.description)}" style="--map-source-color:${escapeHtml(color)}"><span>${escapeHtml(value.text)}</span></button>` : ''}`,
+    className: 'map-station-icon',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    tooltipAnchor: [0, -8],
   })
 }
-
 
 export function showClusterHullPreview({
   L,
@@ -147,7 +143,10 @@ export function showClusterHullPreview({
   durationMs = 1800,
 }: {
   L: {
-    polygon: (hull: unknown[], options: Record<string, unknown>) => {
+    polygon: (
+      hull: unknown[],
+      options: Record<string, unknown>
+    ) => {
       addTo: (map: unknown) => void
     }
   }

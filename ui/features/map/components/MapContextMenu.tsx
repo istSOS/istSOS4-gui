@@ -30,11 +30,11 @@ import { useAuth } from '@/context/AuthContext'
 type Props = {
   x: number
   y: number
-  onCenterHere: () => void
+  onCenterHere?: () => void
   onCreateThing: () => void
   onImportFromFile: () => void
-  onZoomIn: () => void
-  onZoomOut: () => void
+  onZoomIn?: () => void
+  onZoomOut?: () => void
   /** Hides create/import actions — the map is read-only while viewing an As-Of snapshot */
   isSnapshot?: boolean
 }
@@ -80,6 +80,10 @@ export default function MapContextMenu({
 }: Props) {
   const { t } = useTranslation()
   const { canWrite } = useAuth()
+  const hasTopActions = Boolean(onCenterHere) || !isSnapshot
+  const hasZoomActions = Boolean(onZoomIn || onZoomOut)
+
+  if (!hasTopActions && !hasZoomActions) return null
 
   return (
     <div
@@ -87,11 +91,13 @@ export default function MapContextMenu({
       style={{ left: x, top: y, transform: 'translate(8px, 8px)' }}
     >
       <Card className="w-[180px] overflow-hidden rounded-xl bg-white/95 py-2 shadow-xl">
-        <MenuRow
-          icon={<CrosshairIcon />}
-          label={t('general.center_map_here')}
-          onClick={onCenterHere}
-        />
+        {onCenterHere && (
+          <MenuRow
+            icon={<CrosshairIcon />}
+            label={t('general.center_map_here')}
+            onClick={onCenterHere}
+          />
+        )}
         {!isSnapshot && (
           <>
             <MenuRow
@@ -111,10 +117,19 @@ export default function MapContextMenu({
           </>
         )}
 
-        <div className="mx-3 my-1 border-t border-default-200" />
-
-        <MenuRow icon={<ZoomInIcon />} label="Zoom In" onClick={onZoomIn} />
-        <MenuRow icon={<ZoomOutIcon />} label="Zoom Out" onClick={onZoomOut} />
+        {hasTopActions && hasZoomActions && (
+          <div className="mx-3 my-1 border-t border-default-200" />
+        )}
+        {onZoomIn && (
+          <MenuRow icon={<ZoomInIcon />} label="Zoom In" onClick={onZoomIn} />
+        )}
+        {onZoomOut && (
+          <MenuRow
+            icon={<ZoomOutIcon />}
+            label="Zoom Out"
+            onClick={onZoomOut}
+          />
+        )}
       </Card>
     </div>
   )

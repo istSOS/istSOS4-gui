@@ -13,6 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { normalizedBasePath } from '@/config/paths'
 import type { UiDataSource } from '@/types'
 import { Button } from '@heroui/button'
 import { Card, CardBody, CardHeader } from '@heroui/card'
@@ -128,9 +129,6 @@ type DataSourceConfigResponse =
 
 const normalizeApiRoot = (value: string) => value.trim().replace(/\/+$/, '')
 const normalizeSourceName = (value: string) => value.trim().toLowerCase()
-const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
-const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
-const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
 const configApiPath = `${normalizedBasePath}/api/data-sources/config`
 

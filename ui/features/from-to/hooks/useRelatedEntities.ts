@@ -28,7 +28,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { normalizedBasePath } from '@/app/home/utils'
+import { normalizedBasePath } from '@/config/paths'
 import type { HistoryWindow } from '@/features/from-to/lib/historyWindow'
 
 const RELATED_API = `${normalizedBasePath}/api/from-to/related`

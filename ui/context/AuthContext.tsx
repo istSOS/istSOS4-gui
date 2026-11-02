@@ -19,7 +19,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react'
 
 import { siteConfig } from '@/config/site'
 
-import { canWriteWithToken, decodeTokenPayload } from '@/lib/auth'
+import { canWriteWithToken, decodeTokenPayload, isTokenExpired } from '@/lib/auth'
 import {
   removeDataSourceToken,
   setDataSourceToken,
@@ -65,18 +65,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //instead, or each refresh would be due at once and loop; the delay is
     //capped at setTimeout's 32-bit limit, past which it would fire immediately.
     const refreshIn = timeLeft > 240 ? timeLeft - 120 : Math.max(timeLeft / 2, 0)
+    let active = true
     const timer = setTimeout(
-      () => {
-        refresh(token).then((newToken) => {
-          //if the refresh was successful, set the new token
-          if (newToken) setToken(newToken)
-          //if the refresh failed, clear the token
-          else setToken(null)
-        })
+      async () => {
+        try {
+          const newToken = await refresh(token)
+          if (!active) return
+          // A rejected Server Action is a failed refresh too. Never reuse an
+          // already expired response: it would schedule another immediate refresh.
+          setToken(newToken && !isTokenExpired(newToken) ? newToken : null)
+        } catch {
+          if (active) setToken(null)
+        }
       },
       Math.min(refreshIn * 1000, 2_147_483_647)
     )
-    return () => clearTimeout(timer)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
   }, [token])
 
   //initialize token from local storage

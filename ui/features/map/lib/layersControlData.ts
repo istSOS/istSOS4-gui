@@ -1,5 +1,6 @@
-import { DataSourceLayerItem } from '../components/layers-control/types'
 import { Thing } from '@/types/domain'
+
+import { UNSPECIFIED_NETWORK_KEY, networkKey } from './leafletDraw'
 import {
   ObservedToggleItem,
   getThingKey,
@@ -7,7 +8,8 @@ import {
   getThingSourceLabel,
   parseObservedPropertyKey,
 } from './leafletMapHelpers'
-import { UNSPECIFIED_NETWORK_KEY, networkKey } from './leafletDraw'
+
+import { DataSourceLayerItem } from '../components/layers-control/types'
 
 export function buildLayerControlSources({
   things,
@@ -105,7 +107,6 @@ export function buildLayerControlSources({
           : false,
       networks,
       observedProperties: [],
-      observedEnabled: false,
     } as DataSourceLayerItem
   })
 
@@ -126,7 +127,6 @@ export function buildLayerControlSources({
       enabled: false,
       networks: [],
       observedProperties: [],
-      observedEnabled: false,
     }
 
     sourceEntry.observedProperties.push({
@@ -142,16 +142,10 @@ export function buildLayerControlSources({
     source.observedProperties = [...source.observedProperties].sort((a, b) =>
       a.label.localeCompare(b.label)
     )
-    const hasAnyObservedEnabled = source.observedProperties.some(
-      (property) => property.enabled
+    // Property selection changes the displayed values, never layer visibility.
+    source.enabled = source.networks.some((network) =>
+      network.things.some((thing) => thing.enabled)
     )
-    source.observedEnabled =
-      source.observedProperties.length > 0
-        ? source.observedProperties.every((property) => property.enabled)
-        : false
-    source.enabled =
-      hasAnyObservedEnabled ||
-      source.networks.some((network) => network.enabled)
   }
 
   return Array.from(dataSourcesByKey.values()).sort((a, b) =>

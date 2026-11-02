@@ -27,6 +27,17 @@ export function getThingSourceLabel(thing: Thing) {
     : `Data source ${getThingSourceKey(thing)}`
 }
 
+export function matchesMapFilterSearch(text: string, query: string) {
+  const normalize = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase()
+  const terms = normalize(query).trim().split(/\s+/).filter(Boolean)
+  const normalizedText = normalize(text)
+  return terms.every((term) => normalizedText.includes(term))
+}
+
 export function buildObservedPropertyKey(
   sourceKey: string,
   observedPropertyName: string

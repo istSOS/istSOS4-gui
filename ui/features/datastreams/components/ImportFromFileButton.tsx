@@ -1,5 +1,7 @@
 'use client'
 
+import { normalizedBasePath } from '@/config/paths'
+
 import { Button } from '@heroui/button'
 import { Card, CardBody, CardHeader } from '@heroui/card'
 import { Divider } from '@heroui/divider'
@@ -27,9 +29,6 @@ import {
 
 import { useAuth } from '@/context/AuthContext'
 
-const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
-const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
-const normalizedBasePath = basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 const importApiPath = `${normalizedBasePath}/api/data-sources/import`
 const importTemplatePath = `${normalizedBasePath}/import-template.csv`
 

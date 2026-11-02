@@ -53,7 +53,7 @@ import utc from 'dayjs/plugin/utc'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { normalizedBasePath } from '@/app/home/utils'
+import { normalizedBasePath } from '@/config/paths'
 import {
   FULL_HISTORY_WINDOW,
   fitWindowToVersions,

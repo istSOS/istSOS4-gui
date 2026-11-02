@@ -1,8 +1,6 @@
-import type { QcRow } from './types'
-
 /** null means the full series. A single observation retains nearby context. */
 export function selectionZoom(
-  rows: QcRow[],
+  rows: Array<{ key: string; ts: number }>,
   selected: string[]
 ): {
   startValue: number

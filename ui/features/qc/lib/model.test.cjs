@@ -713,6 +713,7 @@ test('promoting context to a converted target audits its source quality before t
 
 const {
   UTC_OFFSETS,
+  browserUtcOffset,
   validUtcOffset,
   formatUtcOffset,
   toOffsetInput,
@@ -731,6 +732,23 @@ test('fixed UTC offsets use numeric labels and include quarter/half-hour zones',
   assert.equal(UTC_OFFSETS.at(-1), 840)
   assert.equal(validUtcOffset('Europe/Zurich'), false)
   assert.equal(validUtcOffset(61), false)
+})
+
+test('browser offset defaults preserve the local sign and quarter-hour zones', () => {
+  for (const [browserMinutes, expected] of [
+    [-60, 60],
+    [-120, 120],
+    [300, -300],
+    [-345, 345],
+    [-765, 765],
+    [0, 0],
+  ]) {
+    assert.equal(
+      browserUtcOffset({ getTimezoneOffset: () => browserMinutes }),
+      expected
+    )
+  }
+  assert.equal(browserUtcOffset({ getTimezoneOffset: () => NaN }), 0)
 })
 
 test('offset inputs preserve instants through date/year boundaries and fixed offsets have no DST changes', () => {

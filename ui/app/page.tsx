@@ -24,7 +24,7 @@ import { getThings } from '@/services/things'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import Home from '@/app/Home'
+import HomePage from '@/features/home/components/HomePage'
 import { siteConfig } from '@/config/site'
 import { isTokenExpired } from '@/lib/auth'
 
@@ -68,7 +68,7 @@ export default async function Page() {
       }))
 
     return (
-      <Home
+      <HomePage
         things={things.thingData}
         locations={locations.locationData}
         sensors={sensors.sensorData}

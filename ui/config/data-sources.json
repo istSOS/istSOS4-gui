@@ -4,7 +4,7 @@
       "id": "0",
       "name": "IST",
       "apiRoot": "https://hydromet.supsi.ch/tsdb/v1.1",
-      "authorizationEnabled": false,
+      "authorizationEnabled": true,
       "networkEnabled": true
     }
   ]

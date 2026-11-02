@@ -33,9 +33,12 @@ function mount(context, initial = {}) {
   const refs = []
   const effects = []
   const pending = []
-  let refIndex, effectIndex, chart, tree
+  let refIndex, effectIndex, chart
   const t = (key) => key
   const hooks = {
+    useSyncExternalStore(_subscribe, getSnapshot) {
+      return getSnapshot()
+    },
     useRef(value) {
       const index = refIndex++
       return (refs[index] ??= { current: index === 0 ? {} : value })
@@ -92,7 +95,7 @@ function mount(context, initial = {}) {
   const render = (update = {}) => {
     props = { ...props, ...update }
     refIndex = effectIndex = 0
-    tree = component.exports.default(props)
+    component.exports.default(props)
     while (pending.length) pending.shift()()
   }
   render()
@@ -100,7 +103,11 @@ function mount(context, initial = {}) {
   return {
     chart,
     render,
-    reset: () => tree.props.children[0].props.children.props.onClick(),
+    reset: () => chart.getOption().toolbox[0].feature.myResetZoom.onclick(),
+    toggleHover() {
+      chart.getOption().toolbox[0].feature.myHoverTooltips.onclick()
+      render()
+    },
     series: (id) =>
       chart
         .getModel()
@@ -111,6 +118,30 @@ function mount(context, initial = {}) {
 
 // Node has no ResizeObserver; mock.method requires the property to exist.
 global.ResizeObserver ??= class {}
+
+test('hover preference survives graph updates without changing zoom or selected points', (t) => {
+  const {
+    plotTooltipPreference,
+  } = require('../../../lib/plotTooltipPreference.ts')
+  t.after(() => plotTooltipPreference.set(true))
+  const app = mount(t, { selected: ['50'] })
+  assert.equal(app.chart.getOption().tooltip[0].triggerOn, 'mousemove|click')
+  app.chart.dispatchAction({ type: 'dataZoom', start: 20, end: 70 })
+  const zoom = extents(app.chart)
+  app.toggleHover()
+  assert.equal(app.chart.getOption().tooltip[0].triggerOn, 'click')
+  assert.deepEqual(extents(app.chart), zoom)
+  assert.deepEqual(
+    app.series('qc-selected').option.data.map((point) => point[2]),
+    ['50']
+  )
+  app.render({ unit: '°C' })
+  assert.equal(app.chart.getOption().tooltip[0].triggerOn, 'click')
+  const reopened = mount(t)
+  assert.equal(reopened.chart.getOption().tooltip[0].triggerOn, 'click')
+  app.toggleHover()
+  assert.equal(app.chart.getOption().tooltip[0].triggerOn, 'mousemove|click')
+})
 
 function extents(chart) {
   return chart
@@ -543,4 +574,48 @@ test('HTML tooltip escapes check names, quality values, and units', (t) => {
   assert.ok(html.includes('&lt;script&gt;'))
   assert.ok(html.includes('&lt;img'))
   assert.ok(html.includes('&lt;b&gt;°C&lt;/b&gt;'))
+})
+
+test('QC uses the shared magenta selection marker and white outline across draft updates', (t) => {
+  const { render, series } = mount(t, { selected: ['50'] })
+  const selected = series('qc-selected').option
+  assert.equal(selected.itemStyle.color, '#d946ef')
+  assert.equal(selected.itemStyle.borderColor, '#ffffff')
+  assert.equal(selected.itemStyle.borderWidth, 1.5)
+  assert.equal(selected.symbolSize, 11)
+  assert.equal(series('qc-draft').option.markLine.lineStyle.color, '#d946ef')
+  render({
+    drafts: { 50: { result: 65, resultQuality: 255 } },
+    selected: ['50'],
+  })
+  assert.equal(series('qc-selected').option.itemStyle.color, '#d946ef')
+})
+
+test('QC selection tool changes colour and clearing a point exits brush mode without disabling point clicks', (t) => {
+  let selection = ['50']
+  const { chart, render, series } = mount(t, {
+    selected: selection,
+    onSelect: (keys) => {
+      selection = keys
+    },
+  })
+  const tool = () =>
+    chart.getViewOfComponentModel(chart.getModel().getComponent('toolbox'))
+      ._features.brush
+  const clickTool = (name) => tool().model.iconPaths[name].trigger('click')
+  assert.equal(tool().model.get(['iconStyle', 'borderColor']), '#9ca3af')
+  assert.equal(
+    tool().model.get(['emphasis', 'iconStyle', 'borderColor']),
+    '#008374'
+  )
+  clickTool('lineX')
+  assert.equal(tool().model.get(['iconStatus', 'lineX']), 'emphasis')
+  clickTool('clear')
+  assert.deepEqual(selection, [])
+  render({ selected: selection })
+  assert.equal(series('qc-selected').getData().count(), 0)
+  assert.equal(chart.getModel().getComponent('brush').brushType, false)
+  assert.equal(tool().model.get(['iconStatus', 'lineX']), 'normal')
+  chart.trigger('click', { data: [rows[51].ts, rows[51].result, '51'] })
+  assert.deepEqual(selection, ['51'])
 })

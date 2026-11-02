@@ -13,6 +13,7 @@
 // limitations under the License.
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { readThingsWithDatastreams } from '@/lib/sensorThingsPagination'
 
 import {
   getPrimaryDataSource,
@@ -32,22 +33,6 @@ type RequestPayload = {
 }
 
 const normalizeApiRoot = (value: string) => value.trim().replace(/\/+$/, '')
-
-const expandClause = `
-  Datastreams(
-    $expand=Network,
-            Sensor,
-            Observations($top=1;$orderby=phenomenonTime desc),
-            ObservedProperty
-  ),
-  Locations
-`
-  .replace(/\s+/g, ' ')
-  .replace(/\s*([(),;=])\s*/g, '$1')
-  .trim()
-
-const buildThingsUrl = (apiRoot: string) =>
-  `${apiRoot}/Things?$expand=${expandClause}`
 
 const withAuthHeaders = (token?: string | null) => {
   if (!token) return {}
@@ -99,53 +84,30 @@ async function fetchThingsForSource(
 
   try {
     const [
-      thingsResponse,
+      values,
       sensorsValues,
       observedPropertiesValues,
       networkValues,
     ] = await Promise.all([
-      fetch(buildThingsUrl(endpoint), {
-        method: 'GET',
-        headers: withAuthHeaders(token),
-        cache: 'no-store',
-      }),
+      readThingsWithDatastreams(
+        endpoint,
+        'Network,Sensor,Observations($top=1;$orderby=phenomenonTime desc),ObservedProperty',
+        async (url) => {
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: withAuthHeaders(token),
+            cache: 'no-store',
+          })
+          if (!response.ok) {
+            throw new Error(`${response.status} ${response.statusText}`.trim())
+          }
+          return response.json()
+        }
+      ),
       fetchSourceCollection(buildSensorsUrl(endpoint), token),
       fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
       fetchSourceCollection(buildNetworksUrl(endpoint), token),
     ])
-
-    if (!thingsResponse.ok) {
-      return {
-        id: source.id,
-        name: source.name,
-        endpoint,
-        things: [],
-        sensors: sensorsValues.map((sensor) => ({
-          ...sensor,
-          __sourceId: source.id,
-          __sourceName: source.name,
-          __sourceEndpoint: endpoint,
-        })),
-        observedProperties: observedPropertiesValues.map(
-          (observedProperty) => ({
-            ...observedProperty,
-            __sourceId: source.id,
-            __sourceName: source.name,
-            __sourceEndpoint: endpoint,
-          })
-        ),
-        networks: networkValues.map((network) => ({
-          ...network,
-          __sourceId: source.id,
-          __sourceName: source.name,
-          __sourceEndpoint: endpoint,
-        })),
-        error: `${thingsResponse.status} ${thingsResponse.statusText}`,
-      }
-    }
-
-    const data = await thingsResponse.json().catch(() => null)
-    const values = Array.isArray(data?.value) ? data.value : []
 
     const things = values.map((thing) => ({
       ...thing,

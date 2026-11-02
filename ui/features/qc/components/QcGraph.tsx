@@ -1,9 +1,13 @@
 'use client'
 
 import * as echarts from 'echarts'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { SELECTION_COLOR, brushToolStyle } from '../../../lib/chartSelection'
+import { hoverTooltipTool, resetZoomTool } from '../../../lib/chartToolbar'
+import { plotTooltipPreference } from '../../../lib/plotTooltipPreference'
+import { selectBrushRows } from '../../observations/lib/plotSelection'
 import {
   VERDICT_COLORS,
   type Verdict,
@@ -70,6 +74,15 @@ export default function QcGraph({
 }) {
   const { t } = useTranslation()
   const node = useRef<HTMLDivElement>(null)
+  const hoverTooltips = useSyncExternalStore(
+    plotTooltipPreference.subscribe,
+    plotTooltipPreference.getSnapshot,
+    plotTooltipPreference.getServerSnapshot
+  )
+  const hoverTooltipsRef = useRef(hoverTooltips)
+  useEffect(() => {
+    hoverTooltipsRef.current = hoverTooltips
+  }, [hoverTooltips])
   const chartRef = useRef<echarts.EChartsType | null>(null)
   const zoomRef = useRef<{ series: string; selection: string } | null>(null)
   const onSelectRef = useRef(onSelect)
@@ -100,53 +113,18 @@ export default function QcGraph({
     chart.on('brush', (event: unknown) => {
       // The toolbox clear action emits `brush`, not `brushEnd`. Ignore the
       // programmatic brush resets used to update point/table selections.
-      if ((event as { command?: string }).command === 'clear')
+      if ((event as { command?: string }).command === 'clear') {
+        chart.dispatchAction({
+          type: 'takeGlobalCursor',
+          key: 'brush',
+          brushOption: { brushType: false },
+        })
         onSelectRef.current([])
+      }
     })
     chart.on('brushEnd', (event: unknown) => {
-      const value = event as {
-        areas?: Array<{ range?: number[]; coordRange?: number[] }>
-      }
-      const ranges =
-        value.areas
-          ?.map((area) =>
-            // ECharts clamps coordRange to the visible axis. Pixel conversion
-            // retains the complete interval when a cover moves past the zoom.
-            area.range?.length === 2
-              ? area.range.map((pixel) =>
-                  Math.round(
-                    Number(chart.convertFromPixel({ xAxisIndex: 0 }, pixel))
-                  )
-                )
-              : area.coordRange
-          )
-          .filter(
-            (range): range is number[] =>
-              !!range && range.length === 2 && range.every(Number.isFinite)
-          )
-          .map((range) => [Math.min(...range), Math.max(...range)]) ?? []
-      const keys = rowRef.current
-        .filter((row) =>
-          ranges.some(
-            (range) =>
-              row.ts >= Math.min(...range) && row.ts <= Math.max(...range)
-          )
-        )
-        .map((row) => row.key)
+      const keys = selectBrushRows(chart, event, rowRef.current)
       brushSelectionRef.current = keys
-      // Remove the clamped coordinate/offset pair so subsequent zooms and
-      // drags keep the visible cover aligned with the actual selection.
-      chart.dispatchAction(
-        {
-          type: 'brush',
-          areas: ranges.map((coordRange) => ({
-            brushType: 'lineX',
-            xAxisIndex: 0,
-            coordRange,
-          })),
-        },
-        { silent: true }
-      )
       onSelectRef.current(keys)
     })
     return () => {
@@ -317,7 +295,21 @@ export default function QcGraph({
         right: 12,
         top: 0,
         feature: {
-          brush: { type: ['lineX', 'clear'] },
+          myResetZoom: resetZoomTool(t('qc.zoom_reset'), resetZoom),
+          myHoverTooltips: hoverTooltipTool(
+            hoverTooltipsRef.current,
+            t('observations.show_on_hover'),
+            () =>
+              plotTooltipPreference.set(!plotTooltipPreference.getSnapshot())
+          ),
+          brush: {
+            ...brushToolStyle(),
+            type: ['lineX', 'clear'],
+            title: {
+              lineX: t('observations.select_range'),
+              clear: t('qc.clear_selection'),
+            },
+          },
           dataZoom: {
             xAxisIndex: [0, 1],
             yAxisIndex: 'none',
@@ -334,6 +326,7 @@ export default function QcGraph({
       },
       tooltip: {
         trigger: 'axis',
+        triggerOn: hoverTooltipsRef.current ? 'mousemove|click' : 'click',
         renderMode: 'html',
         confine: true,
         formatter: (params: unknown) => {
@@ -525,7 +518,11 @@ export default function QcGraph({
           ...markerRendering,
           data: [],
           symbolSize: 11,
-          itemStyle: { color: '#1baf7a' },
+          itemStyle: {
+            color: SELECTION_COLOR,
+            borderColor: '#ffffff',
+            borderWidth: 1.5,
+          },
         },
         {
           id: 'qc-proposed',
@@ -568,6 +565,12 @@ export default function QcGraph({
   useEffect(() => {
     const chart = chartRef.current
     if (!chart) return
+    if (!selected.length)
+      chart.dispatchAction({
+        type: 'takeGlobalCursor',
+        key: 'brush',
+        brushOption: { brushType: false },
+      })
     const keys = new Set(selected)
     const selectedRows = rows.filter((row) => keys.has(row.key))
     const series = JSON.stringify(rows.map((row) => [row.key, row.ts]))
@@ -595,7 +598,7 @@ export default function QcGraph({
             label: { show: false },
             data:
               selectedRows.length === 1 ? [{ xAxis: selectedRows[0].ts }] : [],
-            lineStyle: { color: '#1baf7a' },
+            lineStyle: { color: SELECTION_COLOR },
           },
         },
       ],
@@ -621,17 +624,27 @@ export default function QcGraph({
     t,
   ])
 
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart) return
+    chart.setOption({
+      tooltip: { triggerOn: hoverTooltips ? 'mousemove|click' : 'click' },
+      toolbox: {
+        feature: {
+          myHoverTooltips: hoverTooltipTool(
+            hoverTooltips,
+            t('observations.show_on_hover'),
+            () =>
+              plotTooltipPreference.set(!plotTooltipPreference.getSnapshot())
+          ),
+        },
+      },
+    })
+    chart.dispatchAction({ type: 'hideTip' })
+  }, [hoverTooltips, t])
+
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="flex shrink-0 justify-end border-b border-default-100 px-2 py-1">
-        <button
-          type="button"
-          onClick={resetZoom}
-          className="rounded border border-default-300 px-3 py-1 text-xs text-primary outline-offset-2 hover:bg-default-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-        >
-          {t('qc.zoom_reset')}
-        </button>
-      </div>
       <div
         ref={node}
         data-utc-offset={formatUtcOffset(utcOffset)}

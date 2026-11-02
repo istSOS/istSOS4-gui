@@ -13,69 +13,80 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
+import { Datastream, Observation } from '@/types/domain'
 import * as echarts from 'echarts'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Datastream, Observation, Thing } from '@/types/domain'
 import {
-  buildMarkLine,
-  buildObservationGraphOption,
-  resolveSeriesColors,
-  syncLaneGridToPlotGrid,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import { createPortal } from 'react-dom'
+import { useTranslation } from 'react-i18next'
+
+import CompactObservationTooltip from './CompactObservationTooltip'
+import ObservationDataTable, {
+  type ObservationDataRow,
+} from './ObservationDataTable'
+import { PAGE_SIZE } from './ObservationTable'
+import QualityLegend, { type QualityLegendLane } from './QualityLegend'
+
+import { SELECTION_COLOR } from '../../../lib/chartSelection'
+import { hoverTooltipTool } from '../../../lib/chartToolbar'
+import { plotTooltipPreference } from '../../../lib/plotTooltipPreference'
+import { selectionZoom } from '../../qc/lib/selectionZoom'
+import {
   type QualityLane,
   type SnapshotMarker,
+  buildMarkLine,
+  buildObservationGraphOption,
+  buildQualityLaneSeries,
+  buildSeriesAppearancePatches,
+  resolveSeriesColors,
+  seriesAxisScales,
+  syncLaneGridToPlotGrid,
+  timeAxisDisplay,
+  visibleTimeSpan,
 } from '../lib/observationGraphOptions'
 import {
-  ISTSOS_QUALITY_SCHEME,
-  buildQualitySegments,
-  qualityConstraintsOf,
-  sameQualityScheme,
-  tallyQuality,
-} from '../lib/resultQuality'
-import { useQualitySchemeResolver } from '../lib/useQualitySchemes'
-import QualityLegend, { type QualityLegendLane } from './QualityLegend'
-import ReadingDetailsRail, {
-  type ReadingDetails,
-  type ReadingDetailsEntry,
-} from './ReadingDetailsRail'
-
-dayjs.extend(utc)
-
-/** "−3d 4h" — the aligned axis' own units, for the rail header. */
-function formatOffset(offsetMs: number) {
-  const sign = offsetMs < 0 ? '−' : '+'
-  const total = Math.abs(offsetMs)
-  const days = Math.floor(total / 86400000)
-  const hours = Math.floor((total % 86400000) / 3600000)
-  const minutes = Math.floor((total % 3600000) / 60000)
-  const parts = [
-    days ? `${days}d` : '',
-    hours ? `${hours}h` : '',
-    !days && !hours ? `${minutes}m` : '',
-  ].filter(Boolean)
-  return `${sign}${parts.join(' ')}`
-}
-import {
+  type ChangeRegion,
+  type GraphSeriesEntry,
+  type SeriesSource,
   buildRows,
   buildSeriesEntries,
   plottedX,
   resolvePrimaryAndSecondarySeries,
-  type ChangeRegion,
-  type GraphSeriesEntry,
-  type SeriesSource,
 } from '../lib/observationGraphUtils'
+import type { TooltipReading } from '../lib/observationTooltip'
+import { selectBrushRows } from '../lib/plotSelection'
+import {
+  buildQualitySegments,
+  qualityConstraintsOf,
+  qualityModeOf,
+  tallyQuality,
+} from '../lib/resultQuality'
+import {
+  EMPTY_APPEARANCES,
+  type SeriesAppearances,
+} from '../lib/seriesAppearance'
+
+const EMPTY_OBSERVATIONS: Observation[] = []
+const EMPTY_SERIES: SeriesSource[] = []
+const EMPTY_IDS: string[] = []
+const EMPTY_MARKERS: SnapshotMarker[] = []
+const EMPTY_REGIONS: ChangeRegion[] = []
 
 type ObservationGraphProps = {
-  thing?: Thing | null
+  utcOffset?: number
   datastream?: Datastream | null
   observations?: Observation[]
   comparisonDatastream?: Datastream | null
   comparisonObservations?: Observation[]
   allSeries?: SeriesSource[]
   activeDatastreamIds?: string[]
-  onActiveDatastreamsChange?: (datastreamIds: string[]) => void
+  seriesStyles?: SeriesAppearances
   loading?: boolean
   error?: string | null
   onDownloadAllDatastreams?: () => Promise<{
@@ -104,42 +115,73 @@ type ObservationGraphProps = {
   /** ISO-8601 snapshot a single As-Of chart was read at; null for live data.
    *  Compare mode reads each series' own snapshot instead. */
   asOfDate?: string | null
-  /** Opens the quality rules editor from the legend. No button when absent. */
-  onCustomizeQuality?: () => void
 }
 
 export default function ObservationGraph({
-  thing = null,
+  utcOffset = 0,
   datastream = null,
-  observations = [],
+  observations = EMPTY_OBSERVATIONS,
   comparisonDatastream = null,
-  comparisonObservations = [],
-  allSeries = [],
-  activeDatastreamIds = [],
-  onActiveDatastreamsChange,
+  comparisonObservations = EMPTY_OBSERVATIONS,
+  allSeries = EMPTY_SERIES,
+  activeDatastreamIds = EMPTY_IDS,
+  seriesStyles = EMPTY_APPEARANCES,
   loading = false,
   error = null,
   onDownloadAllDatastreams,
   className = '',
   height = '100%',
-  snapshotMarkers = [],
+  snapshotMarkers = EMPTY_MARKERS,
   windowStart = null,
   windowEnd = null,
   alignedAxis = false,
   isCompare = false,
-  changeRegions = [],
+  changeRegions = EMPTY_REGIONS,
   asOfDate = null,
-  onCustomizeQuality,
 }: ObservationGraphProps) {
   const { t } = useTranslation()
-  // Each datastream's quality is read under the viewer's rules for it, and the
-  // resolver changes identity when those are saved — so every memo below that
-  // lists it re-classifies the rows on screen.
-  const resolveScheme = useQualitySchemeResolver()
-
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const hoverTooltips = useSyncExternalStore(
+    plotTooltipPreference.subscribe,
+    plotTooltipPreference.getSnapshot,
+    plotTooltipPreference.getServerSnapshot
+  )
+  const hoverTooltipsRef = useRef(hoverTooltips)
+  useEffect(() => {
+    hoverTooltipsRef.current = hoverTooltips
+  }, [hoverTooltips])
+  const tooltipPinnedRef = useRef(false)
+  const utcOffsetRef = useRef(utcOffset)
+  useEffect(() => {
+    utcOffsetRef.current = utcOffset
+  }, [utcOffset])
+  const tooltipRoot = useMemo(
+    () =>
+      typeof window === 'undefined' ? null : document.createElement('div'),
+    []
+  )
+  const [tooltipReadings, setTooltipReadings] = useState<TooltipReading[]>([])
+  const renderTooltip = useCallback(
+    (readings: TooltipReading[]) => {
+      setTooltipReadings((previous) =>
+        previous.length === readings.length &&
+        previous.every(
+          (reading, i) =>
+            reading.entry === readings[i].entry &&
+            reading.row === readings[i].row
+        )
+          ? previous
+          : readings
+      )
+      return tooltipRoot!
+    },
+    [tooltipRoot]
+  )
   const chartRef = useRef<echarts.EChartsType | null>(null)
-  const resizeObserverRef = useRef<ResizeObserver | null>(null)
+  const getVisibleTimeSpan = useCallback(
+    () => visibleTimeSpan(chartRef.current),
+    []
+  )
   /**
    * Whether the chart currently holds the real series, rather than a "Loading"
    * / "No data" / "Select a datastream" message.
@@ -151,14 +193,27 @@ export default function ObservationGraph({
    */
   const chartHasSeriesRef = useRef(false)
 
-  /** The reading the rail is describing, or null when it is closed. */
-  const [selected, setSelected] = useState<{
-    x: number
-    details: ReadingDetails
-  } | null>(null)
+  const [selectedX, setSelectedX] = useState<number | null>(null)
 
-  // Read once per render rather than inside the chart effect: the rail needs it
-  // too, for dots that match the series they describe.
+  const [selection, setSelection] = useState<{
+    keys: string[]
+    origin: 'graph' | 'table'
+  }>({ keys: [], origin: 'graph' })
+  const selectionRef = useRef(selection.keys)
+  useEffect(() => {
+    selectionRef.current = selection.keys
+  }, [selection])
+  const [showTable, setShowTable] = useState(true)
+  const [page, setPage] = useState(0)
+  const [tableFilter, setTableFilter] = useState<'all' | 'A' | 'B'>('all')
+  const stylesRef = useRef(seriesStyles)
+  useEffect(() => {
+    stylesRef.current = seriesStyles
+  }, [seriesStyles])
+  const draggingRef = useRef(false)
+  const selectionToolRef = useRef(false)
+
+  // Resolve the theme colour once for the chart and selection highlights.
   const primaryColor = useMemo(() => {
     if (typeof window === 'undefined') return '#008374'
     return (
@@ -171,18 +226,18 @@ export default function ObservationGraph({
   const chartData = useMemo(() => {
     return buildRows(
       observations,
-      resolveScheme(datastream).scheme,
-      qualityConstraintsOf(datastream)
+      qualityConstraintsOf(datastream),
+      qualityModeOf(datastream)
     )
-  }, [observations, datastream, resolveScheme])
+  }, [observations, datastream])
 
   const comparisonChartData = useMemo(() => {
     return buildRows(
       comparisonObservations,
-      resolveScheme(comparisonDatastream).scheme,
-      qualityConstraintsOf(comparisonDatastream)
+      qualityConstraintsOf(comparisonDatastream),
+      qualityModeOf(comparisonDatastream)
     )
-  }, [comparisonObservations, comparisonDatastream, resolveScheme])
+  }, [comparisonObservations, comparisonDatastream])
 
   const seriesEntries = useMemo(() => {
     return buildSeriesEntries({
@@ -191,7 +246,6 @@ export default function ObservationGraph({
       comparisonDatastream,
       chartData,
       comparisonChartData,
-      schemeFor: (ds) => resolveScheme(ds).scheme,
     })
   }, [
     allSeries,
@@ -199,7 +253,6 @@ export default function ObservationGraph({
     comparisonDatastream,
     chartData,
     comparisonChartData,
-    resolveScheme,
   ])
 
   /**
@@ -212,12 +265,10 @@ export default function ObservationGraph({
    * letter stands for. A lone series stays unlettered, as there is nothing to
    * tell it apart from.
    *
-   * A strip is drawn even when none of its readings carries a quality value:
-   * it is then one grey "not checked" run, and the legend says so in words, for
-   * the snapshot it was read at. Hiding it instead left a reader unable to tell
-   * "no quality recorded" from "this chart has no quality feature".
+   * Bitmask series use the Edit/QC palette. Service catalog codes stay in the
+   * table and tooltips; they are categories without severity colours.
    */
-  const { qualityLanes, qualityLegendLanes, qualityCustomized } = useMemo(() => {
+  const { qualityLanes, qualityLegendLanes } = useMemo(() => {
     const { primarySeries, secondarySeries } = resolvePrimaryAndSecondarySeries(
       seriesEntries,
       activeDatastreamIds
@@ -261,13 +312,10 @@ export default function ObservationGraph({
 
     const lanes: QualityLane[] = []
     const legend: QualityLegendLane[] = []
-    let customized = false
 
     for (const { entry, tag, label, asOf } of sources) {
-      if (!entry || entry.rows.length === 0) continue
-      if (!sameQualityScheme(entry.qualityScheme, ISTSOS_QUALITY_SCHEME)) {
-        customized = true
-      }
+      if (!entry || entry.rows.length === 0 || entry.qualityMode !== 'bitmask')
+        continue
       const tally = tallyQuality(entry.rows)
       lanes.push({
         id: entry.id,
@@ -279,26 +327,94 @@ export default function ObservationGraph({
           }))
         ),
       })
-      legend.push({ tag, label, tally, asOf, scheme: entry.qualityScheme })
+      legend.push({ tag, label, tally, asOf })
     }
 
     return {
       qualityLanes: lanes,
       qualityLegendLanes: legend,
-      qualityCustomized: customized,
     }
   }, [seriesEntries, activeDatastreamIds, isCompare, alignedAxis, asOfDate, t])
 
-  /**
-   * Open the rail on the reading nearest `axisValue`.
-   *
-   * Snapping rather than requiring a hit on the line itself: the series are
-   * drawn with `showSymbol: false` over thousands of points, so an exact hit is
-   * not a gesture anyone can perform. Anywhere at that x is what the
-   * axis-triggered tooltip already responds to, so it is what people aim at.
-   */
-  const openRailAt = useCallback(
-    (axisValue: number) => {
+  const tableRows = useMemo<ObservationDataRow[]>(() => {
+    const { primarySeries } = resolvePrimaryAndSecondarySeries(
+      seriesEntries,
+      activeDatastreamIds
+    )
+    const entries = seriesEntries.filter((entry) =>
+      activeDatastreamIds.includes(entry.id)
+    )
+    return (entries.length ? entries : primarySeries ? [primarySeries] : [])
+      .flatMap((entry) =>
+        entry.rows.map((row) => ({
+          key: JSON.stringify([entry.id, row.key]),
+          time: row.time,
+          x: plottedX(entry, row.ts, alignedAxis),
+          row,
+          entry,
+        }))
+      )
+      .sort((a, b) => a.x - b.x || a.entry.id.localeCompare(b.entry.id))
+  }, [seriesEntries, activeDatastreamIds, alignedAxis])
+
+  const pinTooltip = useCallback((open: boolean) => {
+    tooltipPinnedRef.current = open
+    const chart = chartRef.current
+    if (!chart || !chartHasSeriesRef.current) return
+    chart.setOption({
+      tooltip: {
+        alwaysShowContent: open,
+        triggerOn: open
+          ? 'none'
+          : hoverTooltipsRef.current
+            ? 'mousemove|click'
+            : 'click',
+      },
+    })
+    if (!open) chart.dispatchAction({ type: 'hideTip' })
+  }, [])
+  const resetZoom = useCallback(() => {
+    chartRef.current?.dispatchAction({ type: 'dataZoom', start: 0, end: 100 })
+  }, [])
+  const zoomToSelection = useCallback(() => {
+    if (!selectionRef.current.length) return
+    const range = selectionZoom(
+      tableRows.map((item) => ({ key: item.key, ts: item.x })),
+      selectionRef.current
+    )
+    if (range) chartRef.current?.dispatchAction({ type: 'dataZoom', ...range })
+    else resetZoom()
+  }, [tableRows, resetZoom])
+
+  // Reset selection with its data during render, before chart effects synchronize.
+  const [selectionRows, setSelectionRows] = useState(tableRows)
+  if (selectionRows !== tableRows) {
+    setSelectionRows(tableRows)
+    setSelection({ keys: [], origin: 'graph' })
+    setSelectedX(null)
+    setPage(0)
+    setTableFilter('all')
+  }
+
+  const focusRows = useCallback(
+    (keys: string[], origin: 'graph' | 'table') => {
+      setSelection({ keys, origin })
+      if (origin === 'graph' && keys.length) {
+        setTableFilter('all')
+        const index = tableRows.findIndex((row) => row.key === keys[0])
+        if (index >= 0) setPage(Math.floor(index / PAGE_SIZE))
+      }
+    },
+    [tableRows]
+  )
+
+  /** Select the nearest readings without changing the plot layout. */
+  const selectReadingsAt = useCallback(
+    (
+      axisValue: number,
+      keys?: string[],
+      origin: 'graph' | 'table' = 'graph'
+    ) => {
       const visible = activeDatastreamIds.length
         ? seriesEntries.filter((entry) =>
             activeDatastreamIds.includes(entry.id)
@@ -322,23 +438,14 @@ export default function ObservationGraph({
       }
       if (anchorX === null) return
 
-      const colors = resolveSeriesColors(
-        seriesEntries,
-        activeDatastreamIds,
-        primaryColor,
-        isCompare
-      )
-
-      const entries: ReadingDetailsEntry[] = []
+      const matchedKeys: string[] = []
       for (const entry of visible) {
         if (entry.rows.length === 0) continue
 
         let nearest = entry.rows[0]
         let nearestDist = Infinity
         for (const row of entry.rows) {
-          const dist = Math.abs(
-            plottedX(entry, row.ts, alignedAxis) - anchorX
-          )
+          const dist = Math.abs(plottedX(entry, row.ts, alignedAxis) - anchorX)
           if (dist < nearestDist) {
             nearestDist = dist
             nearest = row
@@ -346,53 +453,22 @@ export default function ObservationGraph({
         }
 
         // A snapshot whose window does not reach this instant has no reading
-        // here, and its nearest row could be days away. Listing it would claim
+        // here, and its nearest row could be days away. Selecting it would claim
         // a value that snapshot never held, so it is left out entirely — the
-        // rail then shows one block instead of two, which is the truth.
+        // selection includes only snapshots that have a reading here.
         const spacing =
           entry.rows.length > 1
             ? Math.abs(entry.rows[1].ts - entry.rows[0].ts)
             : Number.POSITIVE_INFINITY
         if (nearestDist > spacing) continue
 
-        entries.push({
-          seriesId: entry.id,
-          seriesName: entry.name,
-          color: colors.get(entry.id) ?? primaryColor,
-          value: nearest.value,
-          unit: entry.unit,
-          ts: nearest.ts,
-          commit: nearest.commit,
-          endpoint: entry.endpoint ?? null,
-          qualityClass: nearest.qualityClass,
-          quality: nearest.quality,
-          qualityScheme: entry.qualityScheme,
-          qualityConstraints: entry.qualityConstraints,
-          qualityRule: nearest.qualityRule,
-          qualityCustom: !sameQualityScheme(
-            entry.qualityScheme,
-            ISTSOS_QUALITY_SCHEME
-          ),
-        })
+        matchedKeys.push(JSON.stringify([entry.id, nearest.key]))
       }
-      if (entries.length === 0) return
-
-      // On the aligned axis the shared position is an offset, and each series'
-      // own instant differs — so the header names the position and every block
-      // carries its own real timestamp.
-      const axisLabel = alignedAxis
-        ? formatOffset(anchorX)
-        : dayjs.utc(anchorX).format('YYYY-MM-DD HH:mm:ss')
-
-      setSelected({ x: anchorX, details: { axisLabel, entries } })
+      if (!matchedKeys.length) return
+      setSelectedX(anchorX)
+      focusRows(keys ?? matchedKeys, origin)
     },
-    [
-      seriesEntries,
-      activeDatastreamIds,
-      alignedAxis,
-      isCompare,
-      primaryColor,
-    ]
+    [seriesEntries, activeDatastreamIds, alignedAxis, focusRows]
   )
 
   useEffect(() => {
@@ -409,11 +485,9 @@ export default function ObservationGraph({
       syncLaneGridToPlotGrid(chart)
     })
     ro.observe(el)
-    resizeObserverRef.current = ro
 
     return () => {
       ro.disconnect()
-      resizeObserverRef.current = null
       chart.dispose()
       chartRef.current = null
     }
@@ -465,17 +539,14 @@ export default function ObservationGraph({
       return
     }
 
-    // The data underneath just changed, so a selection would point at a reading
-    // that may no longer exist. Drop it rather than let it survive onto other
-    // data — and keep the rail's marker line off the rebuilt option.
-    setSelected(null)
-
     const option = buildObservationGraphOption({
       seriesEntries,
       activeDatastreamIds,
       primaryColor,
       t: (key: string) => t(key),
       onDownloadAllDatastreams,
+      onResetZoom: resetZoom,
+      onZoomToSelection: zoomToSelection,
       snapshotMarkers,
       windowStart,
       windowEnd,
@@ -484,6 +555,13 @@ export default function ObservationGraph({
       changeRegions,
       selectedX: null,
       qualityLanes,
+      seriesStyles: stylesRef.current,
+      utcOffset: utcOffsetRef.current,
+      getVisibleTimeSpan,
+      renderTooltip: tooltipRoot ? renderTooltip : undefined,
+      hoverTooltips: hoverTooltipsRef.current,
+      onToggleHoverTooltips: () =>
+        plotTooltipPreference.set(!plotTooltipPreference.getSnapshot()),
     })
 
     chart.clear()
@@ -494,83 +572,69 @@ export default function ObservationGraph({
     syncLaneGridToPlotGrid(chart)
     chartHasSeriesRef.current = true
 
-    const zr = chart.getZr()
-    zr.off('click')
-    zr.on('click', (event: { offsetX?: number; offsetY?: number }) => {
-      const point = [event.offsetX ?? 0, event.offsetY ?? 0]
-      // A click outside the plotting area dismisses — the gesture people
-      // already expect for closing a panel. The quality strips count as inside:
-      // the crosshair and tooltip reach down through them, so a click there
-      // opens the reading they name rather than closing it.
-      if (!chart.containPixel({ gridIndex: [0, 1] }, point)) {
-        setSelected(null)
-        return
+    selectionToolRef.current = false
+    chart.off('globalcursortaken')
+    chart.on('globalcursortaken', (event: unknown) => {
+      const cursor = event as {
+        key?: string
+        brushOption?: { brushType?: unknown }
+        dataZoomSelectActive?: boolean
       }
+      selectionToolRef.current =
+        cursor.key === 'brush'
+          ? !!cursor.brushOption?.brushType
+          : !!cursor.dataZoomSelectActive
+    })
+    chart.off('brush')
+    chart.off('brushEnd')
+    chart.on('brush', (event: unknown) => {
+      if ((event as { command?: string }).command === 'clear') {
+        chart.dispatchAction({
+          type: 'takeGlobalCursor',
+          key: 'brush',
+          brushOption: { brushType: false },
+        })
+        focusRows([], 'graph')
+        setSelectedX(null)
+      }
+    })
+    chart.on('brushEnd', (event: unknown) => {
+      draggingRef.current = true
+      const rows = tableRows.map((item) => ({ key: item.key, ts: item.x }))
+      focusRows(selectBrushRows(chart, event, rows), 'graph')
+      setSelectedX(null)
+      // Mouse-up emits a click too; it must not replace the brushed selection.
+      queueMicrotask(() => {
+        draggingRef.current = false
+      })
+    })
+    const zr = chart.getZr()
+    const onPlotClick = (event: { offsetX?: number; offsetY?: number }) => {
+      if (draggingRef.current || selectionToolRef.current) return
+      const point = [event.offsetX ?? 0, event.offsetY ?? 0]
+      if (!chart.containPixel({ gridIndex: [0, 1] }, point)) return
 
       const converted = chart.convertFromPixel({ gridIndex: 0 }, point)
       const axisValue = Array.isArray(converted) ? Number(converted[0]) : NaN
       if (!Number.isFinite(axisValue)) return
-      openRailAt(axisValue)
-    })
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setSelected(null)
+      selectReadingsAt(axisValue)
     }
-    document.addEventListener('keydown', onKeyDown)
-    const detachPinning = () => {
-      document.removeEventListener('keydown', onKeyDown)
-      zr.off('click')
+    zr.on('click', onPlotClick)
+
+    const detachSelection = () => {
+      zr.off('click', onPlotClick)
+      if (!chart.isDisposed()) {
+        chart.off('brush')
+        chart.off('brushEnd')
+        chart.off('globalcursortaken')
+      }
     }
 
-    chart.off('legendselectchanged')
-    chart.on('legendselectchanged', (params: unknown) => {
-      const event = params as {
-        name?: string
-        selected?: Record<string, boolean>
-      }
-      const selectedIds = Object.entries(event.selected ?? {})
-        .filter(([, enabled]) => !!enabled)
-        .map(([id]) => id)
-      if (selectedIds.length === 0) {
-        chart.dispatchAction({ type: 'legendSelect', name: event.name })
-        return
-      }
-      if (selectedIds.length > 2) {
-        const clickedId = String(event.name ?? '')
-        const { primarySeries } = resolvePrimaryAndSecondarySeries(
-          seriesEntries,
-          activeDatastreamIds
-        )
-        const primaryId =
-          primarySeries?.id ??
-          activeDatastreamIds[0] ??
-          selectedIds.find((id) => id !== clickedId) ??
-          clickedId
-        const nextSelectedIds =
-          primaryId === clickedId
-            ? [
-                clickedId,
-                selectedIds.find((id) => id !== clickedId) || clickedId,
-              ]
-            : [primaryId, clickedId]
-
-        for (const entry of seriesEntries) {
-          const shouldBeSelected = nextSelectedIds.includes(entry.id)
-          chart.dispatchAction({
-            type: shouldBeSelected ? 'legendSelect' : 'legendUnSelect',
-            name: entry.id,
-          })
-        }
-        onActiveDatastreamsChange?.(nextSelectedIds)
-        return
-      }
-      onActiveDatastreamsChange?.(selectedIds)
-    })
     chart.resize()
 
     // Only the paths that actually reached the click wiring return this; the
     // early "no data"/"loading" exits above register nothing to detach.
-    return detachPinning
+    return detachSelection
   }, [
     datastream,
     chartData,
@@ -578,10 +642,11 @@ export default function ObservationGraph({
     comparisonChartData,
     seriesEntries,
     activeDatastreamIds,
-    onActiveDatastreamsChange,
     loading,
     error,
     onDownloadAllDatastreams,
+    resetZoom,
+    zoomToSelection,
     snapshotMarkers,
     windowStart,
     windowEnd,
@@ -590,9 +655,51 @@ export default function ObservationGraph({
     changeRegions,
     qualityLanes,
     primaryColor,
-    openRailAt,
+    selectReadingsAt,
+    focusRows,
+    tableRows,
+    renderTooltip,
+    getVisibleTimeSpan,
+    tooltipRoot,
     t,
   ])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || !chartHasSeriesRef.current) return
+    chart.setOption({
+      toolbox: {
+        feature: {
+          myHoverTooltips: hoverTooltipTool(
+            hoverTooltips,
+            t('observations.show_on_hover'),
+            () =>
+              plotTooltipPreference.set(!plotTooltipPreference.getSnapshot()),
+            primaryColor
+          ),
+        },
+      },
+      tooltip: {
+        triggerOn: tooltipPinnedRef.current
+          ? 'none'
+          : hoverTooltips
+            ? 'mousemove|click'
+            : 'click',
+      },
+    })
+    if (!tooltipPinnedRef.current) chart.dispatchAction({ type: 'hideTip' })
+  }, [hoverTooltips, primaryColor, t])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || !chartHasSeriesRef.current) return
+    const display = timeAxisDisplay(utcOffset, alignedAxis, getVisibleTimeSpan)
+    chart.setOption({
+      xAxis: qualityLanes.length
+        ? [{ axisPointer: display.axisPointer }, display]
+        : [display],
+    })
+  }, [utcOffset, alignedAxis, qualityLanes, seriesEntries, getVisibleTimeSpan])
 
   /**
    * Move the marker line to the selected reading.
@@ -615,47 +722,269 @@ export default function ObservationGraph({
       series: [
         {
           id: primarySeries.id,
-          markLine: buildMarkLine(
-            snapshotMarkers,
-            selected?.x ?? null,
-            primaryColor
-          ),
+          markLine: buildMarkLine(snapshotMarkers, selectedX),
         },
       ],
     })
   }, [
-    selected,
+    selectedX,
     seriesEntries,
     activeDatastreamIds,
     snapshotMarkers,
     primaryColor,
   ])
 
-  // The chart shares the row with the rail, so opening it narrows the plot and
-  // the ResizeObserver set up on mount reflows ECharts to match.
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || !chartHasSeriesRef.current) return
+    if (!selection.keys.length)
+      chart.dispatchAction({
+        type: 'takeGlobalCursor',
+        key: 'brush',
+        brushOption: { brushType: false },
+      })
+    const keys = new Set(selection.keys)
+    const targets = tableRows.filter((item) => keys.has(item.key))
+    chart.setOption({
+      series: seriesEntries.map((entry) => ({
+        id: `__selected__${entry.id}`,
+        data: targets
+          .filter((item) => item.entry.id === entry.id)
+          .map((item) => [item.x, item.row.value]),
+        itemStyle: { color: SELECTION_COLOR },
+      })),
+    })
+    chart.setOption({
+      toolbox: {
+        feature: {
+          myZoomToSelection: {
+            iconStyle: { opacity: selection.keys.length ? 1 : 0.35 },
+          },
+        },
+      },
+    })
+    if (selection.origin === 'table')
+      chart.dispatchAction({ type: 'brush', areas: [] }, { silent: true })
+  }, [
+    selection,
+    tableRows,
+    seriesEntries,
+    activeDatastreamIds,
+    primaryColor,
+    isCompare,
+    seriesStyles,
+  ])
+
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || !chartHasSeriesRef.current) return
+    const { primarySeries, secondarySeries } = resolvePrimaryAndSecondarySeries(
+      seriesEntries,
+      activeDatastreamIds
+    )
+    const colors = resolveSeriesColors(
+      seriesEntries,
+      activeDatastreamIds,
+      primaryColor,
+      isCompare,
+      seriesStyles
+    )
+    const axisScales = seriesAxisScales(
+      seriesEntries,
+      activeDatastreamIds,
+      isCompare,
+      seriesStyles
+    )
+    const currentSeries = chart.getOption().series as Array<{
+      id?: string
+      type?: string
+    }>
+    const appearances = buildSeriesAppearancePatches(
+      seriesEntries,
+      activeDatastreamIds,
+      primaryColor,
+      isCompare,
+      seriesStyles
+    )
+    chart.setOption({
+      series: [
+        ...appearances.map((patch) => {
+          if (
+            currentSeries.find((entry) => entry.id === patch.id)?.type ===
+            patch.type
+          )
+            return patch
+          // A new series model needs its data when switching between lines and bars.
+          const entry = seriesEntries.find((entry) => entry.id === patch.id)!
+          return {
+            ...patch,
+            data: entry.rows.map((row) => [
+              plottedX(entry, row.ts, alignedAxis),
+              row.value,
+            ]),
+          }
+        }),
+        ...(qualityLanes.length
+          ? [
+              buildQualityLaneSeries(
+                qualityLanes,
+                (lane) => colors.get(lane.id) ?? primaryColor
+              ),
+            ]
+          : []),
+      ],
+      yAxis: [
+        {
+          scale: axisScales[0],
+          axisLine: {
+            lineStyle: {
+              color: primarySeries
+                ? colors.get(primarySeries.id)
+                : primaryColor,
+            },
+          },
+        },
+        {
+          scale: axisScales[1],
+          axisLine: {
+            lineStyle: {
+              color: secondarySeries
+                ? colors.get(secondarySeries.id)
+                : primaryColor,
+            },
+          },
+        },
+      ],
+    })
+    syncLaneGridToPlotGrid(chart)
+  }, [
+    seriesStyles,
+    seriesEntries,
+    activeDatastreamIds,
+    primaryColor,
+    isCompare,
+    qualityLanes,
+    alignedAxis,
+  ])
+
+  const { primarySeries, secondarySeries } = resolvePrimaryAndSecondarySeries(
+    seriesEntries,
+    activeDatastreamIds
+  )
+  const filteredRows =
+    secondarySeries && tableFilter !== 'all'
+      ? tableRows.filter(
+          (row) =>
+            row.entry.id ===
+            (tableFilter === 'A' ? primarySeries?.id : secondarySeries.id)
+        )
+      : tableRows
+
+  const selectFromTable = (keys: string[]) => {
+    if (keys.length === 1) {
+      const item = tableRows.find((row) => row.key === keys[0])
+      if (item) selectReadingsAt(item.x, keys, 'table')
+    } else {
+      focusRows(keys, 'table')
+      setSelectedX(null)
+    }
+  }
+  const clearSelection = () => {
+    focusRows([], 'table')
+    setSelectedX(null)
+    chartRef.current?.dispatchAction({
+      type: 'brush',
+      command: 'clear',
+      areas: [],
+    })
+  }
+
   return (
     <div
-      className={`flex ${className}`}
+      className={`flex min-h-0 flex-col gap-2 ${className}`}
       style={{ height, width: '100%' }}
     >
-      {/* The chart and the lane's legend are one unit: the legend names the
-          colours drawn inside the chart, so it stays with it when the rail
-          opens and narrows the column. */}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div ref={containerRef} className="min-h-0 flex-1" />
-        {qualityLegendLanes.length > 0 && (
-          <QualityLegend
-            lanes={qualityLegendLanes}
-            onCustomize={onCustomizeQuality}
-            customized={qualityCustomized}
-          />
+      {tooltipRoot &&
+        tooltipReadings.length > 0 &&
+        !loading &&
+        !error &&
+        createPortal(
+          <CompactObservationTooltip
+            readings={tooltipReadings}
+            utcOffset={utcOffset}
+            onExplainOpenChange={pinTooltip}
+          />,
+          tooltipRoot
         )}
+      <div className="flex min-h-[260px] flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div ref={containerRef} className="min-h-0 flex-1" />
+          {!loading && !error && <QualityLegend lanes={qualityLegendLanes} />}
+        </div>
       </div>
-      {selected && (
-        <ReadingDetailsRail
-          details={selected.details}
-          onClose={() => setSelected(null)}
-        />
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 text-sm">
+        <button
+          type="button"
+          className="text-primary"
+          aria-expanded={showTable}
+          onClick={() => setShowTable(!showTable)}
+        >
+          {t(showTable ? 'qc.workflow.hide_table' : 'qc.workflow.show_table')}
+        </button>
+        {secondarySeries && (
+          <div
+            className="flex items-center gap-1"
+            role="group"
+            aria-label={t('observations.table_streams')}
+          >
+            {(['all', 'A', 'B'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                aria-pressed={tableFilter === filter}
+                className="rounded border border-default-200 px-2 py-1 text-xs aria-pressed:bg-primary aria-pressed:text-white"
+                title={
+                  filter === 'A'
+                    ? primarySeries?.name
+                    : filter === 'B'
+                      ? secondarySeries.name
+                      : undefined
+                }
+                onClick={() => {
+                  setTableFilter(filter)
+                  setPage(0)
+                }}
+              >
+                {filter === 'all' ? t('observations.both') : filter}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <span>
+            {selection.keys.length} {t('qc.selected')}
+          </span>
+          <button
+            type="button"
+            className="text-primary"
+            onClick={clearSelection}
+          >
+            {t('qc.clear_selection')}
+          </button>
+        </div>
+      </div>
+      {showTable && (
+        <div className="shrink-0">
+          <ObservationDataTable
+            utcOffset={utcOffset}
+            rows={loading || error ? [] : filteredRows}
+            selected={selection.keys}
+            onSelect={selectFromTable}
+            page={page}
+            onPage={setPage}
+            focusKey={selection.origin === 'graph' ? selection.keys[0] : null}
+          />
+        </div>
       )}
     </div>
   )

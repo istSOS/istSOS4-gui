@@ -13,19 +13,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import {
-  UNSPECIFIED_NETWORK_KEY,
-  networkKey,
-} from '@/features/map/lib/leafletDraw'
+import HistoryRangeDialog from '@/features/from-to/components/HistoryRangeDialog'
+import { type HistoryWindow } from '@/features/from-to/lib/historyWindow'
+import { Datastream, Thing } from '@/types/domain'
 import { Button } from '@heroui/button'
 import { Card } from '@heroui/card'
 import { Chip } from '@heroui/chip'
-import {
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-} from '@heroui/dropdown'
 import {
   Modal,
   ModalBody,
@@ -38,27 +31,24 @@ import dayjs from 'dayjs'
 import duration from 'dayjs/plugin/duration'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import utc from 'dayjs/plugin/utc'
-import { useRouter } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { useRouter } from 'next/navigation'
+
 import {
   ChartIcon,
-  ChevronDownIcon,
-  CloseIcon,
   DeleteIcon,
   EditIcon,
   HistoryIcon,
-  ImportFileIcon,
-  LocationIcon,
 } from '@/components/icons'
 import TableComponent from '@/components/table/Table'
+
 import { isVersioningEnabled } from '@/config/versioning'
+
 import { useAuth } from '@/context/AuthContext'
-import ImportFromFileButton from '@/features/datastreams/components/ImportFromFileButton'
-import HistoryRangeDialog from '@/features/from-to/components/HistoryRangeDialog'
-import { type HistoryWindow } from '@/features/from-to/lib/historyWindow'
-import { Datastream, Thing } from '@/types/domain'
+
+import type { MapDatastreamRow } from '../lib/mapDatastreamRows'
 
 dayjs.extend(duration)
 dayjs.extend(utc)
@@ -118,6 +108,10 @@ function ageLabel(endRaw?: string) {
 
 type Props = {
   thing: Thing | null
+  rows?: MapDatastreamRow[]
+  highlightedKeys?: ReadonlySet<string>
+  focusRowKey?: string | null
+  focusRequest?: unknown
   observedPropertyNameFilter?: string | null
   /** True when the app is in as_of snapshot mode */
   isSnapshot?: boolean
@@ -128,14 +122,15 @@ type Props = {
    * data, and the banner has to say so instead of claiming to show the snapshot.
    */
   snapshotError?: string | null
-  onClose: () => void
-  onCreateDatastream?: () => void
+  onSelectDatastream?: (datastream: Datastream) => void
   onOpenDetails?: (datastream: Datastream) => void
   onEditDatastream?: (datastream: Datastream) => void
   onDeleteDatastream?: (datastream: Datastream) => void
 }
 
 type DatastreamColumnKey =
+  | 'thing'
+  | 'source'
   | 'name'
   | 'observedProperty'
   | 'unitOfMeasurement'
@@ -155,49 +150,46 @@ type DeletePreview = {
   observationsCount: number
 }
 
+// Firefox supports autocomplete on buttons, but React's button type omits it.
+const actionButtonSessionProps = { autoComplete: 'off' }
+
+function datastreamRowKey(item: Datastream, index: number) {
+  return (
+    (item as MapDatastreamRow).__mapKey ??
+    item['@iot.id'] ??
+    item.id ??
+    `${item.name ?? 'row'}-${index}`
+  )
+}
+
 export default function DatastreamTable({
   thing,
+  rows,
+  highlightedKeys,
+  focusRowKey,
+  focusRequest,
   observedPropertyNameFilter = null,
   isSnapshot = false,
   asOfDate = null,
   snapshotError = null,
-  onClose,
-  onCreateDatastream,
+  onSelectDatastream,
   onOpenDetails,
   onEditDatastream,
   onDeleteDatastream,
 }: Props) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { canWrite } = useAuth()
-  const lang = i18n.resolvedLanguage ?? i18n.language
   const router = useRouter()
   const [pendingDelete, setPendingDelete] = useState<Datastream | null>(null)
   const [deletePreview, setDeletePreview] = useState<DeletePreview | null>(null)
 
-  /**
-   * Which entity the history dialog is collecting a window for.
-   *
-   * Both entry points — the toolbar button and the per-row clock — open the
-   * same dialog with a different subject, and each addresses its entity by its
-   * OWN top-level path. A datastream must not be addressed as
-   * `Things(1)/Datastreams(3)`: under `$from_to` that path returns each version
-   * once per parent version.
-   */
+  // Address datastream history through its top-level path: a nested Thing
+  // path can return duplicate versions when both parent and stream changed.
   const [historySubject, setHistorySubject] = useState<{
     name: string
     kind: string
     path: string
   } | null>(null)
-
-  const openThingHistory = useCallback(() => {
-    const id = thing?.['@iot.id'] ?? thing?.id
-    if (!isVersioningEnabled || id == null) return
-    setHistorySubject({
-      name: String(thing?.name ?? ''),
-      kind: 'Thing',
-      path: `Things(${id})`,
-    })
-  }, [thing])
 
   const openDatastreamHistory = useCallback((datastream: Datastream) => {
     const id = datastream?.['@iot.id'] ?? datastream?.id
@@ -224,9 +216,12 @@ export default function DatastreamTable({
   )
 
   const datastreams: Datastream[] = useMemo(() => {
+    if (rows) return rows
     const ds = thing?.Datastreams
     const all = Array.isArray(ds) ? ds : []
-    const filterName = String(observedPropertyNameFilter ?? '').trim().toLowerCase()
+    const filterName = String(observedPropertyNameFilter ?? '')
+      .trim()
+      .toLowerCase()
     if (!filterName) return all
     return all.filter((entry) =>
       String(entry?.ObservedProperty?.name ?? '')
@@ -234,22 +229,32 @@ export default function DatastreamTable({
         .toLowerCase()
         .includes(filterName)
     )
-  }, [thing, observedPropertyNameFilter])
+  }, [rows, thing, observedPropertyNameFilter])
 
-  const thingName = String(thing?.name ?? '')
-  const networkName = networkKey(thing?.Datastreams?.[0]?.Network?.name)
-  const networkLabel =
-    networkName === UNSPECIFIED_NETWORK_KEY
-      ? t('map.unspecified_network')
-      : networkName
-
+  const isMapTable = rows !== undefined
   const columns: Array<{
     name: string
     uid: DatastreamColumnKey
     sortable: boolean
-    align: 'start' | 'center'
+    align: 'start' | 'center' | 'end'
   }> = useMemo(
     () => [
+      ...(isMapTable
+        ? [
+            {
+              name: t('map.things'),
+              uid: 'thing' as const,
+              sortable: true,
+              align: 'start' as const,
+            },
+            {
+              name: t('map.data_source'),
+              uid: 'source' as const,
+              sortable: true,
+              align: 'start' as const,
+            },
+          ]
+        : []),
       {
         name: t('datastreams.name'),
         uid: 'name',
@@ -273,7 +278,7 @@ export default function DatastreamTable({
         name: t('general.last_value'),
         uid: 'lastValue',
         sortable: false,
-        align: 'center',
+        align: 'end',
       },
       {
         name: t('general.start_date'),
@@ -294,7 +299,7 @@ export default function DatastreamTable({
         align: 'center',
       },
     ],
-    [lang]
+    [isMapTable, t]
   )
 
   const searchPredicate = useCallback((item: Datastream, query: string) => {
@@ -306,31 +311,36 @@ export default function DatastreamTable({
 
   const getSortValue = useCallback(
     (item: Datastream, columnKey: DatastreamColumnKey) => {
-    switch (columnKey) {
-      case 'name':
-        return item?.name ?? ''
-      case 'observedProperty':
-        return item?.ObservedProperty?.name ?? ''
-      case 'unitOfMeasurement':
-        return item?.unitOfMeasurement?.symbol ?? ''
-      case 'last': {
-        const { endRaw } = parsePhenomenonTime(item?.phenomenonTime)
-        const ms = ageMs(endRaw)
-        return Number.isFinite(ms) ? ms : Number.MAX_SAFE_INTEGER
+      switch (columnKey) {
+        case 'thing':
+          return (item as MapDatastreamRow).__thing?.name ?? ''
+        case 'source':
+          return item.__sourceName ?? ''
+        case 'name':
+          return item?.name ?? ''
+        case 'observedProperty':
+          return item?.ObservedProperty?.name ?? ''
+        case 'unitOfMeasurement':
+          return item?.unitOfMeasurement?.symbol ?? ''
+        case 'last': {
+          const { endRaw } = parsePhenomenonTime(item?.phenomenonTime)
+          const ms = ageMs(endRaw)
+          return Number.isFinite(ms) ? ms : Number.MAX_SAFE_INTEGER
+        }
+        case 'startDate':
+          return parsePhenomenonTime(item?.phenomenonTime).start
+        case 'endDate':
+          return parsePhenomenonTime(item?.phenomenonTime).end
+        default:
+          return ''
       }
-      case 'startDate':
-        return parsePhenomenonTime(item?.phenomenonTime).start
-      case 'endDate':
-        return parsePhenomenonTime(item?.phenomenonTime).end
-      default:
-        return ''
-    }
     },
     []
   )
 
   const renderCell = useCallback(
     (item: Datastream, columnKey: DatastreamColumnKey) => {
+      const rowThing = (item as MapDatastreamRow).__thing ?? thing
       const { start, end, endRaw } = parsePhenomenonTime(item?.phenomenonTime)
       const locked = isSnapshot || !canWrite
       const lockedReason = isSnapshot
@@ -353,8 +363,8 @@ export default function DatastreamTable({
         setPendingDelete(item)
         setDeletePreview({
           network: String(item?.Network?.name ?? ''),
-          thing: String(thing?.name ?? ''),
-          location: String(thing?.Locations?.[0]?.name ?? ''),
+          thing: String(rowThing?.name ?? ''),
+          location: String(rowThing?.Locations?.[0]?.name ?? ''),
           sensor: String(item?.Sensor?.name ?? ''),
           observedProperty: String(item?.ObservedProperty?.name ?? ''),
           datastream: String(item?.name ?? ''),
@@ -365,6 +375,10 @@ export default function DatastreamTable({
       }
 
       switch (columnKey) {
+        case 'thing':
+          return <span>{rowThing?.name ?? ''}</span>
+        case 'source':
+          return <span>{item.__sourceName ?? ''}</span>
         case 'name':
           return <span>{item?.name ?? ''}</span>
 
@@ -394,7 +408,7 @@ export default function DatastreamTable({
           const unit = item?.unitOfMeasurement?.symbol
 
           return value !== undefined && unit ? (
-            <span>
+            <span className="tabular-nums">
               {String(value)} {unit}
             </span>
           ) : (
@@ -423,12 +437,7 @@ export default function DatastreamTable({
                   <ChartIcon size={18} />
                 </Button>
               </Tooltip>
-              {/* The toolbar button opens the Thing's history; this opens the
-                  datastream's, which is a different record — a Thing's row does
-                  not change when one of its datastreams is edited. The tooltip
-                  names the datastream so the two are never confused.
-                  Both stay available in snapshot mode: reading the past is what
-                  these features are for, and this is a read. */}
+              {/* History remains available in snapshot mode because it is read-only. */}
               {isVersioningEnabled && (
                 <Tooltip
                   color="primary"
@@ -445,7 +454,7 @@ export default function DatastreamTable({
                     // An icon-only button needs a name of its own: the tooltip
                     // only exists on hover, so without this the control is
                     // unlabelled to a screen reader — and it is precisely the
-                    // label that distinguishes it from the toolbar's button.
+                    // label that identifies the datastream being inspected.
                     aria-label={t('from_to.table.row_history_tooltip', {
                       name: String(item?.name ?? ''),
                     })}
@@ -459,7 +468,9 @@ export default function DatastreamTable({
                   actions stay visible but greyed out and inert, so a row's
                   actions read the same everywhere and the reason is one hover
                   away. The wrapping span keeps the tooltip hoverable — a
-                  disabled button receives no events. */}
+                  disabled button receives no events. Firefox button-state
+                  restoration is disabled so reloads retain the server-rendered
+                  permission state during hydration. */}
               <Tooltip
                 color={locked ? 'foreground' : 'primary'}
                 content={lockedReason ?? t('general.edit')}
@@ -468,6 +479,7 @@ export default function DatastreamTable({
                   <Button
                     isIconOnly
                     isDisabled={locked}
+                    {...actionButtonSessionProps}
                     className={`h-6 w-6 min-w-6 ${locked ? 'opacity-40' : ''}`}
                     size="sm"
                     variant="light"
@@ -486,6 +498,7 @@ export default function DatastreamTable({
                   <Button
                     isIconOnly
                     isDisabled={locked}
+                    {...actionButtonSessionProps}
                     className={`h-6 w-6 min-w-6 ${locked ? 'opacity-40' : ''}`}
                     size="sm"
                     variant="light"
@@ -508,8 +521,6 @@ export default function DatastreamTable({
     [
       canWrite,
       isSnapshot,
-      lang,
-      onDeleteDatastream,
       onEditDatastream,
       onOpenDetails,
       openDatastreamHistory,
@@ -518,7 +529,7 @@ export default function DatastreamTable({
     ]
   )
 
-  if (!thing) return null
+  if (!thing && !rows) return null
 
   const closeDeleteModal = () => {
     setPendingDelete(null)
@@ -533,11 +544,8 @@ export default function DatastreamTable({
 
   return (
     <>
-      <div
-        className="fixed left-0 right-0 bottom-0 pb-[env(safe-area-inset-bottom)]"
-        style={{ zIndex: 3000 }}
-      >
-        <Card className="h-[27vh] overflow-hidden rounded-none">
+      <div className="h-full min-h-0">
+        <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-none p-2">
           {isSnapshot && (
             <div
               className="flex items-center gap-2 px-3 py-1 text-xs font-medium"
@@ -569,129 +577,33 @@ export default function DatastreamTable({
             </div>
           )}
           <TableComponent
-          // Remounted on a snapshot/live switch as well as a language change:
-          // the table's collection caches each row's rendered cells against the
-          // row object, so when the same datastream objects come back (an
-          // unresolved snapshot falls back to the live thing) the disabled
-          // action buttons would otherwise stay disabled in live mode.
-          key={`${lang}-${isSnapshot ? 'snapshot' : 'live'}`}
-          items={datastreams}
-          columns={columns}
-          rowKey={(item, index) =>
-            item?.id ?? `${item?.name ?? 'row'}-${index}`
-          }
-          initialSort={{ column: 'name', direction: 'ascending' }}
-          getSortValue={getSortValue}
-          enableSearch
-          searchPlaceholder={t('general.search')}
-          searchPredicate={searchPredicate}
-          enablePagination
-          showTotal
-          totalLabel={(total) => (
-            <span className="text-default-400 text-small">
-              {t('general.total')}: {total}
-            </span>
-          )}
-          enableColumnSelector
-          columnSelectorLabel={t('general.columns')}
-          emptyContent={t('general.no_data')}
-          topLeft={
-            <div className="min-w-0 flex-1 p-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium">{thingName}</span>
-                {isSnapshot && asOfDate && (
-                  <span
-                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                    style={{
-                      background: 'rgba(59,130,246,0.15)',
-                      border: '1px solid rgba(59,130,246,0.4)',
-                      color: '#3b82f6',
-                    }}
-                  >
-                    {dayjs.utc(asOfDate).format('MMM D, YYYY')}
-                  </span>
-                )}
-              </div>
-              <div className="text-[10px]">{networkLabel}</div>
-            </div>
-          }
-          topRight={
-            <div className="flex gap-2">
-              {/* Scoped to the Thing already selected on the map — the user has
-                  picked the entity whose past they want, so the button belongs
-                  here rather than in the navbar. Reading history is not a mode,
-                  so it stays available in snapshot mode too. */}
-              {isVersioningEnabled && (
-                <Tooltip content={t('from_to.table.open_history_tooltip')}>
-                  <Button
-                    size="sm"
-                    variant="bordered"
-                    startContent={<HistoryIcon size={16} />}
-                    isDisabled={!thing}
-                    onPress={openThingHistory}
-                  >
-                    {t('from_to.table.open_history')}
-                  </Button>
-                </Tooltip>
-              )}
-
-              {!isSnapshot && (
-                <>
-                  <Dropdown isDisabled={!canWrite}>
-                    <DropdownTrigger>
-                      <Button
-                        endContent={<ChevronDownIcon size={18} />}
-                        size="sm"
-                        color="primary"
-                        isDisabled={!canWrite}
-                        title={canWrite ? undefined : t('general.read_only')}
-                      >
-                        {t('general.new')}
-                      </Button>
-                    </DropdownTrigger>
-                    <DropdownMenu aria-label="Datastream actions" variant="light">
-                      <DropdownItem
-                        key="new-datastream"
-                        startContent={<LocationIcon size={16} />}
-                        onPress={onCreateDatastream}
-                      >
-                        {t('general.new')}
-                      </DropdownItem>
-                      <DropdownItem
-                        key="import-from-file"
-                        startContent={<ImportFileIcon size={16} />}
-                        onPress={() =>
-                          document
-                            .getElementById('datastream-import-trigger')
-                            ?.click()
-                        }
-                      >
-                        {t('import.actions.import_from_file')}
-                      </DropdownItem>
-                    </DropdownMenu>
-                  </Dropdown>
-                  <ImportFromFileButton
-                    buttonId="datastream-import-trigger"
-                    className="hidden"
-                  />
-                </>
-              )}
-
-              <Tooltip content={t('general.close')}>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  className="h-6 w-6 min-w-6"
-                  radius="none"
-                  variant="light"
-                  aria-label={t('general.close')}
-                  onPress={onClose}
-                >
-                  <CloseIcon size={18} />
-                </Button>
-              </Tooltip>
-            </div>
-          }
+            items={datastreams}
+            highlightedKeys={highlightedKeys}
+            pinnedKeys={highlightedKeys}
+            focusRowKey={focusRowKey}
+            focusRequest={focusRequest}
+            scrollable
+            continuousScroll
+            columns={columns}
+            rowKey={datastreamRowKey}
+            onRowAction={onSelectDatastream}
+            initialSort={{ column: 'name', direction: 'ascending' }}
+            getSortValue={getSortValue}
+            enableSearch={!rows}
+            searchPlaceholder={t('general.search')}
+            searchPredicate={searchPredicate}
+            enablePagination
+            showTotal
+            totalLabel={(total) => (
+              <span className="text-default-400 text-small">
+                {t('general.total')}: {total}
+              </span>
+            )}
+            autoFitRows
+            columnSelectorPlacement="header"
+            enableColumnSelector
+            columnSelectorLabel={t('general.columns')}
+            emptyContent={t(rows ? 'map.table_empty' : 'general.no_data')}
             renderCell={(item, columnKey) => renderCell(item, columnKey)}
           />
         </Card>
@@ -708,23 +620,28 @@ export default function DatastreamTable({
           <ModalBody className="flex flex-col gap-2 text-sm">
             <p>{t('datastreams.delete_confirm_impacted')}</p>
             <p>
-              {t('datastreams.delete_confirm_network')}: {deletePreview?.network || '-'}
+              {t('datastreams.delete_confirm_network')}:{' '}
+              {deletePreview?.network || '-'}
             </p>
             <p>
-              {t('datastreams.delete_confirm_thing')}: {deletePreview?.thing || '-'}
+              {t('datastreams.delete_confirm_thing')}:{' '}
+              {deletePreview?.thing || '-'}
             </p>
             <p>
-              {t('datastreams.delete_confirm_location')}: {deletePreview?.location || '-'}
+              {t('datastreams.delete_confirm_location')}:{' '}
+              {deletePreview?.location || '-'}
             </p>
             <p>
-              {t('datastreams.delete_confirm_sensor')}: {deletePreview?.sensor || '-'}
+              {t('datastreams.delete_confirm_sensor')}:{' '}
+              {deletePreview?.sensor || '-'}
             </p>
             <p>
               {t('datastreams.delete_confirm_observed_property')}:{' '}
               {deletePreview?.observedProperty || '-'}
             </p>
             <p>
-              {t('datastreams.delete_confirm_datastream')}: {deletePreview?.datastream || '-'}
+              {t('datastreams.delete_confirm_datastream')}:{' '}
+              {deletePreview?.datastream || '-'}
             </p>
             <p>
               {t('datastreams.delete_confirm_observations')}:{' '}

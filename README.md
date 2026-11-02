@@ -1,5 +1,7 @@
 # ISTSO4 GUI
 
+See [UI organization](ui/README.md) for the application folders and their responsibilities.
+
 ## 1. Clone the Repository
 
 ```bash

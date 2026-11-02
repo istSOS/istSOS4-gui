@@ -1,9 +1,10 @@
 'use client'
 
+import { SNAPSHOT_WINDOW_DAYS } from '@/features/as-of/lib/snapshotWindow'
+import { Datastream, Observation } from '@/types/domain'
 import { Button } from '@heroui/button'
-import { DatePicker, DateRangePicker } from '@heroui/date-picker'
-import { Modal, ModalBody, ModalContent, ModalHeader } from '@heroui/modal'
-import { Select, SelectItem } from '@heroui/select'
+import { DatePicker } from '@heroui/date-picker'
+import { Modal, ModalBody, ModalContent } from '@heroui/modal'
 import {
   getLocalTimeZone,
   parseAbsoluteToLocal,
@@ -12,44 +13,46 @@ import {
 } from '@internationalized/date'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
+import { CloseIcon } from '@/components/icons'
+
+import DatastreamControls from './DatastreamControls'
+import ObservationGraph from './ObservationGraph'
+import ObservationTimeRange from './ObservationTimeRange'
+
+import { browserUtcOffset, formatObservationTime } from '../../qc/lib/timezone'
+import type { DatastreamChoice } from '../lib/datastreamSelection'
+import type { SnapshotMarker } from '../lib/observationGraphOptions'
+import {
+  type ChangeRegion,
+  type SeriesSource,
+  buildRows,
+  computeChangeRegions,
+} from '../lib/observationGraphUtils'
+import { qualityConstraintsOf, qualityModeOf } from '../lib/resultQuality'
+import {
+  saveSeriesAppearance,
+  useSeriesAppearances,
+} from '../lib/seriesAppearanceStore'
 
 dayjs.extend(utc)
 
-import { CloseIcon } from '@/components/icons'
-import {
-  SNAPSHOT_WINDOW_DAYS,
-  getSnapshotWindow,
-} from '@/features/as-of/lib/snapshotWindow'
-import { Datastream, Observation, Thing } from '@/types/domain'
-
-import {
-  buildRows,
-  computeChangeRegions,
-  makeSeriesId,
-  type ChangeRegion,
-  type SeriesSource,
-} from '../lib/observationGraphUtils'
-import type { SnapshotMarker } from '../lib/observationGraphOptions'
-import { qualityConstraintsOf } from '../lib/resultQuality'
-import { useQualitySchemeResolver } from '../lib/useQualitySchemes'
-import CustomizeQualityView, {
-  type CustomizeQualityHandle,
-  type QualityCustomizeTarget,
-} from './customize-quality/CustomizeQualityView'
-import ObservationGraph from './ObservationGraph'
+const EMPTY_OBSERVATIONS: Observation[] = []
+const EMPTY_SERIES: SeriesSource[] = []
+const EMPTY_IDS: string[] = []
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 type ChartModalProps = {
   isOpen: boolean
   onClose: () => void
-  things?: Thing[]
-  thing?: Thing | null
-  selectedObservedPropertyName?: string | null
-  selectedThingKeys?: string[]
-  selectedObservedPropertyNames?: string[]
+  datastreamChoices: DatastreamChoice[]
+  selectedDatastreamKeys: string[]
+  listedDatastreamKeys: string[]
+  onToggleDatastream: (key: string) => void
+  onRemoveDatastream: (key: string) => void
   datastream?: Datastream | null
   observations?: Observation[]
   comparisonDatastream?: Datastream | null
@@ -61,11 +64,11 @@ type ChartModalProps = {
   end?: string | null
   onApplyRange?: (start?: string | null, end?: string | null) => void
   onResetRange?: () => void
-  onDownloadAllDatastreams?: () => Promise<{ filename: string; bytes: ArrayBuffer } | null>
+  onDownloadAllDatastreams?: () => Promise<{
+    filename: string
+    bytes: ArrayBuffer
+  } | null>
   activeDatastreamIds?: string[]
-  onActiveDatastreamsChange?: (datastreamIds: string[]) => void
-  onThingKeysChange?: (thingKeys: string[]) => void
-  onObservedPropertyNamesChange?: (observedPropertyNames: string[]) => void
   /** True when the app is in As-Of snapshot mode */
   isSnapshot?: boolean
   /** ISO-8601 snapshot datetime — anchors the default window and shows the badge */
@@ -89,20 +92,6 @@ type ChartModalProps = {
   compareAligned?: boolean
 }
 
-type DateRangeChangeValue = {
-  start: { toDate: (timeZone?: string) => Date } | null
-  end: { toDate: (timeZone?: string) => Date } | null
-} | null
-
-function toRangeValue(start?: string | null, end?: string | null) {
-  if (!start || !end) return null
-
-  return {
-    start: parseAbsoluteToLocal(start),
-    end: parseAbsoluteToLocal(end),
-  }
-}
-
 /**
  * Builds a human-readable reason for why the shown window is empty, using the
  * datastream's own phenomenonTime extent ("isoStart/isoEnd").
@@ -119,7 +108,9 @@ function describeSnapshotGap(
   t: (key: string, options?: Record<string, unknown>) => string
 ): string {
   const fmt = (d: dayjs.Dayjs) => d.utc().format('MMM D, YYYY')
-  const [dataStartIso, dataEndIso] = String(datastream?.phenomenonTime ?? '').split('/')
+  const [dataStartIso, dataEndIso] = String(
+    datastream?.phenomenonTime ?? ''
+  ).split('/')
   const dataStart = dataStartIso ? dayjs.utc(dataStartIso) : null
   const dataEnd = dataEndIso ? dayjs.utc(dataEndIso) : null
   const winStart = start ? dayjs.utc(start) : null
@@ -137,16 +128,16 @@ function describeSnapshotGap(
 export default function ChartModal({
   isOpen,
   onClose,
-  things = [],
-  thing = null,
-  selectedObservedPropertyName = null,
-  selectedThingKeys = [],
-  selectedObservedPropertyNames = [],
+  datastreamChoices,
+  selectedDatastreamKeys,
+  listedDatastreamKeys,
+  onToggleDatastream,
+  onRemoveDatastream,
   datastream = null,
-  observations = [],
+  observations = EMPTY_OBSERVATIONS,
   comparisonDatastream = null,
-  comparisonObservations = [],
-  allSeries = [],
+  comparisonObservations = EMPTY_OBSERVATIONS,
+  allSeries = EMPTY_SERIES,
   loading = false,
   error = null,
   start = null,
@@ -154,10 +145,7 @@ export default function ChartModal({
   onApplyRange,
   onResetRange,
   onDownloadAllDatastreams,
-  activeDatastreamIds = [],
-  onActiveDatastreamsChange,
-  onThingKeysChange,
-  onObservedPropertyNamesChange,
+  activeDatastreamIds = EMPTY_IDS,
   isSnapshot = false,
   asOfDate = null,
   isAsOfFallback = false,
@@ -166,41 +154,27 @@ export default function ChartModal({
   compareAligned = true,
 }: ChartModalProps) {
   const { t } = useTranslation()
+  const seriesStyles = useSeriesAppearances()
+  const [utcOffset, setUtcOffset] = useState(0)
+  useEffect(() => {
+    let mounted = true
+    // Read the browser after hydration; the server can use a different zone.
+    Promise.resolve().then(() => {
+      if (mounted) setUtcOffset(browserUtcOffset())
+    })
+    return () => {
+      mounted = false
+    }
+  }, [])
   const timeZone = getLocalTimeZone()
   const isComparingSnapshots = isSnapshot && !!asOfDate && !!compareAsOfDate
-  const resolveScheme = useQualitySchemeResolver()
-
-  /**
-   * Which view the modal body shows. The quality rules editor takes the whole
-   * body rather than sitting beside the chart: the chart's right edge belongs
-   * to the reading details rail, and the modal is already as large as the page
-   * allows, so it trades the chart's height for the editor's instead.
-   */
-  const [view, setView] = useState<'chart' | 'quality'>('chart')
-  const customizeRef = useRef<CustomizeQualityHandle | null>(null)
-  const closeModal = () => {
-    setView('chart')
-    onClose()
-  }
-  // × and Esc step back out of the editor first — through it, so an unsaved
-  // draft is never dropped without asking — and only close from the chart.
-  const requestClose = () => {
-    if (view === 'quality' && customizeRef.current) {
-      customizeRef.current.requestExit()
-      return
-    }
-    closeModal()
-  }
-  // While aligned, each snapshot is on its OWN window and no shared range is in
-  // effect — so the picker shows its placeholder. Filling it with the primary
-  // snapshot's window would contradict the notice inviting the user to pick one,
-  // and re-applying those same dates would silently change mode.
-  const rangeValue =
-    isComparingSnapshots && compareAligned ? null : toRangeValue(start, end)
   // A snapshot of the future has no meaning — the same rule the as-of picker
   // enforces. Pinned per mount so the constraint object does not change identity
   // on every render and reset the picker mid-edit.
-  const nowValue = useMemo(() => parseAbsoluteToLocal(new Date().toISOString()), [])
+  const nowValue = useMemo(
+    () => parseAbsoluteToLocal(new Date().toISOString()),
+    []
+  )
 
   // Picking a date in the compare picker should land on midnight, not on
   // whatever o'clock it happens to be — a snapshot at "Aug 25, 14:37" is an
@@ -231,17 +205,6 @@ export default function ChartModal({
     const picked = parseAbsoluteToLocal(compareAsOfDate)
     return picked.compare(nowValue) > 0 ? picked : nowValue
   }, [compareAsOfDate, nowValue])
-  // The default window a snapshot opens on. It is an anchor, not a bound: the
-  // date picker is free to leave it, exactly as in live mode.
-  const snapshotWindow = asOfDate ? getSnapshotWindow(asOfDate) : null
-  const sameInstant = (a?: string | null, b?: string | null) =>
-    !!a && !!b && dayjs.utc(a).valueOf() === dayjs.utc(b).valueOf()
-  // True only while the chart shows the as-of anchored window — the one case
-  // where the x-axis is pinned, so a sparse snapshot still draws its full 7 days.
-  const isAsOfDefaultWindow =
-    isSnapshot &&
-    sameInstant(start, snapshotWindow?.startIso) &&
-    sameInstant(end, snapshotWindow?.endIso)
   // The snapshot marker is drawn only when as_of falls inside the shown window;
   // outside it, it would stretch the axis across the gap and squash the data.
   const isAsOfInsideWindow =
@@ -271,9 +234,7 @@ export default function ChartModal({
   // is unambiguously tied to the dates being shown.
   const shownWindowLabel =
     start && end
-      ? `${dayjs.utc(start).format('MMM D, YYYY HH:mm')} — ${dayjs
-          .utc(end)
-          .format('MMM D, YYYY HH:mm')} UTC`
+      ? `${formatObservationTime(start, utcOffset)} — ${formatObservationTime(end, utcOffset)}`
       : null
 
   const fmtSnapshot = (iso: string) =>
@@ -296,13 +257,16 @@ export default function ChartModal({
     }
     if (!isComparingSnapshots) return none
 
-    // One scheme for both sides: they are the same datastream, and judging the
-    // two snapshots under different rules would report a rule change as a
-    // change in the data.
-    const scheme = resolveScheme(datastream).scheme
-    const constraints = qualityConstraintsOf(datastream)
-    const primaryRows = buildRows(observations, scheme, constraints)
-    const compareRows = buildRows(comparisonObservations, scheme, constraints)
+    const primaryRows = buildRows(
+      observations,
+      qualityConstraintsOf(datastream),
+      qualityModeOf(datastream)
+    )
+    const compareRows = buildRows(
+      comparisonObservations,
+      qualityConstraintsOf(comparisonDatastream ?? datastream),
+      qualityModeOf(comparisonDatastream ?? datastream)
+    )
     if (primaryRows.length === 0) return none
 
     // Aligned mode gives each snapshot its own window, and comparing values at
@@ -330,7 +294,7 @@ export default function ChartModal({
     observations,
     comparisonObservations,
     datastream,
-    resolveScheme,
+    comparisonDatastream,
   ])
 
   const compareUnchanged = compareDiff.unchanged
@@ -365,7 +329,10 @@ export default function ChartModal({
       const primaryEmpty = observations.length === 0
       const compareEmpty = comparisonObservations.length === 0
       if (primaryEmpty && compareEmpty) {
-        stack.push({ tone: 'warn', text: t('as_of.chart.compare_no_data_both') })
+        stack.push({
+          tone: 'warn',
+          text: t('as_of.chart.compare_no_data_both'),
+        })
       } else if (primaryEmpty) {
         stack.push({
           tone: 'warn',
@@ -422,10 +389,15 @@ export default function ChartModal({
         )
         const earliestTs = dayjs.utc(earliest).valueOf()
         const laterOutrunsEarlier = laterRows.some((row) => row.ts > earliestTs)
-        if (dayjs.utc(end).isAfter(dayjs.utc(earliest)) && laterOutrunsEarlier) {
+        if (
+          dayjs.utc(end).isAfter(dayjs.utc(earliest)) &&
+          laterOutrunsEarlier
+        ) {
           stack.push({
             tone: 'info',
-            text: t('as_of.chart.compare_cutoff', { date: fmtSnapshot(earliest) }),
+            text: t('as_of.chart.compare_cutoff', {
+              date: fmtSnapshot(earliest),
+            }),
           })
         }
       }
@@ -454,6 +426,7 @@ export default function ChartModal({
     end,
     snapshotNoDataMessage,
     fallbackMessage,
+    isAsOfFallback,
     t,
   ])
 
@@ -520,90 +493,20 @@ export default function ChartModal({
       // Every aligned window is the same width, ending at its own snapshot.
       return { start: -SNAPSHOT_WINDOW_DAYS * DAY_MS, end: 0 }
     }
-    const pinToShownWindow = isComparingSnapshots || isAsOfDefaultWindow
-    if (pinToShownWindow && start && end) {
-      return { start: dayjs.utc(start).valueOf(), end: dayjs.utc(end).valueOf() }
+    if (start && end) {
+      return {
+        start: dayjs.utc(start).valueOf(),
+        end: dayjs.utc(end).valueOf(),
+      }
     }
     return { start: null, end: null }
-  }, [isComparingSnapshots, compareAligned, isAsOfDefaultWindow, start, end])
-  /**
-   * The datastreams the rules editor can write rules for: the ones plotted,
-   * each with the readings on screen. A snapshot comparison is one datastream
-   * seen twice, so only its primary snapshot is offered.
-   */
-  const qualityTargets = useMemo<QualityCustomizeTarget[]>(() => {
-    const keyOf = (ds: Datastream) =>
-      `${String(ds?.__sourceEndpoint ?? '')}::${String(ds?.['@iot.id'] ?? ds?.id ?? '')}`
-    if (!isComparingSnapshots && allSeries.length > 0) {
-      const plotted = allSeries.filter((series) =>
-        activeDatastreamIds.includes(
-          makeSeriesId(
-            String(series.datastream?.['@iot.id'] ?? series.datastream?.id ?? ''),
-            series.asOf
-          )
-        )
-      )
-      return (plotted.length ? plotted : allSeries.slice(0, 1)).map((series) => ({
-        key: keyOf(series.datastream),
-        datastream: series.datastream,
-        observations: series.observations,
-      }))
-    }
-    if (!datastream) return []
-    return [
-      { key: keyOf(datastream), datastream, observations },
-      ...(!isComparingSnapshots && comparisonDatastream
-        ? [
-            {
-              key: keyOf(comparisonDatastream),
-              datastream: comparisonDatastream,
-              observations: comparisonObservations,
-            },
-          ]
-        : []),
-    ]
-  }, [
-    isComparingSnapshots,
-    allSeries,
-    activeDatastreamIds,
-    datastream,
-    observations,
-    comparisonDatastream,
-    comparisonObservations,
-  ])
-
-  const thingOptions = things.map((entry) => {
-    const key = `${String(entry?.__sourceId ?? entry?.__sourceEndpoint ?? '0')}::${String(
-      entry?.['@iot.id'] ?? entry?.id ?? entry?.name ?? ''
-    )}`
-    return { key, label: String(entry?.name ?? key) }
-  })
-  const selectedThings = things.filter((entry) =>
-    selectedThingKeys.includes(
-      `${String(entry?.__sourceId ?? entry?.__sourceEndpoint ?? '0')}::${String(
-        entry?.['@iot.id'] ?? entry?.id ?? entry?.name ?? ''
-      )}`
-    )
-  )
-  const observedPropertySourceThings =
-    selectedThings.length > 0 ? selectedThings : thing ? [thing] : []
-  const observedPropertyOptions = Array.from(
-    new Set(
-      observedPropertySourceThings
-        .flatMap((entry) =>
-          Array.isArray(entry?.Datastreams) ? entry.Datastreams : []
-        )
-        .map((ds) => String(ds?.ObservedProperty?.name ?? '').trim())
-        .filter(Boolean)
-    )
-  )
-    .sort((a, b) => a.localeCompare(b))
-    .map((name) => ({ key: name, label: name }))
+  }, [isComparingSnapshots, compareAligned, start, end])
 
   return (
     <Modal
+      aria-label={t('observations.title')}
       isOpen={isOpen}
-      onOpenChange={(open) => !open && requestClose()}
+      onOpenChange={(open) => !open && onClose()}
       hideCloseButton
       placement="center"
       scrollBehavior="inside"
@@ -621,149 +524,41 @@ export default function ChartModal({
       }}
     >
       <ModalContent>
-        <ModalHeader className="flex items-center justify-between gap-3 pb-0">
-          <div className="min-w-0">
-            {view === 'quality' ? (
-              // A breadcrumb, so the way back to the chart is where the
-              // title was — and the title still says where the reader is.
-              <div className="flex min-w-0 items-center gap-2 text-base font-semibold">
-                <button
-                  type="button"
-                  className="shrink-0 font-medium text-default-500 hover:text-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
-                  title={t('quality.customize.back_to_chart')}
-                  onClick={requestClose}
-                >
-                  Observations
-                </button>
-                <span aria-hidden className="font-normal text-default-400">
-                  ›
-                </span>
-                <span className="truncate">{t('quality.customize.title')}</span>
-              </div>
-            ) : (
-              <div className="truncate text-base font-semibold">Observations</div>
-            )}
-          </div>
-          {/* Snapshot badge — only visible in As-Of mode */}
-          {isSnapshot && asOfDate && (
-            <div
-              className="flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium"
-              style={{
-                background: 'rgba(251,191,36,0.15)',
-                border: '1px solid rgba(251,191,36,0.4)',
-                color: '#b45309',
-              }}
-            >
-              <span>⏱</span>
-              <span>
-                Snapshot — {dayjs.utc(asOfDate).format('MMM D, YYYY HH:mm')} UTC
-              </span>
-            </div>
-          )}
-          <Button
-            isIconOnly
-            size="sm"
-            className="h-6 w-6 min-w-6"
-            radius="none"
-            variant="light"
-            aria-label={
-              view === 'quality'
-                ? t('quality.customize.back_to_chart')
-                : t('general.close')
-            }
-            onPress={requestClose}
-          >
-            <CloseIcon size={18} />
-          </Button>
-        </ModalHeader>
-        <ModalBody className="h-full overflow-hidden p-4 pt-2">
-          {view === 'quality' ? (
-            <CustomizeQualityView
-              ref={customizeRef}
-              targets={qualityTargets}
-              windowLabel={shownWindowLabel}
-              onExit={() => setView('chart')}
-            />
-          ) : (
+        <ModalBody className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="flex h-full min-h-0 flex-col">
-            {/* Three controls in BOTH modes. Comparison used to be a fourth
-                column here, which reflowed and narrowed every other control the
-                moment the user time-travelled; it now lives in its own strip
-                below, so this row is stable across modes. */}
-            <div className="mb-3 grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-3">
-            <Select
-              label="Thing"
-              labelPlacement="inside"
-              placeholder="Select thing(s)"
-              variant="bordered"
-              radius="sm"
-              size="sm"
-              color="primary"
-              className="w-full"
-              // Comparing snapshots spends both comparison slots, so the chart
-              // is down to one series' worth of selection: one thing, one
-              // property, switchable but not combinable.
-              selectionMode={isComparingSnapshots ? 'single' : 'multiple'}
-              disallowEmptySelection={isComparingSnapshots}
-              selectedKeys={new Set(selectedThingKeys)}
-              onSelectionChange={(keys) =>
-                onThingKeysChange?.(Array.from(keys as Set<string>))
-              }
-            >
-              {thingOptions.map((entry) => (
-                <SelectItem key={entry.key}>{entry.label}</SelectItem>
-              ))}
-            </Select>
-            <Select
-              label="Observed Property"
-              labelPlacement="inside"
-              placeholder="Select observed property(ies)"
-              variant="bordered"
-              radius="sm"
-              size="sm"
-              color="primary"
-              className="w-full"
-              selectionMode={isComparingSnapshots ? 'single' : 'multiple'}
-              disallowEmptySelection={isComparingSnapshots}
-              selectedKeys={new Set(selectedObservedPropertyNames)}
-              onSelectionChange={(keys) =>
-                onObservedPropertyNamesChange?.(Array.from(keys as Set<string>))
-              }
-            >
-              {observedPropertyOptions.map((entry) => (
-                <SelectItem key={entry.key}>{entry.label}</SelectItem>
-              ))}
-            </Select>
-            <DateRangePicker
-              value={rangeValue as never}
-              onChange={(value) => {
-                const nextValue = value as unknown as DateRangeChangeValue
-
-                if (!nextValue) {
-                  onResetRange?.()
-                  return
+            <div className="mb-2 shrink-0 space-y-2 border-b border-default-200 pb-2">
+              <ObservationTimeRange
+                start={isComparingSnapshots && compareAligned ? null : start}
+                end={isComparingSnapshots && compareAligned ? null : end}
+                utcOffset={utcOffset}
+                onOffsetChange={setUtcOffset}
+                onApply={onApplyRange}
+                onReset={onResetRange}
+                loading={loading}
+                trailingAction={
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    className="h-6 w-6 min-w-6"
+                    radius="none"
+                    variant="light"
+                    aria-label={t('general.close')}
+                    onPress={onClose}
+                  >
+                    <CloseIcon size={18} />
+                  </Button>
                 }
-
-                if (nextValue.start && nextValue.end) {
-                  // The picked range is used as-is in both modes — As-Of mode
-                  // adds no bounds of its own. Fetches keep sending `$as_of`,
-                  // so any range still shows the data as of the snapshot.
-                  onApplyRange?.(
-                    nextValue.start.toDate(timeZone).toISOString(),
-                    nextValue.end.toDate(timeZone).toISOString()
-                  )
-                }
-              }}
-              variant="bordered"
-              label={t('chart.time_range')}
-              className="w-full"
-              showMonthAndYearPickers
-              hideTimeZone
-              visibleMonths={2}
-              selectorButtonPlacement="start"
-              color="primary"
-              size="sm"
-            />
+              />
+              <DatastreamControls
+                choices={datastreamChoices}
+                listedKeys={listedDatastreamKeys}
+                activeKeys={selectedDatastreamKeys}
+                onToggle={onToggleDatastream}
+                onRemove={onRemoveDatastream}
+                styles={seriesStyles}
+                onStyleChange={saveSeriesAppearance}
+                snapshots={isComparingSnapshots}
+              />
             </div>
             {/* Comparison gets its own strip instead of a fourth column.
                 As a column it was snapshot-only, so entering snapshot mode
@@ -780,6 +575,23 @@ export default function ChartModal({
                   border: '1px solid rgba(251,191,36,0.25)',
                 }}
               >
+                {/* Snapshot badge — only visible in As-Of mode */}
+                {isSnapshot && asOfDate && (
+                  <div
+                    className="flex shrink-0 items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      background: 'rgba(251,191,36,0.15)',
+                      border: '1px solid rgba(251,191,36,0.4)',
+                      color: '#b45309',
+                    }}
+                  >
+                    <span>⏱</span>
+                    <span>
+                      Snapshot —{' '}
+                      {dayjs.utc(asOfDate).format('MMM D, YYYY HH:mm')} UTC
+                    </span>
+                  </div>
+                )}
                 {/* Comparing against the present is the common case and the one
                     the date picker serves worst — it means reading a clock and
                     typing today's date and time. This fills the same slot in one
@@ -858,14 +670,12 @@ export default function ChartModal({
                   calendarProps={
                     {
                       onChange: (date: unknown) => {
-                        const day = date as Parameters<
-                          typeof toCalendarDateTime
-                        >[0] | null
+                        const day = date as
+                          | Parameters<typeof toCalendarDateTime>[0]
+                          | null
                         if (!day) return
                         onCompareAsOfDateChange?.(
-                          toCalendarDateTime(day)
-                            .toDate(timeZone)
-                            .toISOString()
+                          toCalendarDateTime(day).toDate(timeZone).toISOString()
                         )
                       },
                     } as never
@@ -937,14 +747,14 @@ export default function ChartModal({
             ))}
             <div className="min-h-0 flex-1">
               <ObservationGraph
-                thing={thing}
+                utcOffset={utcOffset}
                 datastream={datastream}
                 observations={observations}
                 comparisonDatastream={comparisonDatastream}
                 comparisonObservations={comparisonObservations}
                 allSeries={allSeries}
                 activeDatastreamIds={activeDatastreamIds}
-                onActiveDatastreamsChange={onActiveDatastreamsChange}
+                seriesStyles={seriesStyles}
                 loading={loading}
                 error={error}
                 onDownloadAllDatastreams={onDownloadAllDatastreams}
@@ -955,14 +765,10 @@ export default function ChartModal({
                 isCompare={isComparingSnapshots}
                 changeRegions={compareDiff.regions}
                 asOfDate={isSnapshot ? asOfDate : null}
-                onCustomizeQuality={
-                  qualityTargets.length > 0 ? () => setView('quality') : undefined
-                }
                 height="100%"
               />
             </div>
           </div>
-          )}
         </ModalBody>
       </ModalContent>
     </Modal>

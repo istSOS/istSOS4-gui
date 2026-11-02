@@ -1,12 +1,8 @@
+import { normalizedBasePath } from '@/config/paths'
 import { siteConfig } from '@/config/site'
 
 export const normalizeEndpoint = (value: string) =>
   value.trim().replace(/\/+$/, '')
-
-const runtimeBasePath = process.env.NEXT_PUBLIC_BASE_PATH?.trim()
-const basePath = runtimeBasePath && runtimeBasePath.length ? runtimeBasePath : '/NEXT_APP_URL'
-const normalizedBasePath =
-  basePath === '/' ? '' : basePath.replace(/\/+$/, '')
 
 export const inspectApiPath = `${normalizedBasePath}/api/data-sources/inspect`
 

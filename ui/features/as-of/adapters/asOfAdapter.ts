@@ -24,7 +24,7 @@ import type { Datastream, Thing } from '@/types/domain'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 
-import { normalizedBasePath } from '@/app/home/utils'
+import { normalizedBasePath } from '@/config/paths'
 
 import { isVersioningEnabled } from '@/config/versioning'
 

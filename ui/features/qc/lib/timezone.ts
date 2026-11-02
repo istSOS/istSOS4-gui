@@ -11,15 +11,29 @@ export const validUtcOffset = (value: unknown): value is number =>
   value <= 840 &&
   value % 15 === 0
 
+/** Browser offsets have the opposite sign to the fixed UTC selector. */
+export function browserUtcOffset(date = new Date()): number {
+  const offset = -date.getTimezoneOffset()
+  return validUtcOffset(offset) ? offset || 0 : 0
+}
+
 export function formatUtcOffset(minutes: number): string {
   const absolute = Math.abs(minutes)
   return `${minutes < 0 ? '-' : '+'}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`
 }
 
+/** Accept the editor's zone-less UTC values and API timestamps with Z/offset. */
+export function utcTimestamp(value: string): number {
+  if (!value) return NaN
+  return Date.parse(
+    /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`
+  )
+}
+
 // Editor state remains UTC. Only datetime-local controls use the selected offset.
 export function toOffsetInput(utc: string, minutes: number): string {
   if (!utc) return ''
-  const timestamp = Date.parse(`${utc}Z`)
+  const timestamp = utcTimestamp(utc)
   return Number.isFinite(timestamp)
     ? new Date(timestamp + minutes * MINUTE).toISOString().slice(0, -1)
     : ''

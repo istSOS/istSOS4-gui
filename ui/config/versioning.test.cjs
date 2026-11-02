@@ -27,7 +27,7 @@ function deployment(setting, overrides = {}) {
       if (specifier.startsWith('@/server/')) {
         return new Proxy({}, { get: () => () => { throw new Error('Unexpected historical read') } })
       }
-      if (specifier === '@/app/home/utils') return { normalizedBasePath: '/gui' }
+      if (specifier === '@/config/paths') return { normalizedBasePath: '/gui' }
       if (specifier === '@/lib/dataSourceTokens') return { getDataSourceToken: () => null, getAllDataSourceTokens: () => ({}) }
       if (specifier.startsWith('@/')) return load(`${specifier.slice(2)}.ts`)
       return require(specifier)

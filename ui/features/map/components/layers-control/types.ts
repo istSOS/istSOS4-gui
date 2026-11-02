@@ -24,7 +24,6 @@ export type DataSourceLayerItem = {
   enabled: boolean
   networks: NetworkLayerItem[]
   observedProperties: ObservedPropertyLayerItem[]
-  observedEnabled: boolean
 }
 
 export type SourceItemHandlers = {
@@ -39,12 +38,6 @@ export type SourceItemHandlers = {
     sourceKey: string,
     networkKey: string,
     thingKey: string,
-    nextEnabled: boolean
-  ) => void
-  onToggleObservedGroup: (sourceKey: string, nextEnabled: boolean) => void
-  onToggleObservedProperty: (
-    sourceKey: string,
-    propertyKey: string,
     nextEnabled: boolean
   ) => void
 }

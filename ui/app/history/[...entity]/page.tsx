@@ -30,7 +30,7 @@
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
-import HistoryPage from '@/app/history/[...entity]/HistoryPage'
+import HistoryPage from '@/features/from-to/components/HistoryPage'
 import { siteConfig } from '@/config/site'
 import {
   parseWindow,

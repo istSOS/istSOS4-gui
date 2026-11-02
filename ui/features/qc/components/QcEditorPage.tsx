@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 
+import UtcDateRangeInputs from '@/components/date-time/UtcDateRangeInputs'
+
 import { isVersioningEnabled } from '@/config/versioning'
 
 import { useAsOf } from '@/context/AsOfContext'
@@ -24,12 +26,7 @@ import { fitsMask, parseMask, slotState } from '../lib/bitmask'
 import { unrunSlots } from '../lib/checks'
 import { exportDrafts } from '../lib/export'
 import { changed, rowValue } from '../lib/model'
-import {
-  UTC_OFFSETS,
-  formatUtcOffset,
-  fromOffsetInput,
-  toOffsetInput,
-} from '../lib/timezone'
+import { formatUtcOffset, toOffsetInput } from '../lib/timezone'
 import { useQcEditor } from '../lib/useQcEditor'
 
 const QcGraph = dynamic(() => import('./QcGraph'), { ssr: false })
@@ -50,6 +47,7 @@ export default function QcEditorPage({
   const [furthest, setFurthest] = useState(1)
   const [filter, setFilter] = useState('all')
   const [page, setPage] = useState(0)
+  const [tableFocusKey, setTableFocusKey] = useState<string | null>(null)
   const [showTable, setShowTable] = useState(true)
   const [discarding, setDiscarding] = useState(false)
   const [reviewKeys, setReviewKeys] = useState<string[] | null>(null)
@@ -168,6 +166,7 @@ export default function QcEditorPage({
     setFilter('all')
     setShowTable(true)
     setPage(0)
+    setTableFocusKey(null)
     setReviewKeys(null)
     setReviewEnabled(false)
     setCellReason('')
@@ -177,6 +176,7 @@ export default function QcEditorPage({
   function select(keys: string[], fromPlot = false) {
     if (disabled) return
     editor.setSelected(keys)
+    setTableFocusKey(fromPlot ? (keys[0] ?? null) : null)
     if (fromPlot && keys.length) {
       const index = shown.findIndex((row) => row.key === keys[0])
       if (index >= 0) setPage(Math.floor(index / PAGE_SIZE))
@@ -204,7 +204,7 @@ export default function QcEditorPage({
   return (
     <main
       ref={mainRef}
-      className="mx-auto flex min-h-[calc(100dvh-3.5rem)] w-full max-w-[1700px] flex-col gap-5 bg-content1 px-4 py-5 lg:px-8"
+      className="flex min-h-[calc(100dvh-3.5rem)] w-full min-w-0 flex-col gap-5 bg-content1 px-4 py-5 lg:px-8"
       style={{
         paddingBottom: 'calc(var(--qc-navigation-height, 8rem) + 1.5rem)',
       }}
@@ -403,56 +403,16 @@ export default function QcEditorPage({
               </Button>
             ))}
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label className="flex flex-col gap-1 text-sm">
-              {t('qc.from_offset', { offset })}
-              <input
-                type="datetime-local"
-                step="0.001"
-                className={control}
-                value={toOffsetInput(editor.start, editor.utcOffset)}
-                disabled={disabled}
-                onChange={(event) =>
-                  editor.setStart(
-                    fromOffsetInput(event.target.value, editor.utcOffset)
-                  )
-                }
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              {t('qc.to_offset', { offset })}
-              <input
-                type="datetime-local"
-                step="0.001"
-                className={control}
-                value={toOffsetInput(editor.end, editor.utcOffset)}
-                disabled={disabled}
-                onChange={(event) =>
-                  editor.setEnd(
-                    fromOffsetInput(event.target.value, editor.utcOffset)
-                  )
-                }
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              {t('qc.utc_offset')}
-              <select
-                className={control}
-                value={editor.utcOffset}
-                disabled={disabled}
-                title={t('qc.fixed_offset_hint')}
-                onChange={(event) =>
-                  editor.setUtcOffset(Number(event.target.value))
-                }
-              >
-                {UTC_OFFSETS.map((value) => (
-                  <option key={value} value={value}>
-                    UTC{formatUtcOffset(value)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <UtcDateRangeInputs
+            start={editor.start}
+            end={editor.end}
+            utcOffset={editor.utcOffset}
+            onStartChange={editor.setStart}
+            onEndChange={editor.setEnd}
+            onOffsetChange={editor.setUtcOffset}
+            disabled={disabled}
+            controlClassName={control}
+          />
         </section>
       )}
 
@@ -745,6 +705,7 @@ export default function QcEditorPage({
                       </label>
                     )}
                     <QcTable
+                      focusKey={tableFocusKey}
                       rows={shown}
                       unit={editor.stream?.unit}
                       utcOffset={editor.utcOffset}
@@ -805,7 +766,7 @@ export default function QcEditorPage({
         aria-label={t('qc.workflow.navigation')}
         className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-teal-600 bg-teal-50 pb-[env(safe-area-inset-bottom)] shadow-lg dark:border-teal-400 dark:bg-teal-950"
       >
-        <div className="mx-auto flex w-full max-w-[1700px] flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-8">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-8">
           <Button
             variant="flat"
             isDisabled={disabled}

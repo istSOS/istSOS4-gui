@@ -1,17 +1,19 @@
+import { Datastream, Observation, RecordCommit } from '@/types/domain'
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
-import { Datastream, Observation, RecordCommit } from '@/types/domain'
 
+import { datastreamKey } from './datastreamSelection'
 import {
-  ISTSOS_QUALITY_SCHEME,
-  matchQuality,
-  parseResultQuality,
-  qualityConstraintsOf,
   type QualityClass,
   type QualityConstraint,
-  type QualityRuleRef,
-  type QualityScheme,
+  type QualityMode,
+  parseResultQuality,
+  qualityClassOf,
+  qualityConstraintsOf,
+  qualityModeOf,
 } from './resultQuality'
+
+import { isMissing, numericValue } from '../../qc/lib/bitmask'
 
 dayjs.extend(utc)
 
@@ -24,7 +26,10 @@ dayjs.extend(utc)
  */
 export type GraphRow = {
   ts: number
-  value: number
+  time: string
+  value: number | null
+  rawValue: unknown
+  key: string
   commit: RecordCommit | null
   /**
    * The quality index behind this reading, or null when it carries none.
@@ -34,21 +39,21 @@ export type GraphRow = {
    * not the record's own value.
    */
   quality: number | null
+  rawQuality?: unknown
   qualityClass: QualityClass
-  /** The rule of the series' scheme that decided `qualityClass`. */
-  qualityRule: QualityRuleRef
 }
 
 export type GraphSeriesEntry = {
   id: string
+  styleKey: string
   name: string
+  datastreamName: string
   unit: string
   observedProperty: string
   rows: GraphRow[]
-  /** How this series' quality values are read — see `qualitySchemeStore`. */
-  qualityScheme: QualityScheme
+  qualityMode: QualityMode
   /**
-   * The datastream's constraints, which the bitmask scheme decodes with; null
+   * The datastream's ordered checks, used to decode its bitmask; null
    * when they cannot be read. See `qualityConstraintsOf`.
    */
   qualityConstraints: QualityConstraint[] | null
@@ -119,11 +124,6 @@ export function plottedX(
   return alignedAxis && entry.anchorTs != null ? ts - entry.anchorTs : ts
 }
 
-/** The datastream id behind a (possibly snapshot-qualified) series id. */
-export function datastreamIdFromSeriesId(seriesId: string) {
-  return String(seriesId ?? '').split('@')[0] ?? ''
-}
-
 /** Legend/tooltip label for a snapshot — both series share a datastream name. */
 export function formatSnapshotLabel(asOf: string) {
   return `${dayjs.utc(asOf).format('MMM D, YYYY HH:mm')} UTC`
@@ -170,8 +170,16 @@ export type SnapshotDiff = {
  * interval either side — a zero-width band would paint nothing.
  */
 export function computeChangeRegions(
-  primaryRows: Array<{ ts: number; value: number; qualityClass?: QualityClass }>,
-  compareRows: Array<{ ts: number; value: number; qualityClass?: QualityClass }>
+  primaryRows: Array<{
+    ts: number
+    value: number | null
+    qualityClass?: QualityClass
+  }>,
+  compareRows: Array<{
+    ts: number
+    value: number | null
+    qualityClass?: QualityClass
+  }>
 ): SnapshotDiff {
   const a = new Map(primaryRows.map((r) => [r.ts, r]))
   const b = new Map(compareRows.map((r) => [r.ts, r]))
@@ -184,7 +192,9 @@ export function computeChangeRegions(
   const gaps: number[] = []
   for (let i = 1; i < stamps.length; i++) gaps.push(stamps[i] - stamps[i - 1])
   gaps.sort((x, y) => x - y)
-  const pad = gaps.length ? Math.max(gaps[Math.floor(gaps.length / 2)] / 2, 1) : 1
+  const pad = gaps.length
+    ? Math.max(gaps[Math.floor(gaps.length / 2)] / 2, 1)
+    : 1
 
   const regions: ChangeRegion[] = []
   let open: number | null = null
@@ -221,17 +231,11 @@ export function computeChangeRegions(
   }
 }
 
-export function toNumber(x: unknown): number | null {
-  if (typeof x === 'number' && Number.isFinite(x)) return x
-  if (typeof x === 'string') {
-    const n = Number(x)
-    return Number.isFinite(n) ? n : null
-  }
-  return null
-}
+export const toNumber = numericValue
 
 export function extractTimestamp(obs: Observation): number | null {
   const raw = obs?.phenomenonTime
+  if (!raw) return null
   const d = dayjs.utc(raw)
   const ts = d.valueOf()
   return Number.isFinite(ts) ? ts : null
@@ -261,14 +265,17 @@ export function withAlpha(color: string, alpha: number) {
 
 export function buildRows(
   observations: Observation[],
-  scheme: QualityScheme = ISTSOS_QUALITY_SCHEME,
-  constraints: QualityConstraint[] | null = []
+  constraints: QualityConstraint[] | null = [],
+  mode: QualityMode = 'bitmask'
 ): GraphRow[] {
   const rows: GraphRow[] = []
-  for (const obs of Array.isArray(observations) ? observations : []) {
+  for (const [index, obs] of (Array.isArray(observations)
+    ? observations
+    : []
+  ).entries()) {
     const ts = extractTimestamp(obs)
-    const value = toNumber(obs?.result)
-    if (ts === null || value === null) continue
+    const value = isMissing(obs?.result) ? null : toNumber(obs?.result)
+    if (ts === null) continue
     // Only kept when the expand actually returned one — an empty object would
     // render as a commit block with every field blank.
     const commit = obs?.Commit
@@ -276,14 +283,16 @@ export function buildRows(
     // the API's default $select for Observation and ObservationTravelTime alike,
     // so a snapshot returns the quality in effect at that instant for free.
     const quality = parseResultQuality(obs?.resultQuality)
-    const match = matchQuality(quality, scheme, constraints)
     rows.push({
       ts,
+      time: String(obs.phenomenonTime),
       value,
+      rawValue: obs?.result,
+      key: String(obs?.['@iot.id'] ?? `${ts}:${index}`),
       commit: commit && commit['@iot.id'] != null ? commit : null,
       quality,
-      qualityClass: match.qualityClass,
-      qualityRule: match.rule,
+      rawQuality: obs?.resultQuality,
+      qualityClass: qualityClassOf(obs?.resultQuality, constraints, mode),
     })
   }
   rows.sort((a, b) => a.ts - b.ts)
@@ -296,45 +305,38 @@ export function buildSeriesEntries({
   comparisonDatastream,
   chartData,
   comparisonChartData,
-  schemeFor = () => ISTSOS_QUALITY_SCHEME,
 }: {
   allSeries: SeriesSource[]
   datastream: Datastream | null
   comparisonDatastream: Datastream | null
   chartData: GraphRow[]
   comparisonChartData: GraphRow[]
-  /**
-   * The scheme each datastream's quality is read under. `chartData` and
-   * `comparisonChartData` must already have been built with the same one, and
-   * with that datastream's `qualityConstraintsOf`.
-   */
-  schemeFor?: (datastream: Datastream | null) => QualityScheme
 }): GraphSeriesEntry[] {
   if (Array.isArray(allSeries) && allSeries.length > 0) {
     return allSeries.map((entry) => {
       const ds = entry?.datastream
-      const dsId = String(ds?.['@iot.id'] ?? ds?.id ?? '')
+      const dsId = datastreamKey(ds)
       const dsUnit = String(ds?.unitOfMeasurement?.symbol ?? '')
       const dsObservedProperty = String(ds?.ObservedProperty?.name ?? '')
       const asOf = entry?.asOf ?? null
       // In compare mode both series carry the same datastream name, so the
       // snapshot is what tells them apart in the legend and tooltip.
-      const dsName = asOf
-        ? formatSnapshotLabel(asOf)
-        : String(ds?.name ?? dsId)
+      const dsName = asOf ? formatSnapshotLabel(asOf) : String(ds?.name ?? dsId)
       // The aligned axis pins each series' right edge to its own window end,
       // which is `asOf` unless that snapshot fell back to older data.
       const anchorIso = entry?.anchorIso ?? asOf
-      const qualityScheme = schemeFor(ds ?? null)
+      const qualityMode = qualityModeOf(ds)
       // Each snapshot's own constraints: the value was written against them.
       const qualityConstraints = qualityConstraintsOf(ds)
       return {
         id: makeSeriesId(dsId, asOf),
+        styleKey: dsId,
         name: dsName,
+        datastreamName: String(ds?.name ?? dsId),
         unit: dsUnit,
         observedProperty: dsObservedProperty,
-        rows: buildRows(entry?.observations, qualityScheme, qualityConstraints),
-        qualityScheme,
+        rows: buildRows(entry?.observations, qualityConstraints, qualityMode),
+        qualityMode,
         qualityConstraints,
         asOf,
         anchorTs: anchorIso ? dayjs.utc(anchorIso).valueOf() : null,
@@ -345,30 +347,30 @@ export function buildSeriesEntries({
 
   return [
     {
-      id: String(datastream?.['@iot.id'] ?? datastream?.id ?? ''),
+      id: datastreamKey(datastream),
+      styleKey: datastreamKey(datastream),
       name: String(datastream?.name ?? ''),
+      datastreamName: String(datastream?.name ?? ''),
       unit: String(datastream?.unitOfMeasurement?.symbol ?? ''),
       observedProperty: String(datastream?.ObservedProperty?.name ?? ''),
       rows: chartData,
-      qualityScheme: schemeFor(datastream),
+      qualityMode: qualityModeOf(datastream),
       endpoint: datastream?.__sourceEndpoint ?? null,
       qualityConstraints: qualityConstraintsOf(datastream),
     },
     ...(comparisonDatastream
       ? [
           {
-            id: String(
-              comparisonDatastream?.['@iot.id'] ??
-                comparisonDatastream?.id ??
-                ''
-            ),
+            id: datastreamKey(comparisonDatastream),
+            styleKey: datastreamKey(comparisonDatastream),
             name: String(comparisonDatastream?.name ?? ''),
+            datastreamName: String(comparisonDatastream?.name ?? ''),
             unit: String(comparisonDatastream?.unitOfMeasurement?.symbol ?? ''),
             observedProperty: String(
               comparisonDatastream?.ObservedProperty?.name ?? ''
             ),
             rows: comparisonChartData,
-            qualityScheme: schemeFor(comparisonDatastream),
+            qualityMode: qualityModeOf(comparisonDatastream),
             endpoint: comparisonDatastream?.__sourceEndpoint ?? null,
             qualityConstraints: qualityConstraintsOf(comparisonDatastream),
           },
@@ -381,9 +383,9 @@ export function resolvePrimaryAndSecondarySeries(
   seriesEntries: GraphSeriesEntry[],
   activeDatastreamIds: string[]
 ) {
-  const selectedSeries = seriesEntries.filter((entry) =>
-    activeDatastreamIds.includes(entry.id)
-  )
+  const selectedSeries = activeDatastreamIds
+    .map((id) => seriesEntries.find((entry) => entry.id === id))
+    .filter((entry): entry is GraphSeriesEntry => !!entry)
   const primarySeries =
     selectedSeries[0] ??
     seriesEntries.find((entry) => activeDatastreamIds.includes(entry.id)) ??

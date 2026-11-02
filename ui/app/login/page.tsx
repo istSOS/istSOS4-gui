@@ -17,7 +17,7 @@ import { redirect } from 'next/navigation'
 
 import { siteConfig } from '@/config/site'
 
-import LoginPageClient from './LoginPageClient'
+import LoginPageClient from '@/features/auth/components/LoginPageClient'
 
 export default function LoginPage() {
   if (!siteConfig.authorizationEnabled) {

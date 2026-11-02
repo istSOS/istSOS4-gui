@@ -73,10 +73,17 @@ function CommitTick({
   const deleted = !!commit.deletion
   const inferred = commit.deletion === 'inferred'
   const color = deleted
-    ? isActive ? '#f87171' : 'rgba(248,113,113,0.75)'
-    : isActive ? '#f59e0b' : 'rgba(251,191,36,0.45)'
+    ? isActive
+      ? '#f87171'
+      : 'rgba(248,113,113,0.75)'
+    : isActive
+      ? '#f59e0b'
+      : 'rgba(251,191,36,0.45)'
   const title = deleted
-    ? [t('deletion.deleted'), inferred ? t('deletion.inferred') : commit.message].join(' · ')
+    ? [
+        t('deletion.deleted'),
+        inferred ? t('deletion.inferred') : commit.message,
+      ].join(' · ')
     : commit.message
 
   return (
@@ -122,7 +129,11 @@ function CommitTick({
             display: 'inline-block',
             fontSize: '9px',
             fontWeight: isActive ? 700 : 500,
-            color: deleted ? color : isActive ? '#f59e0b' : 'rgba(251,191,36,0.7)',
+            color: deleted
+              ? color
+              : isActive
+                ? '#f59e0b'
+                : 'rgba(251,191,36,0.7)',
             whiteSpace: 'nowrap',
             transform: 'translateX(-50%)',
           }}
@@ -149,7 +160,13 @@ function CommitTick({
  * Commit timestamps are drawn as amber tick marks with labels.
  * Moving the thumb or clicking a tick updates `asOfDate` globally.
  */
-export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
+export default function TimelineScrubber({
+  thing,
+  embedded = false,
+}: {
+  thing: Thing | null
+  embedded?: boolean
+}) {
   const { asOfDate, setAsOfDate, isSnapshot } = useAsOf()
   const { t } = useTranslation()
   const { commits, firstDate, lastDate } = useAsOfCommits({ thing })
@@ -223,9 +240,9 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
 
   return (
     <div
-      className="as-of-scrubber fixed inset-x-0 z-[3900]"
+      className={`as-of-scrubber ${embedded ? 'absolute' : 'fixed'} inset-x-0 z-[3900]`}
       style={{
-        bottom: 'calc(27vh + env(safe-area-inset-bottom))',
+        bottom: embedded ? 0 : 'calc(27vh + env(safe-area-inset-bottom))',
         background:
           'linear-gradient(90deg, rgba(120,53,15,0.96) 0%, rgba(92,45,12,0.98) 100%)',
         borderTop: '1px solid rgba(251,191,36,0.35)',
@@ -257,7 +274,9 @@ export default function TimelineScrubber({ thing }: { thing: Thing | null }) {
               {commits.length > 0
                 ? t('as_of.scrubber.commits_count', {
                     // An inferred deletion has a tick but no commit behind it.
-                    count: commits.filter((commit) => commit.deletion !== 'inferred').length,
+                    count: commits.filter(
+                      (commit) => commit.deletion !== 'inferred'
+                    ).length,
                   })
                 : t('as_of.scrubber.no_history')}
             </span>

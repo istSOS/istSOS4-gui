@@ -957,3 +957,53 @@ export const MenuIcon = ({
     </svg>
   )
 }
+
+export const MoreIcon = ({ size = 24, ...props }: IconSvgProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    {...props}
+  >
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="19" cy="12" r="2" />
+  </svg>
+)
+
+export const ResetFiltersIcon = ({ size = 24, ...props }: IconSvgProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" />
+  </svg>
+)
+
+export const ClearSelectionIcon = ({ size = 24, ...props }: IconSvgProps) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="m4 3 2 16 4-5 6 1Z" />
+    <path d="m16 4 5 5m0-5-5 5" />
+  </svg>
+)

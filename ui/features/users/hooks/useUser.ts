@@ -27,7 +27,7 @@
 
 import { useEffect, useState } from 'react'
 
-import { normalizedBasePath } from '@/app/home/utils'
+import { normalizedBasePath } from '@/config/paths'
 import { useAuth } from '@/context/AuthContext'
 import { getDataSourceToken } from '@/lib/dataSourceTokens'
 

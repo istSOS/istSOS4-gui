@@ -1,23 +1,28 @@
-import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
 import * as echarts from 'echarts'
 
 import {
+  type ChangeRegion,
+  type GraphRow,
   GraphSeriesEntry,
   resolvePrimaryAndSecondarySeries,
   withAlpha,
-  type ChangeRegion,
-  type GraphRow,
 } from './observationGraphUtils'
+import { type TooltipReading, compactTooltipHtml } from './observationTooltip'
 import {
   QUALITY_CLASSES,
   QUALITY_COLORS,
-  qualityLabel,
   type QualityClass,
   type QualitySegment,
 } from './resultQuality'
+import {
+  EMPTY_APPEARANCES,
+  type SeriesAppearances,
+  resolveAppearance,
+} from './seriesAppearance'
 
-dayjs.extend(utc)
+import { SELECTION_COLOR, brushToolStyle } from '../../../lib/chartSelection'
+import { hoverTooltipTool, resetZoomTool } from '../../../lib/chartToolbar'
+import { formatObservationTime } from '../../qc/lib/timezone'
 
 /** For text that lands in a tooltip's HTML — verdict names are the viewer's own. */
 export function escapeHtml(text: string) {
@@ -42,8 +47,6 @@ const SNAPSHOT_COLOR = '#f59e0b'
 export type QualityLane = {
   id: string
   tag?: string
-  /** The tag's colour, where no series colour decides it (the rules preview). */
-  tagColor?: string
   segments: QualitySegment[]
 }
 
@@ -52,12 +55,6 @@ const QUALITY_SERIES_ID = '__quality_lane__'
 
 /** Series id of the strip's invisible snap targets — see `buildLaneSnapSeries`. */
 const QUALITY_SNAP_SERIES_ID = '__quality_lane_snap__'
-
-/** True for the series that exist only to draw or steer the strips. */
-function isLaneSeries(seriesName: unknown) {
-  const name = String(seriesName ?? '')
-  return name === QUALITY_SERIES_ID || name === QUALITY_SNAP_SERIES_ID
-}
 
 /** Height of one strip, and the gap between two of them. */
 const LANE_HEIGHT = 14
@@ -79,10 +76,10 @@ const LANE_TAG_GAP = 6
 
 /**
  * Distance from the container bottom to the plot's lower edge in the laneless
- * chart — the band the rotated date labels and the toolbox live in. The lane
+ * chart — the band the date labels and the toolbox live in. The lane
  * block is inserted above it, and the plot gives up exactly that much height.
  */
-const AXIS_BAND = 110
+const AXIS_BAND = 64
 
 /** Breathing room between the plot's lower edge and the first strip. */
 const LANE_OFFSET = 10
@@ -120,7 +117,10 @@ export function syncLaneGridToPlotGrid(chart: echarts.EChartsType): void {
   const model = (
     chart as unknown as {
       getModel?: () => {
-        getComponent?: (type: string, index: number) => GridComponent | undefined
+        getComponent?: (
+          type: string,
+          index: number
+        ) => GridComponent | undefined
       }
     }
   ).getModel?.()
@@ -182,16 +182,15 @@ export type SnapshotMarker = {
 /**
  * Series id -> the colour it is drawn in.
  *
- * Shared with the details rail so its dots match the lines exactly. Keeping one
- * definition matters more than it looks: the secondary colour depends on
- * whether this is a snapshot comparison or a property comparison, and a rail
- * that guessed would mislabel which series it is describing.
+ * Keep series and quality-lane colours consistent across initial options and
+ * appearance updates, for both snapshot and property comparisons.
  */
 export function resolveSeriesColors(
   seriesEntries: GraphSeriesEntry[],
   activeDatastreamIds: string[],
   primaryColor: string,
-  isCompare: boolean
+  isCompare: boolean,
+  styles: SeriesAppearances = EMPTY_APPEARANCES
 ) {
   const { primarySeries, secondarySeries } = resolvePrimaryAndSecondarySeries(
     seriesEntries,
@@ -202,21 +201,96 @@ export function resolveSeriesColors(
   for (const entry of seriesEntries) {
     colors.set(
       entry.id,
-      entry.id === primarySeries?.id
-        ? primaryColor
-        : entry.id === secondarySeries?.id
-          ? secondaryColor
-          : '#94a3b8'
+      styles[entry.styleKey ?? entry.id]?.color ??
+        (entry.id === primarySeries?.id
+          ? primaryColor
+          : entry.id === secondarySeries?.id
+            ? secondaryColor
+            : '#94a3b8')
     )
   }
   return colors
 }
 
+/** Appearance-only patches do not replace data or reset the current zoom. */
+export function buildSeriesAppearancePatches(
+  entries: GraphSeriesEntry[],
+  activeIds: string[],
+  primaryColor: string,
+  isCompare: boolean,
+  styles: SeriesAppearances
+) {
+  const colors = resolveSeriesColors(
+    entries,
+    activeIds,
+    primaryColor,
+    isCompare,
+    styles
+  )
+  const { secondarySeries } = resolvePrimaryAndSecondarySeries(
+    entries,
+    activeIds
+  )
+  return entries.map((entry) => {
+    const comparison = isCompare && entry.id === secondarySeries?.id
+    const style = resolveAppearance(
+      styles[entry.styleKey ?? entry.id],
+      colors.get(entry.id) ?? primaryColor,
+      comparison
+    )
+    return {
+      id: entry.id,
+      type: style.type,
+      // Bar heights retain every recorded value; no line downsampling applies.
+      sampling: style.type === 'bar' ? ('none' as const) : ('lttb' as const),
+      barMaxWidth: 22,
+      barMinWidth: 1,
+      showSymbol: style.type === 'line' && style.points,
+      symbol: 'circle',
+      symbolSize: 5,
+      lineStyle: {
+        color: style.color,
+        type: style.line === 'none' ? ('solid' as const) : style.line,
+        width: comparison ? COMPARE_B_WIDTH : 2,
+        opacity: style.line === 'none' ? 0 : comparison ? COMPARE_B_OPACITY : 1,
+      },
+      itemStyle: {
+        color: style.color,
+        opacity: comparison && style.type === 'bar' ? COMPARE_B_OPACITY : 1,
+      },
+    }
+  })
+}
+
+/** Bar heights use a zero baseline, including when sharing an axis with a line. */
+export function seriesAxisScales(
+  entries: GraphSeriesEntry[],
+  activeIds: string[],
+  isCompare: boolean,
+  styles: SeriesAppearances
+) {
+  const { primarySeries, secondarySeries } = resolvePrimaryAndSecondarySeries(
+    entries,
+    activeIds
+  )
+  const separate =
+    !!secondarySeries &&
+    !isCompare &&
+    primarySeries?.unit !== secondarySeries.unit
+  const bars = entries.filter(
+    (entry) => styles[entry.styleKey ?? entry.id]?.type === 'bar'
+  )
+  return [
+    !bars.some((entry) => !separate || entry.id !== secondarySeries?.id),
+    !bars.some((entry) => separate && entry.id === secondarySeries?.id),
+  ]
+}
+
 /**
- * The primary series' vertical lines: the amber snapshot markers, plus a teal
- * line at the reading the details rail is currently describing.
+ * The primary series' vertical lines: amber snapshot markers and a magenta
+ * line at the selected reading.
  *
- * Exported because the rail's line has to move on every click, and rebuilding
+ * Exported because the selection line moves on every click, and rebuilding
  * the whole option to move it would discard the viewer's `dataZoom` state. The
  * component merges the result of this back onto the primary series by id
  * instead — so both paths must produce the same shape, which is why there is
@@ -224,8 +298,7 @@ export function resolveSeriesColors(
  */
 export function buildMarkLine(
   snapshotMarkers: SnapshotMarker[],
-  selectedX: number | null,
-  primaryColor: string
+  selectedX: number | null
 ) {
   return {
     silent: true,
@@ -252,7 +325,7 @@ export function buildMarkLine(
               xAxis: selectedX,
               label: { show: false },
               lineStyle: {
-                color: primaryColor,
+                color: SELECTION_COLOR,
                 type: 'solid' as const,
                 width: 1.5,
                 opacity: 0.9,
@@ -275,8 +348,7 @@ export function buildMarkLine(
  * `silent` keeps it out of hover and click handling entirely: the strip is a
  * readout of the series above it, never a thing to select in its own right.
  *
- * Shared by the observation chart and the rules preview, so a strip reads the
- * same wherever it is drawn. `tagColor` colours each strip's label.
+ * `tagColor` colours each strip's label to match its observation series.
  */
 export function buildQualityLaneSeries(
   qualityLanes: QualityLane[],
@@ -332,7 +404,10 @@ export function buildQualityLaneSeries(
         // In the gutter left of the strip, on the lane's centre line, in the
         // colour of the series it describes — so the strip and the line above
         // it pair by colour as well as by letter.
-        const centreY = api.coord([api.value(0), laneCount - laneIndex - 0.5])[1]
+        const centreY = api.coord([
+          api.value(0),
+          laneCount - laneIndex - 0.5,
+        ])[1]
         return {
           type: 'text',
           style: {
@@ -416,119 +491,64 @@ export function buildLaneSnapSeries(
   }
 }
 
-/** Height of the preview's date band — one unrotated row of labels. */
-const PREVIEW_AXIS_BAND = 26
+/** Read the zoomed UTC span when labels render, without changing the chart view. */
+export function visibleTimeSpan(chart: echarts.EChartsType | null): number {
+  const model = (
+    chart as unknown as {
+      getModel?: () => {
+        getComponent: (
+          type: string,
+          index: number
+        ) => { axis?: { scale?: { getExtent: () => number[] } } }
+      }
+    } | null
+  )?.getModel?.()
+  const extent = model?.getComponent('xAxis', 0)?.axis?.scale?.getExtent()
+  return extent ? Math.abs(extent[1] - extent[0]) : Infinity
+}
 
-/**
- * The quality rules editor's preview: one series over two or more strips, with
- * none of the observation chart's furniture.
- *
- * It exists to show how a draft scheme re-reads the same readings, so it keeps
- * only what that comparison needs — the line, the strips, a date axis and a
- * tooltip — and drops the toolbox, legend, zoom and rotated labels, which would
- * take most of a 200px-high chart for themselves.
- */
-export function buildQualityPreviewOption({
-  entry,
-  lanes,
-  primaryColor,
-  tooltip,
-}: {
-  entry: GraphSeriesEntry
-  /** Top to bottom. Each lane's `id` names the scheme it was drawn under. */
-  lanes: QualityLane[]
-  primaryColor: string
-  /** Tooltip body for the reading at a plotted x. */
-  tooltip: (row: GraphRow) => string
-}): echarts.EChartsOption {
-  const laneBlock = laneBlockHeight(lanes.length)
-  const rowsByTs = new Map(entry.rows.map((row) => [row.ts, row]))
-  const xScale = { type: 'time' as const, minInterval: 60 * 60 * 1000 }
+/** Display-only patches preserve the UTC axis coordinates and current zoom. */
+export function timeAxisDisplay(
+  utcOffset: number,
+  alignedAxis: boolean,
+  getVisibleSpan: () => number = () => Infinity
+) {
+  const dateLabel = new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  })
   return {
-    animation: false,
-    axisPointer: { link: [{ xAxisIndex: 'all' }] },
-    grid: [
-      {
-        left: 50,
-        right: 20,
-        top: 10,
-        bottom: PREVIEW_AXIS_BAND + laneBlock + LANE_OFFSET,
+    ...(alignedAxis
+      ? { name: 'Δt', nameLocation: 'middle' as const, nameGap: 46 }
+      : {}),
+    axisPointer: {
+      label: {
+        formatter: (params: { value: unknown }) =>
+          alignedAxis
+            ? `${Math.round(Number(params.value) / 36000) / 100} h`
+            : formatObservationTime(
+                new Date(Number(params.value)).toISOString(),
+                utcOffset
+              ),
       },
-      { left: 50, right: 20, height: laneBlock, bottom: PREVIEW_AXIS_BAND },
-    ],
-    tooltip: {
-      trigger: 'axis',
-      borderColor: primaryColor,
-      extraCssText: 'max-width:340px;white-space:normal;',
-      formatter: (params: unknown) => {
-        const first = (Array.isArray(params) ? params : [params])[0] as
-          | { data?: unknown }
-          | undefined
-        const ts = Array.isArray(first?.data) ? Number(first.data[0]) : NaN
-        const row = rowsByTs.get(ts)
-        return row ? tooltip(row) : ''
-      },
-      axisPointer: { type: 'line', lineStyle: { color: primaryColor, width: 1 } },
     },
-    xAxis: [
-      {
-        ...xScale,
-        gridIndex: 0,
-        axisLine: { lineStyle: { color: primaryColor } },
-        axisLabel: { show: false },
-        axisTick: { show: false },
+    axisLabel: {
+      hideOverlap: true,
+      rotate: 0,
+      interval: 'auto' as const,
+      margin: 12,
+      formatter: (value: number) => {
+        if (alignedAxis) return `${Math.round((value / 86400000) * 100) / 100}d`
+        const date = new Date(value + utcOffset * 60000)
+        const iso = date.toISOString()
+        const span = getVisibleSpan()
+        if (span >= 7 * 86400000) return dateLabel.format(date)
+        if (span >= 86400000)
+          return `${dateLabel.format(date)} ${iso.slice(11, 16)}`
+        return iso.slice(11, span < 1000 ? 23 : span < 60000 ? 19 : 16)
       },
-      {
-        ...xScale,
-        gridIndex: 1,
-        axisLine: { lineStyle: { color: primaryColor } },
-        axisLabel: {
-          hideOverlap: true,
-          fontSize: 10,
-          formatter: (value: number) => dayjs.utc(value).format('DD/MM HH:mm'),
-        },
-      },
-    ],
-    yAxis: [
-      {
-        type: 'value',
-        scale: true,
-        gridIndex: 0,
-        splitNumber: 3,
-        axisLabel: { fontSize: 10 },
-        splitLine: { lineStyle: { color: withAlpha(primaryColor, 0.15) } },
-      },
-      {
-        type: 'value',
-        gridIndex: 1,
-        min: 0,
-        max: lanes.length,
-        show: false,
-      },
-    ],
-    series: [
-      {
-        id: entry.id,
-        name: entry.id,
-        type: 'line',
-        data: entry.rows.map((row) => [row.ts, row.value]),
-        showSymbol: false,
-        sampling: 'lttb',
-        lineStyle: { color: primaryColor, width: 1.5 },
-        itemStyle: { color: primaryColor },
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-      },
-      buildQualityLaneSeries(
-        lanes,
-        (lane) => lane.tagColor ?? '#94a3b8',
-        { xAxisIndex: 1, yAxisIndex: 1 }
-      ),
-      buildLaneSnapSeries(rowsByTs.keys(), lanes.length, {
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-      }),
-    ],
+    },
   }
 }
 
@@ -538,6 +558,13 @@ export function buildObservationGraphOption({
   primaryColor,
   t,
   onDownloadAllDatastreams,
+  onResetZoom,
+  onZoomToSelection,
+  renderTooltip,
+  hoverTooltips = true,
+  onToggleHoverTooltips,
+  utcOffset = 0,
+  getVisibleTimeSpan,
   snapshotMarkers = [],
   windowStart,
   windowEnd,
@@ -546,11 +573,19 @@ export function buildObservationGraphOption({
   changeRegions = [],
   selectedX = null,
   qualityLanes = [],
+  seriesStyles = EMPTY_APPEARANCES,
 }: {
   seriesEntries: GraphSeriesEntry[]
   activeDatastreamIds: string[]
   primaryColor: string
   t: (key: string) => string
+  onResetZoom?: () => void
+  onZoomToSelection?: () => void
+  renderTooltip?: (readings: TooltipReading[]) => HTMLElement
+  hoverTooltips?: boolean
+  onToggleHoverTooltips?: () => void
+  utcOffset?: number
+  getVisibleTimeSpan?: () => number
   onDownloadAllDatastreams?: () => Promise<{
     filename: string
     bytes: ArrayBuffer
@@ -583,7 +618,7 @@ export function buildObservationGraphOption({
    */
   changeRegions?: ChangeRegion[]
   /**
-   * x-coordinate of the reading the details rail is describing, or null.
+   * x-coordinate of the selected reading, or null.
    *
    * Only the INITIAL value: afterwards the component merges a new markLine onto
    * the primary series rather than rebuilding the option, so that clicking a
@@ -601,10 +636,8 @@ export function buildObservationGraphOption({
    * be worse than not having the feature.
    */
   qualityLanes?: QualityLane[]
+  seriesStyles?: SeriesAppearances
 }): echarts.EChartsOption {
-  const tableBorderColor = withAlpha(primaryColor, 0.35)
-  const tableHeaderBg = withAlpha(primaryColor, 0.12)
-  const tableRowAltBg = withAlpha(primaryColor, 0.06)
   const { primarySeries, secondarySeries } = resolvePrimaryAndSecondarySeries(
     seriesEntries,
     activeDatastreamIds
@@ -621,26 +654,35 @@ export function buildObservationGraphOption({
         ? `${secondarySeries.observedProperty} (${secondarySeries.unit})`
         : secondarySeries.observedProperty
       : ''
-  const showSecondaryAxis = !!secondarySeries && !isCompare
+  const showSecondaryAxis =
+    !!secondarySeries &&
+    !isCompare &&
+    primarySeries?.unit !== secondarySeries.unit
   // Live property comparison keeps amber; only snapshot-vs-snapshot goes red,
   // where amber would collide with this chart's own snapshot markLine.
-  const secondaryColor = isCompare ? COMPARE_B_COLOR : SNAPSHOT_COLOR
+  const seriesColors = resolveSeriesColors(
+    seriesEntries,
+    activeDatastreamIds,
+    primaryColor,
+    isCompare,
+    seriesStyles
+  )
+  const secondaryColor = secondarySeries
+    ? (seriesColors.get(secondarySeries.id) ?? SNAPSHOT_COLOR)
+    : SNAPSHOT_COLOR
+  const appearancePatches = buildSeriesAppearancePatches(
+    seriesEntries,
+    activeDatastreamIds,
+    primaryColor,
+    isCompare,
+    seriesStyles
+  )
 
-  const seriesDataRows: Array<{ date: string; stream: string; value: string }> =
-    []
-  for (const entry of seriesEntries) {
-    for (const row of entry.rows) {
-      seriesDataRows.push({
-        // Always the real timestamp — the aligned axis is a display device, the
-        // exported/tabulated data must stay in absolute time.
-        date: dayjs.utc(row.ts).format('YYYY-MM-DD HH:mm'),
-        stream: entry.name,
-        value: entry.unit ? `${row.value} ${entry.unit}` : String(row.value),
-      })
-    }
-  }
-  seriesDataRows.sort(
-    (a, b) => dayjs.utc(a.date).valueOf() - dayjs.utc(b.date).valueOf()
+  const axisScales = seriesAxisScales(
+    seriesEntries,
+    activeDatastreamIds,
+    isCompare,
+    seriesStyles
   )
 
   // ── quality lane geometry ────────────────────────────────────────────────
@@ -660,7 +702,9 @@ export function buildObservationGraphOption({
     const byX = new Map<number, GraphRow>()
     for (const row of entry.rows) {
       byX.set(
-        alignedAxis && entry.anchorTs != null ? row.ts - entry.anchorTs : row.ts,
+        alignedAxis && entry.anchorTs != null
+          ? row.ts - entry.anchorTs
+          : row.ts,
         row
       )
     }
@@ -670,42 +714,24 @@ export function buildObservationGraphOption({
   const plotBottom = hasLanes ? AXIS_BAND + laneBlock + LANE_OFFSET : AXIS_BAND
 
   const xAxisScale = {
-    // Aligned mode plots offsets from each series' own snapshot, not instants,
-    // so the axis is a plain value scale there.
-    type: (alignedAxis ? 'value' : 'time') as 'value' | 'time',
+    // Keep epoch milliseconds on a numeric scale and format dates explicitly.
+    // ECharts' time scale adds bar overflow padding independently of the quality
+    // grid, shifting dates and zoom extents when a line becomes a bar.
+    type: 'value' as const,
+    scale: true,
     ...(windowStart != null ? { min: windowStart } : {}),
     ...(windowEnd != null ? { max: windowEnd } : {}),
-    minInterval: 60 * 60 * 1000,
-    ...(alignedAxis ? {} : { maxInterval: 60 * 60 * 1000 }),
+    splitNumber: 7,
+    minInterval: 1,
+    splitLine: { show: false },
+    minorSplitLine: { show: false },
   }
 
-  const xAxisLabels = {
-    ...(alignedAxis
-      ? {
-          name: t('as_of.chart.aligned_axis_name'),
-          nameLocation: 'middle' as const,
-          nameGap: 46,
-        }
-      : {}),
-    axisLabel: {
-      hideOverlap: true,
-      rotate: alignedAxis ? 0 : 35,
-      interval: 'auto' as const,
-      margin: 16,
-      formatter: (value: number) => {
-        if (alignedAxis) {
-          // Offsets run −7d → 0; label whole days only, 0 being the snapshot.
-          const hours = Math.round(value / (60 * 60 * 1000))
-          if (hours % 24 !== 0) return ''
-          const days = hours / 24
-          return days === 0 ? '0' : `${days}d`
-        }
-        const d = dayjs.utc(value)
-        if (d.hour() % 6 !== 0) return ''
-        return d.format('DD/MM HH:mm')
-      },
-    },
-  }
+  const xAxisLabels = timeAxisDisplay(
+    utcOffset,
+    alignedAxis,
+    getVisibleTimeSpan
+  )
 
   const axisLine = { lineStyle: { color: primaryColor } }
 
@@ -729,11 +755,11 @@ export function buildObservationGraphOption({
 
   return {
     animation: false,
-    // One crosshair across both grids, so hovering the plot also points at the
+    hoverLayerThreshold: Infinity,
+    useUTC: true,
+    // One crosshair across both grids, so inspecting the plot also points at the
     // strip below it and the two read as one chart rather than two.
-    ...(hasLanes
-      ? { axisPointer: { link: [{ xAxisIndex: 'all' }] } }
-      : {}),
+    ...(hasLanes ? { axisPointer: { link: [{ xAxisIndex: 'all' }] } } : {}),
     grid: hasLanes
       ? [
           { left: 50, right: 50, top: 30, bottom: plotBottom },
@@ -747,69 +773,51 @@ export function buildObservationGraphOption({
         },
     tooltip: {
       trigger: 'axis',
+      triggerOn: hoverTooltips ? 'mousemove|click' : 'click',
       borderColor: primaryColor,
       formatter: (params: unknown) => {
-        const rows = (Array.isArray(params) ? params : [params]) as Array<{
-          axisValueLabel?: string
-          seriesName?: string | number
-          marker?: unknown
+        const items = (Array.isArray(params) ? params : [params]) as Array<{
+          seriesName?: string
           data?: unknown
           value?: unknown
         }>
-        const axisLabel = rows[0]?.axisValueLabel ?? ''
-        const lines = rows
-          // The quality strip is a series to ECharts but not to the reader; it
-          // is described by the line it sits under, not listed beside it.
-          .filter((row) => !isLaneSeries(row?.seriesName))
-          .map((row) => {
-            const entry = seriesEntries.find(
-              (item) => item.id === String(row?.seriesName ?? '')
-            )
-            const displayName = entry?.name ?? String(row?.seriesName ?? '')
-            const value = Array.isArray(row?.data) ? row.data[1] : row?.value
-            // Only worth a line when this window actually carries quality —
-            // otherwise every tooltip in a stock deployment would end in a
-            // "not checked" that never changes.
-            let qualityLine = ''
-            if (hasLanes && entry) {
-              const plotted = Array.isArray(row?.data) ? Number(row.data[0]) : NaN
-              const found = rowsByPlottedX.get(entry.id)?.get(plotted)
-              if (found) {
-                const swatch =
-                  `<span style="display:inline-block;width:8px;height:8px;` +
-                  `border-radius:2px;background:${QUALITY_COLORS[found.qualityClass]};` +
-                  `margin-right:5px"></span>`
-                const code =
-                  found.quality !== null
-                    ? ` <span style="opacity:0.6">${found.quality}</span>`
-                    : ''
-                qualityLine =
-                  `<br/><span style="opacity:0.85">${swatch}` +
-                  `${escapeHtml(qualityLabel(found.qualityClass, entry.qualityScheme, t))}${code}</span>`
-              }
-            }
-            // On the aligned axis the shared header is an offset ("−3d"), which
-            // is the same for both series but corresponds to a DIFFERENT real
-            // instant in each snapshot's window — so each line carries its own.
-            if (alignedAxis && entry?.anchorTs != null) {
-              const offset = Array.isArray(row?.data) ? Number(row.data[0]) : NaN
-              const realTs = Number.isFinite(offset)
-                ? entry.anchorTs + offset
-                : null
-              const stamp = realTs
-                ? ` <span style="opacity:0.65">(${dayjs
-                    .utc(realTs)
-                    .format('MMM D, HH:mm')})</span>`
-                : ''
-              return `${String(row?.marker ?? '')}${displayName}: ${value ?? ''}${stamp}${qualityLine}`
-            }
-            return `${String(row?.marker ?? '')}${displayName}: ${value ?? ''}${qualityLine}`
+        const readings: TooltipReading[] = []
+        for (const item of items) {
+          const entry = seriesEntries.find(
+            (entry) => entry.id === String(item.seriesName ?? '')
+          )
+          const data = Array.isArray(item.data)
+            ? item.data
+            : Array.isArray(item.value)
+              ? item.value
+              : null
+          const row =
+            entry && data
+              ? rowsByPlottedX.get(entry.id)?.get(Number(data[0]))
+              : null
+          if (!entry || !row) continue
+          readings.push({
+            entry,
+            row,
+            tag: isCompare
+              ? t(
+                  entry.id === primarySeries?.id
+                    ? 'as_of.chart.marker_primary'
+                    : 'as_of.chart.marker_compare'
+                )
+              : undefined,
           })
-          .join('<br/>')
-
-        return `<div>${axisLabel}</div><div>${lines}</div>`
+        }
+        return renderTooltip
+          ? renderTooltip(readings)
+          : compactTooltipHtml(readings, utcOffset, t)
       },
-      extraCssText: 'max-width:340px;white-space:normal;',
+      confine: true,
+      enterable: true,
+      hideDelay: 400,
+      transitionDuration: 0,
+      extraCssText:
+        'max-width:min(440px,calc(100vw - 24px));max-height:70vh;overflow-y:auto;white-space:normal;padding:8px 10px;',
       axisPointer: {
         type: 'line',
         lineStyle: {
@@ -821,121 +829,31 @@ export function buildObservationGraphOption({
     toolbox: {
       bottom: 'bottom',
       feature: {
-        dataView: {
-          title: 'DataView',
-          readOnly: true,
-          lang: ['\u200B', t('general.close'), ''],
-          backgroundColor: '#ffffff',
-          textareaColor: '#ffffff',
-          textareaBorderColor: tableBorderColor,
-          textColor: primaryColor,
-          buttonColor: primaryColor,
-          buttonTextColor: '#ffffff',
-          iconStyle: {
-            borderColor: primaryColor,
-          },
-          emphasis: {
-            iconStyle: {
-              borderColor: primaryColor,
-            },
-          },
-          optionToContent: () => {
-            const groupedRows = new Map<
-              string,
-              Array<{ date: string; value: string }>
-            >()
-            for (const row of seriesDataRows) {
-              const group = groupedRows.get(row.stream) ?? []
-              group.push({ date: row.date, value: row.value })
-              groupedRows.set(row.stream, group)
-            }
-
-            const datastreamNames = Array.from(groupedRows.keys())
-            const wrapper = document.createElement('div')
-            wrapper.style.display = 'flex'
-            wrapper.style.flexDirection = 'column'
-            wrapper.style.gap = '10px'
-
-            const tabs = document.createElement('div')
-            tabs.style.display = 'flex'
-            tabs.style.flexWrap = 'wrap'
-            tabs.style.gap = '6px'
-
-            const tableContainer = document.createElement('div')
-
-            const renderTable = (stream: string) => {
-              const rows = (groupedRows.get(stream) ?? [])
-                .map((row, index) => {
-                  const rowBg = index % 2 === 0 ? 'transparent' : tableRowAltBg
-                  return `<tr>
-                    <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.date}</td>
-                    <td style="padding:6px 10px;border:1px solid ${tableBorderColor};background:${rowBg};">${row.value}</td>
-                  </tr>`
-                })
-                .join('')
-
-              tableContainer.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12px;color:${primaryColor};">
-                <thead>
-                  <tr>
-                    <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Date</th>
-                    <th style="padding:6px 10px;border:1px solid ${tableBorderColor};text-align:left;background:${tableHeaderBg};">Value</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>`
-            }
-
-            let activeStream = datastreamNames[0] ?? ''
-            for (const stream of datastreamNames) {
-              const btn = document.createElement('button')
-              btn.type = 'button'
-              btn.textContent = stream
-              btn.style.padding = '4px 10px'
-              btn.style.border = `1px solid ${tableBorderColor}`
-              btn.style.borderRadius = '9999px'
-              btn.style.fontSize = '12px'
-              btn.style.cursor = 'pointer'
-              btn.style.background = stream === activeStream ? tableHeaderBg : '#fff'
-              btn.style.color = primaryColor
-              btn.onclick = () => {
-                activeStream = stream
-                for (const child of Array.from(tabs.children)) {
-                  const element = child as HTMLButtonElement
-                  element.style.background =
-                    element.textContent === activeStream ? tableHeaderBg : '#fff'
-                }
-                renderTable(activeStream)
-              }
-              tabs.appendChild(btn)
-            }
-
-            if (activeStream) renderTable(activeStream)
-            wrapper.appendChild(tabs)
-            wrapper.appendChild(tableContainer)
-            return wrapper
+        brush: {
+          ...brushToolStyle(primaryColor),
+          type: ['lineX', 'clear'],
+          title: {
+            lineX: t('observations.select_range'),
+            clear: t('qc.clear_selection'),
           },
         },
-        dataZoom: {
-          // Same pair of axes as the inside zoom, so a box drawn over the plot
-          // carries the quality strip along instead of leaving it behind.
-          xAxisIndex: hasLanes ? [0, 1] : 0,
-          // Was 'none': the box could only ever narrow the time range, so a
-          // single outlier flattening the series had no remedy. Naming the
-          // axes explicitly matters — left unset this defaults to 'all', which
-          // would sweep in the strip's own 0..laneCount scale and crush it.
-          yAxisIndex: showSecondaryAxis ? [0, 1] : 0,
-          // An axis is filtered by whichever dataZoom claims it first, and that
-          // model's filterMode is the one that applies. Matching the inside
-          // zoom's keeps the behaviour the same however the two get ordered.
-          filterMode: 'weakFilter',
-          iconStyle: {
-            borderColor: primaryColor,
-          },
-          emphasis: {
-            iconStyle: {
-              borderColor: primaryColor,
-            },
-          },
+        myResetZoom: resetZoomTool(
+          t('observations.reset_zoom'),
+          () => onResetZoom?.(),
+          primaryColor
+        ),
+        myHoverTooltips: hoverTooltipTool(
+          hoverTooltips,
+          t('observations.show_on_hover'),
+          () => onToggleHoverTooltips?.(),
+          primaryColor
+        ),
+        myZoomToSelection: {
+          show: true,
+          title: t('observations.zoom_selection'),
+          icon: 'path://M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6M8 12h8M12 8v8',
+          iconStyle: { borderColor: primaryColor, opacity: 0.35 },
+          onclick: () => onZoomToSelection?.(),
         },
         myDownloadCsv: {
           show: true,
@@ -969,6 +887,7 @@ export function buildObservationGraphOption({
       },
     },
     legend: {
+      show: false,
       top: 0,
       // Named explicitly so the quality strip — a series like any other as far
       // as ECharts is concerned — cannot auto-collect into the legend and offer
@@ -994,6 +913,7 @@ export function buildObservationGraphOption({
             gridIndex: 0,
             axisLine,
             axisLabel: { show: false },
+            axisPointer: xAxisLabels.axisPointer,
             axisTick: { show: false },
           },
           { ...xAxisScale, ...xAxisLabels, gridIndex: 1, axisLine },
@@ -1002,20 +922,23 @@ export function buildObservationGraphOption({
     yAxis: [
       {
         type: 'value',
-        name: yLabel,
+        name:
+          secondarySeries && !showSecondaryAxis ? primarySeries?.unit : yLabel,
         nameLocation: 'middle',
         nameGap: 42,
-        scale: true,
+        scale: axisScales[0],
         position: 'left',
         gridIndex: 0,
         axisLine: {
           lineStyle: {
-            color: primaryColor,
+            color: primarySeries
+              ? seriesColors.get(primarySeries.id)
+              : primaryColor,
           },
         },
         splitLine: {
           lineStyle: {
-            color: withAlpha(primaryColor, 0.2),
+            color: withAlpha(primaryColor, 0.12),
           },
         },
       },
@@ -1024,7 +947,7 @@ export function buildObservationGraphOption({
         name: secondaryYLabel,
         nameLocation: 'middle',
         nameGap: 48,
-        scale: true,
+        scale: axisScales[1],
         position: 'right',
         gridIndex: 0,
         show: showSecondaryAxis,
@@ -1055,6 +978,12 @@ export function buildObservationGraphOption({
           ]
         : []),
     ],
+    brush: {
+      xAxisIndex: 0,
+      brushMode: 'single',
+      throttleType: 'debounce',
+      throttleDelay: 120,
+    },
     dataZoom: [
       {
         type: 'inside',
@@ -1078,74 +1007,81 @@ export function buildObservationGraphOption({
     ],
     series: [
       ...seriesEntries.map((entry) => {
-      const isPrimary = entry.id === primarySeries?.id
-      const isSecondary = entry.id === secondarySeries?.id
-      const color = isPrimary ? primaryColor : isSecondary ? secondaryColor : '#94a3b8'
-      return {
-        // `id` is what lets the component merge a new markLine onto the primary
-        // series without rebuilding the option — ECharts matches series by index
-        // otherwise, which is not stable across legend changes.
-        id: entry.id,
-        name: entry.id,
-        type: 'line' as const,
-        data: entry.rows.map((row) => [
-          alignedAxis && entry.anchorTs != null ? row.ts - entry.anchorTs : row.ts,
-          row.value,
-        ]),
-        showSymbol: false,
-        sampling: 'lttb' as const,
-        smooth: false,
-        // B above A. Where the two agree exactly, A's solid stroke would hide a
-        // lower B completely and the chart would claim there is only one series
-        // — indistinguishable from a comparison that failed to load. Riding B's
-        // dashes on top instead makes a perfect overlap legible AS an overlap.
-        z: isCompare && isSecondary ? 4 : 3,
-        lineStyle: {
-          color,
-          width: isCompare && isSecondary ? COMPARE_B_WIDTH : 2,
-          ...(isCompare && isSecondary ? { opacity: COMPARE_B_OPACITY } : {}),
-          // Compare mode: the two snapshots often agree exactly, and two solid
-          // lines at identical coordinates are indistinguishable from one. The
-          // dash lets the overlap itself be read off the chart.
-          ...(isCompare && isSecondary ? { type: 'dashed' as const } : {}),
-        },
-        itemStyle: {
-          color,
-        },
-        // Always the plot grid — with lanes present, grid 1 belongs to the strips.
-        xAxisIndex: 0,
-        // Compare mode keeps both snapshots on the shared left axis.
-        yAxisIndex: isSecondary && !isCompare ? 1 : 0,
-        // Amber dashed vertical lines at the snapshot dates, plus the teal line
-        // marking the reading the details rail is describing — drawn once on the
-        // primary series (avoids N overlapping lines/labels).
-        markLine: isPrimary
-          ? buildMarkLine(snapshotMarkers, selectedX, primaryColor)
-          : undefined,
-        // Wash over the spans where the two snapshots disagree. Drawn once, on
-        // the primary series, and behind both lines so it never obscures them.
-        markArea:
-          changeRegions.length > 0 && isPrimary
-            ? {
-                silent: true,
-                itemStyle: {
-                  color: withAlpha(CHANGE_BAND_COLOR, 0.12),
-                  borderColor: withAlpha(CHANGE_BAND_COLOR, 0.35),
-                  borderWidth: 1,
-                },
-                data: changeRegions.map(
-                  (region) =>
-                    [{ xAxis: region.start }, { xAxis: region.end }] as [
-                      { xAxis: number },
-                      { xAxis: number },
-                    ]
-                ),
-              }
+        const isPrimary = entry.id === primarySeries?.id
+        const isSecondary = entry.id === secondarySeries?.id
+        return {
+          // `id` is what lets the component merge a new markLine onto the primary
+          // series without rebuilding the option — ECharts matches series by index
+          // otherwise, which is not stable across legend changes.
+          id: entry.id,
+          name: entry.id,
+          data: entry.rows.map((row) => [
+            alignedAxis && entry.anchorTs != null
+              ? row.ts - entry.anchorTs
+              : row.ts,
+            row.value,
+          ]),
+          connectNulls: false,
+          smooth: false,
+          // B above A. Where the two agree exactly, A's solid stroke would hide a
+          // lower B completely and the chart would claim there is only one series
+          // — indistinguishable from a comparison that failed to load. Riding B's
+          // dashes on top instead makes a perfect overlap legible AS an overlap.
+          z: isCompare && isSecondary ? 4 : 3,
+          ...appearancePatches.find((patch) => patch.id === entry.id),
+          // Always the plot grid — with lanes present, grid 1 belongs to the strips.
+          xAxisIndex: 0,
+          // Compare mode keeps both snapshots on the shared left axis.
+          yAxisIndex: isSecondary && showSecondaryAxis ? 1 : 0,
+          // Amber dashed vertical lines at the snapshot dates, plus the magenta line
+          // marking the selected reading — drawn once on the
+          // primary series (avoids N overlapping lines/labels).
+          markLine: isPrimary
+            ? buildMarkLine(snapshotMarkers, selectedX)
             : undefined,
-      }
+          // Wash over the spans where the two snapshots disagree. Drawn once, on
+          // the primary series, and behind both lines so it never obscures them.
+          markArea:
+            changeRegions.length > 0 && isPrimary
+              ? {
+                  silent: true,
+                  itemStyle: {
+                    color: withAlpha(CHANGE_BAND_COLOR, 0.12),
+                    borderColor: withAlpha(CHANGE_BAND_COLOR, 0.35),
+                    borderWidth: 1,
+                  },
+                  data: changeRegions.map(
+                    (region) =>
+                      [{ xAxis: region.start }, { xAxis: region.end }] as [
+                        { xAxis: number },
+                        { xAxis: number },
+                      ]
+                  ),
+                }
+              : undefined,
+        }
       }),
+      ...seriesEntries.map((entry) => ({
+        id: `__selected__${entry.id}`,
+        name: `__selected__${entry.id}`,
+        type: 'scatter' as const,
+        xAxisIndex: 0,
+        yAxisIndex:
+          entry.id === secondarySeries?.id && showSecondaryAxis ? 1 : 0,
+        data: [],
+        symbolSize: 11,
+        z: 8,
+        progressive: 0,
+        progressiveThreshold: Infinity,
+        itemStyle: {
+          color: SELECTION_COLOR,
+          borderColor: '#ffffff',
+          borderWidth: 1.5,
+        },
+        tooltip: { show: false },
+        silent: true,
+      })),
       ...laneSeries,
     ],
   }
 }
-
