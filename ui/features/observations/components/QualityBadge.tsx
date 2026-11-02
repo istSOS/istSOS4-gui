@@ -3,6 +3,7 @@
 import { useTranslation } from 'react-i18next'
 
 import { VERDICT_COLORS, maskVerdict, rawText } from '../../qc/lib/bitmask'
+import { qualityFlagDescription } from '../../qc/lib/qualityFlags'
 
 export default function QualityBadge({
   quality,
@@ -14,6 +15,8 @@ export default function QualityBadge({
   stale?: number[]
 }) {
   const { t } = useTranslation()
+  const description = qualityFlagDescription(quality, t)
+  if (description) return <code title={description}>{rawText(quality)}</code>
   const verdict = maskVerdict(quality, count, stale)
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded border border-default-200 bg-content1 px-1.5 py-0.5 text-[11px] leading-4">

@@ -11,13 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import AsOfBanner from '@/features/as-of/components/AsOfBanner'
 import type { ReactNode } from 'react'
 
 import Navbar from '@/components/layout/Navbar'
 
-import { AuthProvider } from '@/context/AuthContext'
+import {
+  RESULT_QUALITY_CONFIG_ID,
+  resultQualityConfigJson,
+} from '@/config/resultQuality'
+
 import { AsOfProvider } from '@/context/AsOfContext'
-import AsOfBanner from '@/features/as-of/components/AsOfBanner'
+import { AuthProvider } from '@/context/AuthContext'
+
 import { getSaqcServiceUrl } from '@/server/qc'
 
 import '@/styles/globals.css'
@@ -29,6 +35,13 @@ export const dynamic = 'force-dynamic'
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html suppressHydrationWarning lang="en">
+      <head>
+        <script
+          id={RESULT_QUALITY_CONFIG_ID}
+          type="application/json"
+          dangerouslySetInnerHTML={{ __html: resultQualityConfigJson() }}
+        />
+      </head>
       <body
         style={{ backgroundColor: 'var(--color-primary)' }}
         className="min-h-screen"

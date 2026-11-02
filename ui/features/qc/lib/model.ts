@@ -8,7 +8,7 @@ import {
   slotState,
   windowMs,
 } from './bitmask'
-import { QUALITY_FLAGS } from './qualityFlags'
+import { qualityFlags } from './qualityFlags'
 import type { Constraint, Draft, Drafts, QcRow, Workspace } from './types'
 
 export const emptyWorkspace = (): Workspace => ({
@@ -307,7 +307,7 @@ export function reviewServiceQuality(
 ): Workspace {
   if (workspace.qualitySchema?.mode !== 'service')
     throw new Error('Confirm service quality-code mode first.')
-  if (code !== null && !QUALITY_FLAGS.some((flag) => flag.code === code))
+  if (code !== null && !qualityFlags().some((flag) => flag.code === code))
     throw new Error('Choose a flag from the supplied service catalog.')
   const drafts = { ...workspace.drafts }
   for (const key of new Set(keys)) {

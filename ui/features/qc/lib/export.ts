@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx'
 
 import { unrunSlots } from './checks'
 import { changed } from './model'
-import { QUALITY_FLAGS, qualityFlagDescription } from './qualityFlags'
+import { qualityFlagDescription, qualityFlags } from './qualityFlags'
 import type { Workspace } from './types'
 
 const cell = (value: unknown) =>
@@ -34,10 +34,7 @@ export function draftWorkbook(cache: Record<string, Workspace>) {
               : workspace.qualitySchema
                 ? 'istsos-two-bit'
                 : 'unconfirmed',
-          qualityDescription:
-            workspace.qualitySchema?.mode === 'service'
-              ? qualityFlagDescription(draft.resultQuality)
-              : '',
+          qualityDescription: qualityFlagDescription(draft.resultQuality),
           qualityPending: draft.qualityPending === true,
           qualityMode: workspace.qualitySchema?.mode ?? '',
           orderedRecipe: workspace.qualitySchema
@@ -96,7 +93,13 @@ export function draftWorkbook(cache: Record<string, Workspace>) {
   if (Object.values(cache).some((ws) => ws.qualitySchema?.mode === 'service'))
     XLSX.utils.book_append_sheet(
       workbook,
-      XLSX.utils.json_to_sheet([...QUALITY_FLAGS]),
+      XLSX.utils.json_to_sheet(
+        qualityFlags().map((flag) => ({
+          code: flag.code,
+          description: flag.description.it,
+          descriptionEn: flag.description.en,
+        }))
+      ),
       'Service quality flags'
     )
   if (audit.length) {

@@ -2,6 +2,10 @@
 const fs = require('node:fs')
 const assert = require('node:assert/strict')
 const { test } = require('node:test')
+process.env.RESULT_QUALITY_CODES = JSON.stringify(
+  require('../../../config/fixtures/resultQuality.json')
+)
+process.env.RESULT_QUALITY_BITMASK_ENABLED = 'true'
 const ts = require('typescript')
 require.extensions['.ts'] = (module, filename) =>
   module._compile(
@@ -46,7 +50,7 @@ const { appendAudit } = require('./audit.ts')
 const { selectionZoom } = require('./selectionZoom.ts')
 const { explainCheck } = require('./qualityExplanation.ts')
 const { reviewServiceQuality } = require('./model.ts')
-const { QUALITY_FLAGS } = require('./qualityFlags.ts')
+const { qualityFlags } = require('./qualityFlags.ts')
 const { checkIssue, runnableSlots, unrunSlots } = require('./checks.ts')
 const { qcCheckTargets } = require('./checkTargets.ts')
 const { draftWorkbook } = require('./export.ts')
@@ -541,7 +545,7 @@ test('quality decoding matches client human/OASI fixtures and preserves digital 
 test('numeric compatibility alone remains an unconfirmed candidate, not an encoding decision', () => {
   const result = inspectQuality(
     [
-      { resultQuality: 100 },
+      { resultQuality: 130 },
       { resultQuality: 'bad' },
       { resultQuality: { quality: 100 } },
     ],
@@ -800,10 +804,10 @@ function serviceWorkspace() {
 
 test('confirming service-code mode preserves original values and never decodes catalog codes as masks', () => {
   const initial = serviceWorkspace()
-  assert.equal(QUALITY_FLAGS.length, 13)
+  assert.equal(qualityFlags().length, 19)
   assert.match(
-    QUALITY_FLAGS.find((flag) => flag.code === 101).description,
-    /pluviometri del 2025/
+    qualityFlags().find((flag) => flag.code === 101).description.it,
+    /pluviometri.*2025/
   )
   assert.deepEqual(initial.drafts, {})
   assert.equal(initial.rows['1'].resultQuality, 100)
@@ -984,7 +988,7 @@ test('service exports preserve pending quality, original catalog codes and exact
   assert.equal(rows[0].humanPair, '')
   assert.equal(
     XLSX.utils.sheet_to_json(book.Sheets['Service quality flags']).length,
-    13
+    qualityFlags().length
   )
 })
 

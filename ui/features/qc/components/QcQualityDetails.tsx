@@ -95,9 +95,6 @@ export function CheckDefinition({
             </div>
           ))}
       </dl>
-      <p className="text-xs text-default-500">
-        {t('qc.explain.definition_hint')}
-      </p>
     </div>
   )
 }
@@ -201,24 +198,17 @@ export function QualityDetails({
   const modified = draft && (changed(row, draft) || !!draft.outcomes?.length)
   const source = modified ? 'draft' : 'recorded'
   const mask = parseMask(quality)
-  const fits = encoded && fitsMask(quality, constraints.length)
-  const description = serviceMode ? qualityFlagDescription(quality) : ''
+  const description = qualityFlagDescription(quality, t)
+  const fits = !serviceMode && encoded && fitsMask(quality, constraints.length)
   return (
     <div className="space-y-3">
       <p className="text-xs">
         {t('qc.explain.source')}: {t(`qc.explain.sources.${source}`)}
       </p>
-      {serviceMode ? (
+      {serviceMode || description ? (
         <>
           {description ? (
-            <>
-              <p className="font-medium">
-                {t(`qc.workflow.flags.${String(quality)}`, {
-                  defaultValue: description,
-                })}
-              </p>
-              <p className="text-xs text-default-600">{description}</p>
-            </>
+            <p className="font-medium">{description}</p>
           ) : (
             <p>
               {t(
@@ -233,19 +223,12 @@ export function QualityDetails({
               {t('qc.explain.service_pending')}
             </p>
           )}
-          <p className="text-xs text-default-500">
-            {t('qc.explain.catalog_hint')}
-          </p>
         </>
       ) : !encoded ? (
         <p>{t('qc.workflow.confirm_first')}</p>
       ) : !fits || mask === null ? (
         <p>
-          {t(
-            quality == null
-              ? 'qc.explain.no_quality'
-              : 'qc.explain.invalid_mask'
-          )}
+          {t(quality == null ? 'qc.explain.no_quality' : 'qc.verdict.unknown')}
         </p>
       ) : (
         <>
@@ -326,9 +309,6 @@ export function QualityDetails({
               </dd>
             </div>
           </dl>
-          <p className="text-xs text-default-500">
-            {t('qc.explain.recorded_hint')}
-          </p>
         </>
       )}
       <details className="border-t border-default-200 pt-2 text-xs">

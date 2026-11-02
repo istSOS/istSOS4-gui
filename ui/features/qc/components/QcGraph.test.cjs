@@ -4,6 +4,11 @@ const fs = require('node:fs')
 const Module = require('node:module')
 const path = require('node:path')
 const { test } = require('node:test')
+const catalog = require('../../../config/fixtures/resultQuality.json')
+process.env.RESULT_QUALITY_CODES = JSON.stringify(catalog)
+process.env.RESULT_QUALITY_BITMASK_ENABLED = 'true'
+const description = (code) =>
+  catalog.find((flag) => flag.code === code).description.en
 const ts = require('typescript')
 const echarts = require('echarts')
 
@@ -544,8 +549,8 @@ test('tooltip describes service codes and avoids decoding unconfirmed quality', 
   let text = pointTooltip(chart, row)
   assert.deepEqual(tooltipTable(text).at(-1), [
     'qc.quality',
-    'qc.workflow.flags.310 (310)',
-    'qc.workflow.flags.310 (310)',
+    `${description(310)} (310)`,
+    `${description(310)} (310)`,
   ])
   assert.ok(!text.includes('qc.data_state_label'))
   render({ serviceMode: false, rows: [{ ...row, resultQuality: 255 }] })
@@ -558,6 +563,31 @@ test('tooltip describes service codes and avoids decoding unconfirmed quality', 
   assert.ok(!text.includes('qc.data_state_label'))
   render({ rows: [{ ...row, resultQuality: null }] })
   assert.ok(pointTooltip(chart, row).includes('qc.explain.no_quality'))
+})
+
+test('tooltip explains legacy categories within a bitmask stream without invented outcomes', (t) => {
+  const row = { ...rows[50], resultQuality: 208 }
+  const { chart, render } = mount(t, { rows: [row] })
+  for (const code of [
+    100, 110, 120, 132, 208, 210, 220, 230, 310, 312, 313, 320, 321, 322, 323,
+    330, 332, 333,
+  ]) {
+    render({ rows: [{ ...row, resultQuality: code }] })
+    const table = tooltipTable(pointTooltip(chart, row))
+    assert.deepEqual(table.at(-1), [
+      'qc.quality',
+      `${description(code)} (${code})`,
+      `${description(code)} (${code})`,
+    ])
+    for (const [, original, draft] of table.filter(
+      ([label]) =>
+        label.startsWith('qc.check ') ||
+        ['qc.data_state_label', 'qc.human_review'].includes(label)
+    )) {
+      assert.equal(original, 'qc.verdict.unknown')
+      assert.equal(draft, 'qc.verdict.unknown')
+    }
+  }
 })
 
 test('HTML tooltip escapes check names, quality values, and units', (t) => {

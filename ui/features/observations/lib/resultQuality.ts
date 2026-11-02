@@ -89,12 +89,10 @@ export function qualitySummary(
   mode: QualityMode,
   t: (key: string, options?: { defaultValue?: string }) => string
 ): string {
-  if (mode === 'service') {
+  const description = qualityFlagDescription(raw, t)
+  if (mode === 'service' || description) {
     if (raw == null) return t('qc.explain.no_quality')
-    const description = qualityFlagDescription(raw)
-    return description
-      ? t(`qc.workflow.flags.${String(raw)}`, { defaultValue: description })
-      : t('qc.workflow.unknown_code')
+    return description || t('qc.workflow.unknown_code')
   }
   return qualityLabel(qualityClassOf(raw, constraints, mode), t)
 }

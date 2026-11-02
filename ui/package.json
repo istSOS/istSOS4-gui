@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:qc": "node --test features/qc/lib/model.test.cjs features/qc/lib/useQcEditor.test.cjs features/qc/components/QcGraph.test.cjs",
+    "test:quality-config": "node --test config/resultQuality.test.cjs",
     "test:versioning": "node --test config/versioning.test.cjs server/as-of/snapshot.test.cjs features/as-of/hooks/cancellation.test.cjs",
     "test:data-sources": "node --test app/api/data-sources/inspect/route.test.cjs services/things.test.cjs",
     "test:map": "node --test features/map/lib/mapFilters.test.cjs",

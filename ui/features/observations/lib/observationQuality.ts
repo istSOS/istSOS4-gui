@@ -1,21 +1,24 @@
 import type { QualityConstraint, QualityMode } from './resultQuality'
 
 import { fitsMask, maskVerdict, rawText } from '../../qc/lib/bitmask'
+import { qualityFlagDescription } from '../../qc/lib/qualityFlags'
 
-/** Long explanations and unknown-code messages belong behind the info button. */
+/** Catalog descriptions belong behind the info button; unknown flags keep their code. */
 export function compactQuality(
   raw: unknown,
   constraints: QualityConstraint[] | null,
   mode: QualityMode
 ) {
   const verdict =
-    mode === 'bitmask' &&
-    constraints !== null &&
-    fitsMask(raw, constraints.length)
-      ? maskVerdict(raw, constraints.length)
-      : null
+    raw == null || qualityFlagDescription(raw)
+      ? null
+      : mode === 'bitmask' &&
+          constraints !== null &&
+          fitsMask(raw, constraints.length)
+        ? maskVerdict(raw, constraints.length)
+        : ('unknown' as const)
   return {
     code: raw == null ? null : rawText(raw),
-    verdict: verdict === 'unknown' ? null : verdict,
+    verdict,
   }
 }

@@ -28,12 +28,13 @@ export default function ObservationQuality({
   )
   if (quality.code === null) return <span className="text-default-500">—</span>
   const constraints = entry.qualityConstraints ?? []
+  const description = qualityFlagDescription(row.rawQuality, t)
   const encoded =
-    entry.qualityMode === 'bitmask' && entry.qualityConstraints !== null
-  const recognized = encoded
-    ? fitsMask(row.rawQuality, constraints.length)
-    : entry.qualityMode === 'service' &&
-      !!qualityFlagDescription(row.rawQuality)
+    !description &&
+    entry.qualityMode === 'bitmask' &&
+    entry.qualityConstraints !== null
+  const recognized =
+    !!description || (encoded && fitsMask(row.rawQuality, constraints.length))
   const qcRow: QcRow = {
     key: row.key,
     id: row.key,
@@ -58,7 +59,7 @@ export default function ObservationQuality({
               row={qcRow}
               constraints={constraints}
               encoded={encoded}
-              serviceMode={entry.qualityMode === 'service'}
+              serviceMode={entry.qualityMode === 'service' || !!description}
               unit={entry.unit}
             />
           ) : (
@@ -83,7 +84,10 @@ export default function ObservationQuality({
               <span aria-hidden>·</span>
             </>
           )}
-          <code className="max-w-40 truncate" title={quality.code}>
+          <code
+            className="max-w-40 truncate"
+            title={description ? description : quality.code}
+          >
             {quality.code}
           </code>
         </span>

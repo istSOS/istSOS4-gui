@@ -1,5 +1,6 @@
 {
   "qc": {
+    "catalog_language": "it",
     "resources": {
       "title": "Carico di lavoro e memoria",
       "indicator": "Carico: {{state}}",
@@ -310,7 +311,6 @@
       "last_days_other": "Ultimi {{count}} giorni",
       "load_next": "Apri area di lavoro",
       "recorded_quality": "Qualità registrata",
-      "recorded_hint": "I codici salvati sono interpretati con la definizione attuale del datastream. Non dimostrano quali parametri storici li abbiano prodotti. Esamina la tabella o riesegui i controlli salvati.",
       "service_inspect": "Esamina i codici esistenti e le descrizioni del catalogo nella tabella. La modifica di un valore richiederà una nuova decisione sulla qualità.",
       "run_stored_one": "Esegui controlli su 1 osservazione selezionata",
       "run_stored_other": "Esegui controlli su {{count}} osservazioni selezionate",
@@ -347,21 +347,6 @@
         "flagJumps": "Variazioni improvvise",
         "flagByVariance": "Varianza"
       },
-      "flags": {
-        "100": "Dato caricato nel formato corretto",
-        "101": "Inserimento manuale per problema pluviometri 2025",
-        "110": "Valore nullo",
-        "120": "Valore non convertibile",
-        "130": "Fonte esterna grezza",
-        "200": "Intervallo ragionevole per proprietà e stazione",
-        "210": "Valore plausibile entro i limiti del sensore",
-        "220": "Plausibilità rispetto alle ultime 24–48 ore",
-        "230": "Verificato con sensori vicini o radar",
-        "310": "Analizzato manualmente e rifiutato",
-        "320": "Corretto manualmente e accettato",
-        "321": "Parzialmente corretto",
-        "330": "Accettato manualmente senza correzione"
-      },
       "skipped_details": "Motivo delle osservazioni saltate ({{count}})",
       "skip_reasons": {
         "missing": "Non è possibile applicare un offset a un valore mancante.",
@@ -382,7 +367,6 @@
         "unconfirmed": "Modalità qualità non confermata"
       },
       "stored_parameters": "Parametri salvati (sola lettura)",
-      "definition_hint": "Sono i parametri attuali del datastream. Un codice salvato non conserva i parametri storici dell’esecuzione.",
       "reason": "Motivo",
       "reason_unavailable": "Motivo non registrato. Il solo codice salvato non spiega perché si sia verificato questo esito.",
       "reason_pending": "È cambiato un valore che influisce sul controllo. Il risultato precedente non valida più la bozza attuale: occorre ricontrollare.",
@@ -394,11 +378,9 @@
         "manual": "Esito assegnato con una decisione manuale.",
         "buffer": "Il motore QC non ha potuto valutare le osservazioni disponibili."
       },
-      "recorded_hint": "I codici registrati sono interpretati con la definizione attuale del datastream. La conferma non esegue controlli e non sostituisce la qualità registrata.",
       "no_quality": "Nessun valore di qualità registrato.",
       "invalid_mask": "Valore incompatibile con la struttura della bitmask confermata.",
       "service_pending": "Per questa bozza serve ancora una decisione esplicita sulla qualità del servizio.",
-      "catalog_hint": "Descrizioni dal catalogo sosraw fornito. I codici sono categorie, non punteggi.",
       "technical": "Dettagli tecnici",
       "raw_value": "Valore salvato",
       "pair_order": "Le coppie vanno dalla revisione umana ai controlli N…1 e allo stato del dato (coppia a destra).",

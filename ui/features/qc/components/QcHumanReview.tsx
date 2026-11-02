@@ -5,7 +5,11 @@ import { useTranslation } from 'react-i18next'
 
 import Button from './QcButton'
 
-import { MANUAL_FLAG_CODES, QUALITY_FLAGS } from '../lib/qualityFlags'
+import {
+  MANUAL_FLAG_CODES,
+  qualityFlagDescription,
+  qualityFlags,
+} from '../lib/qualityFlags'
 
 export default function QcHumanReview({
   count,
@@ -24,9 +28,10 @@ export default function QcHumanReview({
   const [state, setState] = useState('')
   const [reason, setReason] = useState('')
   const [allFlags, setAllFlags] = useState(false)
+  const catalog = qualityFlags()
   const flags = allFlags
-    ? QUALITY_FLAGS
-    : QUALITY_FLAGS.filter((flag) => MANUAL_FLAG_CODES.includes(flag.code))
+    ? catalog
+    : catalog.filter((flag) => MANUAL_FLAG_CODES.includes(flag.code))
   return (
     <dialog
       ref={(node) => {
@@ -71,10 +76,7 @@ export default function QcHumanReview({
             {serviceMode ? (
               flags.map((flag) => (
                 <option key={flag.code} value={flag.code}>
-                  {flag.code} —{' '}
-                  {t(`qc.workflow.flags.${flag.code}`, {
-                    defaultValue: flag.description,
-                  })}
+                  {flag.code} — {qualityFlagDescription(flag.code, t)}
                 </option>
               ))
             ) : (
@@ -100,10 +102,7 @@ export default function QcHumanReview({
               {t('qc.workflow.all_flags')}
             </label>
             <p className="text-sm text-default-500">
-              {
-                QUALITY_FLAGS.find((flag) => flag.code === Number(state))
-                  ?.description
-              }
+              {qualityFlagDescription(state, t)}
             </p>
           </>
         )}

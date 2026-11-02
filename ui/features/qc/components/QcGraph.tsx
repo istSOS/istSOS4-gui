@@ -152,16 +152,12 @@ export default function QcGraph({
       const draft = useDraft ? rowValue(row, drafts) : undefined
       const raw = draft ? draft.resultQuality : row.resultQuality
       const canDecode = useDraft ? encoded : originalEncoded
-      const description = serviceMode ? qualityFlagDescription(raw) : ''
+      const description = qualityFlagDescription(raw, t)
       const summary =
         raw == null
           ? t('qc.explain.no_quality')
-          : serviceMode
-            ? description
-              ? t(`qc.workflow.flags.${String(raw)}`, {
-                  defaultValue: description,
-                })
-              : t('qc.workflow.unknown_code')
+          : serviceMode || description
+            ? description || t('qc.workflow.unknown_code')
             : t(
                 `qc.verdict.${canDecode ? maskVerdict(raw, checkCount, draft?.staleSlots) : 'unknown'}`
               )

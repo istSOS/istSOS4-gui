@@ -1,4 +1,7 @@
+import { qualityFlagDescription } from './qualityFlags'
 import type { Constraint } from './types'
+
+import { getResultQualityConfig } from '../../../config/resultQuality'
 
 export const NO_DATA_VALUES = new Set([999.9, -999, -9999, -999.9, -999.99])
 
@@ -61,15 +64,21 @@ export function fitsMask(raw: unknown, checks: number): boolean {
   const mask = parseMask(raw)
   return (
     mask !== null &&
+    getResultQualityConfig().bitmaskEnabled &&
+    !qualityFlagDescription(mask) &&
     checks >= 0 &&
     checks <= 4 &&
-    mask < 2 ** (2 * (checks + 2))
+    mask < 2 ** (2 * (checks + 2)) &&
+    // 01 is reserved in check and human pairs, even with an empty catalog.
+    Array.from({ length: checks + 1 }, (_, index) => index + 1).every(
+      (slot) => slotState(mask, slot) !== 1
+    )
   )
 }
 
 export function binaryMask(raw: unknown, checks: number): string {
   const mask = parseMask(raw)
-  if (mask === null) return '—'
+  if (mask === null || !fitsMask(raw, checks)) return '—'
   return (
     mask
       .toString(2)

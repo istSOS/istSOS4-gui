@@ -273,6 +273,48 @@ them; original flags do not imply a reason. Use Enter/Arrow Down to enter a focu
 card, and Close, Escape or an outside click to dismiss an info panel. Binary
 pairs and raw values remain available under **Technical details**.
 
+Quality interpretation has two independent server environment settings, passed
+through all Docker Compose configurations:
+
+```dotenv
+RESULT_QUALITY_BITMASK_ENABLED=true
+RESULT_QUALITY_CODES='[{"code":132,"description":{"en":"Raw external source","it":"Dato grezzo da fonte esterna"}}]'
+```
+
+`RESULT_QUALITY_CODES` is a JSON array of unique nonnegative integer codes with
+nonempty `description.en` and `description.it` strings. Descriptions follow the
+GUI language and take priority over bitmask decoding. The repository's `.env`
+contains the supplied istSOS catalog, including `132`, `208`, and the existing
+sosraw-specific `101`. The GUI does not remap database values. To remove all
+descriptions, set `RESULT_QUALITY_CODES=` or omit the variable. There is no
+built-in catalog or translation fallback. Invalid JSON, duplicate codes, and
+missing translations report a configuration error.
+
+`RESULT_QUALITY_BITMASK_ENABLED` accepts `true` (the default if unset or empty)
+or `false`. With decoding enabled, values absent from the catalog are decoded
+using the datastream's stored checks. Out-of-range values and reserved `01`
+check/human pairs remain **Unknown**, independently of the catalog. Data pair
+`01` still means digital data. With decoding disabled, values absent from the
+catalog display **Unknown**, including otherwise valid masks. The raw code is
+preserved; absent quality displays `—`.
+
+Both settings are read at runtime and only this public quality configuration is
+included in the page. After changing `.env`, recreate the GUI container and reload
+the browser; an image rebuild is unnecessary for subsequent configuration changes:
+
+```bash
+docker compose -f dev-docker-compose.yaml up -d --no-deps istsos4-gui
+```
+
+Use the same Compose file(s) as the running deployment. For the standalone VPN
+setup, replace `dev-docker-compose.yaml` with `dev-docker-compose.vpn.yaml` above.
+For production use `docker-compose.yml` with an image built from this source. When running Next.js
+directly, set these server environment variables and restart the Next.js process.
+Keep JSON quoted in `.env`; its existing double-quoted value escapes internal
+JSON quotes, and `$$` represents a literal dollar sign in Docker Compose.
+
+Run the configuration tests with `cd ui && npm run test:quality-config`.
+
 **Edit values** applies a constant or offset, marks values missing, fills missing values
 with a constant or linear interpolation, or replaces an interval by a straight
 line between exterior anchors. For selected observations, anchors are taken from

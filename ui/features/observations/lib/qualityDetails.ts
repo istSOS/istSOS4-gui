@@ -10,6 +10,7 @@ import {
   rawText,
   slotState,
 } from '../../qc/lib/bitmask'
+import { qualityFlagDescription } from '../../qc/lib/qualityFlags'
 
 export const rawQualityText = rawText
 export type QualityDetail = {
@@ -33,6 +34,17 @@ export function qualityDetails(
   unavailable?: string
 } {
   if (raw == null) return { rows: [] }
+  const description = qualityFlagDescription(raw, t)
+  if (description)
+    return {
+      rows: [
+        {
+          label: t('qc.quality'),
+          value: description,
+          color: VERDICT_COLORS.unknown,
+        },
+      ],
+    }
   if (!constraints)
     return {
       rows: [],

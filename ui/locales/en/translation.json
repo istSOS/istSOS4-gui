@@ -1,5 +1,6 @@
 {
   "qc": {
+    "catalog_language": "en",
     "resources": {
       "title": "Workload and memory",
       "indicator": "Workload: {{state}}",
@@ -310,7 +311,6 @@
       "last_days_other": "Last {{count}} days",
       "load_next": "Open workspace",
       "recorded_quality": "Recorded quality",
-      "recorded_hint": "These are stored flags, interpreted using the current datastream definition. They do not prove which historical parameters produced them. Inspect the table or rerun the stored checks.",
       "service_inspect": "Inspect the existing codes and their catalog descriptions in the observation table. Correcting a value will require a new quality decision.",
       "run_stored_one": "Run checks on 1 selected observation",
       "run_stored_other": "Run checks on {{count}} selected observations",
@@ -347,21 +347,6 @@
         "flagJumps": "Sudden changes",
         "flagByVariance": "Variance"
       },
-      "flags": {
-        "100": "Loaded in the correct format",
-        "101": "Manual entry for the 2025 rain-gauge overwrite issue",
-        "110": "Null value",
-        "120": "Value cannot be converted",
-        "130": "Raw external source",
-        "200": "Reasonable range for the property and station",
-        "210": "Plausible within sensor limits",
-        "220": "Plausible against the preceding 24–48 hours",
-        "230": "Verified against nearby sensors or radar",
-        "310": "Manually reviewed and rejected",
-        "320": "Manually corrected and accepted",
-        "321": "Partially corrected",
-        "330": "Manually accepted without correction"
-      },
       "skipped_details": "Why observations were skipped ({{count}})",
       "skip_reasons": {
         "missing": "An offset cannot be applied to a missing value.",
@@ -382,7 +367,6 @@
         "unconfirmed": "Quality mode not confirmed"
       },
       "stored_parameters": "Stored parameters (read-only)",
-      "definition_hint": "These are the current datastream parameters. A stored flag does not record historical execution settings.",
       "reason": "Reason",
       "reason_unavailable": "Reason not recorded. The stored flag alone does not explain why this outcome occurred.",
       "reason_pending": "A value affecting this check changed. Its previous result no longer validates the current draft; rechecking is required.",
@@ -394,11 +378,9 @@
         "manual": "This outcome was assigned through a manual decision.",
         "buffer": "The QC engine could not evaluate the available observations."
       },
-      "recorded_hint": "Recorded flags are decoded using the current datastream definition. Confirmation does not run checks or replace recorded quality.",
       "no_quality": "No quality value is recorded.",
       "invalid_mask": "This value does not fit the confirmed bitmask layout.",
       "service_pending": "An explicit service quality decision is still needed for this draft.",
-      "catalog_hint": "Descriptions come from the supplied sosraw catalog. Codes are categories, not scores.",
       "technical": "Technical details",
       "raw_value": "Stored value",
       "pair_order": "Pairs run from human review through checks N…1 to data state (rightmost pair).",
