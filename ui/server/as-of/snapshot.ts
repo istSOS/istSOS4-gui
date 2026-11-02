@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 /**
  * @file server/as-of/snapshot.ts
  *
@@ -38,8 +37,15 @@
  * before their Things existed). Which rows existed at the instant is decided
  * by `$as_of` itself; `time` only orders the rows that did.
  */
+import type { ReadDiagnostics, SnapshotTimings } from './diagnostics'
 
 type Row = Record<string, unknown>
+
+export type SnapshotReadOptions = {
+  signal?: AbortSignal
+  timings?: SnapshotTimings
+  prefix?: string
+}
 
 /** Where a snapshot Thing's `Locations` came from. */
 export type AsOfLocationSource =
@@ -89,7 +95,9 @@ export function clampAsOf(asOfDate: string): string | null {
   if (!Number.isFinite(requested)) return null
   const ceiling = Date.now() - 2000
   const ms = Math.min(requested, ceiling)
-  return new Date(Math.floor(ms / 1000) * 1000).toISOString().replace(/\.\d+Z$/, 'Z')
+  return new Date(Math.floor(ms / 1000) * 1000)
+    .toISOString()
+    .replace(/\.\d+Z$/, 'Z')
 }
 
 function idOf(row: unknown): string {
@@ -97,33 +105,58 @@ function idOf(row: unknown): string {
   return String(record?.['@iot.id'] ?? record?.id ?? '')
 }
 
-/**
- * Every row of a collection, following pages with `$skip`.
- *
- * `@iot.nextLink` is only used as the "more pages" signal, never fetched: the
- * API builds it from its own HOSTNAME setting, which is not the address this
- * server reaches it on (inside Docker it is `localhost` of another container).
- */
-export async function readAll(
+/** Read and parse one upstream response, including body time in diagnostics. */
+export async function readSnapshotPage(
   url: string,
   headers: Record<string, string>,
-  signal?: AbortSignal
-): Promise<Row[]> {
-  const rows: Row[] = []
-  const joiner = url.includes('?') ? '&' : '?'
-
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const response = await fetch(
-      `${url}${joiner}$top=${PAGE_SIZE}&$skip=${rows.length}`,
-      { headers, cache: 'no-store', signal }
-    )
+  signal?: AbortSignal,
+  diagnostics?: ReadDiagnostics
+): Promise<Row | null> {
+  const read = async () => {
+    signal?.throwIfAborted()
+    const response = await fetch(url, { headers, cache: 'no-store', signal })
     if (!response.ok) {
       throw new SnapshotReadError(
         `${response.status} ${response.statusText}`.trim(),
         response.status
       )
     }
-    const data = await response.json().catch(() => null)
+    const data = await response.json().catch((error) => {
+      signal?.throwIfAborted()
+      if (error?.name === 'AbortError') throw error
+      return null
+    })
+    signal?.throwIfAborted()
+    return data
+  }
+  return diagnostics
+    ? diagnostics.timings.measure(diagnostics.name, read, (data) =>
+        Array.isArray(data?.value) ? data.value.length : data ? 1 : 0
+      )
+    : read()
+}
+
+/**
+ * Every row of a collection, following pages with `$skip`.
+ * `@iot.nextLink` only signals more pages: its hostname may be unreachable
+ * from the GUI server's Docker network.
+ */
+export async function readAll(
+  url: string,
+  headers: Record<string, string>,
+  signal?: AbortSignal,
+  diagnostics?: ReadDiagnostics
+): Promise<Row[]> {
+  const rows: Row[] = []
+  const joiner = url.includes('?') ? '&' : '?'
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const data = await readSnapshotPage(
+      `${url}${joiner}$top=${PAGE_SIZE}&$skip=${rows.length}`,
+      headers,
+      signal,
+      diagnostics
+    )
     const value: Row[] = Array.isArray(data?.value) ? data.value : []
     rows.push(...value)
     if (!data?.['@iot.nextLink'] || value.length === 0) break
@@ -153,7 +186,8 @@ const DATASTREAM_EXPAND = ['Network', 'Sensor', 'ObservedProperty'].join(',')
  * carry no reading at all and the snapshot says so. Live readings are never
  * substituted: they would show today's value under a past date.
  */
-const LATEST_READING_EXPAND = 'Observations($top=1;$orderby=phenomenonTime desc)'
+const LATEST_READING_EXPAND =
+  'Observations($top=1;$orderby=phenomenonTime desc)'
 
 /** How long the latest readings may take before the snapshot goes without. */
 const READINGS_BUDGET_MS = 8_000
@@ -181,7 +215,9 @@ function locationsFromHistory(rows: Row[]): Row[] {
   const seen = new Set<string>()
   const locations: Row[] = []
   for (const row of current) {
-    const rowLocations = Array.isArray(row?.Locations) ? (row.Locations as Row[]) : []
+    const rowLocations = Array.isArray(row?.Locations)
+      ? (row.Locations as Row[])
+      : []
     for (const location of rowLocations) {
       const id = idOf(location)
       if (!id || seen.has(id)) continue
@@ -207,7 +243,9 @@ function placeThing(
     Locations = []
     source = 'unplaced'
   } else {
-    Locations = Array.isArray(thing?.Locations) ? (thing.Locations as Row[]) : []
+    Locations = Array.isArray(thing?.Locations)
+      ? (thing.Locations as Row[])
+      : []
     source = 'link'
   }
 
@@ -238,8 +276,19 @@ export async function readThingsAsOf(
   endpoint: string,
   asOfDate: string,
   headers: Record<string, string>,
-  thingId?: string
+  thingId?: string,
+  options: SnapshotReadOptions = {}
 ): Promise<ThingsAsOf | null> {
+  const { signal, timings, prefix = '' } = options
+  signal?.throwIfAborted()
+  const diagnostics = (name: string): ReadDiagnostics | undefined =>
+    timings ? { timings, name: `${prefix}${name}` } : undefined
+  const optional = (error: unknown) => {
+    signal?.throwIfAborted()
+    // An optional upstream read may fail; cancelling the request must propagate.
+    if ((error as Error)?.name === 'AbortError') throw error
+    return null
+  }
   const asOf = clampAsOf(asOfDate)
   if (!asOf) throw new SnapshotReadError('Invalid asOfDate', 400)
   const asOfParam = `$as_of=${encodeURIComponent(asOf)}`
@@ -247,18 +296,20 @@ export async function readThingsAsOf(
 
   let things: Row[]
   if (single) {
-    const response = await fetch(
-      `${endpoint}${single}?${asOfParam}&$expand=Locations`,
-      { headers, cache: 'no-store' }
-    )
-    if (response.status === 404) return null
-    if (!response.ok) {
-      throw new SnapshotReadError(
-        `${response.status} ${response.statusText}`.trim(),
-        response.status
+    let thing: Row | null
+    try {
+      thing = await readSnapshotPage(
+        `${endpoint}${single}?${asOfParam}&$expand=Locations`,
+        headers,
+        signal,
+        diagnostics('things')
       )
+    } catch (error) {
+      signal?.throwIfAborted()
+      if (error instanceof SnapshotReadError && error.status === 404)
+        return null
+      throw error
     }
-    const thing = await response.json().catch(() => null)
     if (!thing || typeof thing !== 'object') {
       throw new SnapshotReadError('Malformed response from data source', 502)
     }
@@ -266,7 +317,9 @@ export async function readThingsAsOf(
   } else {
     things = await readAll(
       `${endpoint}/Things?${asOfParam}&$expand=Locations`,
-      headers
+      headers,
+      signal,
+      diagnostics('things')
     )
   }
 
@@ -284,13 +337,18 @@ export async function readThingsAsOf(
       single
         ? `${datastreamsPath}&$expand=${DATASTREAM_EXPAND}`
         : `${datastreamsPath}&$expand=Thing($select=id),${DATASTREAM_EXPAND}`,
-      headers
+      headers,
+      signal,
+      diagnostics('metadata')
     ),
     readAll(
       `${datastreamsPath}&$select=id&$expand=${LATEST_READING_EXPAND}`,
       headers,
-      AbortSignal.timeout(READINGS_BUDGET_MS)
-    ).catch(() => null),
+      signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(READINGS_BUDGET_MS)])
+        : AbortSignal.timeout(READINGS_BUDGET_MS),
+      diagnostics('readings')
+    ).catch(optional),
     // Location history is what places a Thing, but a backend that cannot serve
     // it should still produce a snapshot: every Thing then falls back to its
     // current link and is flagged approximate, rather than the map going blank.
@@ -300,22 +358,33 @@ export async function readThingsAsOf(
       single
         ? `${endpoint}${single}/HistoricalLocations?${asOfParam}&${HISTORICAL_LOCATION_SELECT}`
         : `${endpoint}/HistoricalLocations?${asOfParam}&${HISTORICAL_LOCATION_SELECT},Thing($select=id)`,
-      headers
-    ).catch(() => null),
+      headers,
+      signal,
+      diagnostics('locations')
+    ).catch(optional),
     // Which Things have EVER been placed: separates "not placed yet at the
     // instant" from "no history recorded at all". Read live, since a
     // HistoricalLocation is only ever added, never back-dated. (A Thing
     // deleted since has none live; its rows at the instant still place it.)
     (single
-      ? readAll(`${endpoint}${single}/HistoricalLocations?$select=id`, headers).then(
-          (rows) => new Set(rows.length ? [thingId!] : [])
-        )
+      ? readAll(
+          `${endpoint}${single}/HistoricalLocations?$select=id`,
+          headers,
+          signal,
+          diagnostics('placement')
+        ).then((rows) => new Set(rows.length ? [thingId!] : []))
       : readAll(
           `${endpoint}/HistoricalLocations?$select=id&$expand=Thing($select=id)`,
-          headers
+          headers,
+          signal,
+          diagnostics('placement')
         ).then((rows) => new Set(rows.map((row) => idOf(row?.Thing))))
-    ).catch(() => new Set<string>()),
+    ).catch((error) => {
+      optional(error)
+      return new Set<string>()
+    }),
   ])
+  signal?.throwIfAborted()
 
   const readingsByDatastream = new Map<string, unknown>()
   for (const row of readings ?? []) {
@@ -331,7 +400,8 @@ export async function readThingsAsOf(
     delete rest.Thing
     // Without readings the key is left off rather than set to [], which would
     // claim the Datastream had no reading at the instant.
-    if (readings) rest.Observations = readingsByDatastream.get(idOf(datastream)) ?? []
+    if (readings)
+      rest.Observations = readingsByDatastream.get(idOf(datastream)) ?? []
     const list = datastreamsByThing.get(owner) ?? []
     list.push(rest)
     datastreamsByThing.set(owner, list)

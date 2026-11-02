@@ -25,14 +25,13 @@ import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 
 import { normalizedBasePath } from '@/config/paths'
-
 import { isVersioningEnabled } from '@/config/versioning'
 
 import {
   getAllDataSourceTokens,
   getDataSourceToken,
 } from '@/lib/dataSourceTokens'
-import { resolveDeletion, type Deletion } from '@/lib/deletion'
+import { type Deletion, resolveDeletion } from '@/lib/deletion'
 
 dayjs.extend(utc)
 
@@ -104,7 +103,11 @@ export interface AsOfAdapter {
    * @param asOfDate  - ISO-8601 UTC date string to resolve state at.
    * @returns A `ResolvedThing` describing what existed at that moment.
    */
-  resolveThing(thing: Thing, asOfDate: string): Promise<ResolvedThing>
+  resolveThing(
+    thing: Thing,
+    asOfDate: string,
+    signal?: AbortSignal
+  ): Promise<ResolvedThing>
 
   /**
    * Fetch the ordered commit history for a Thing.
@@ -122,7 +125,11 @@ export interface AsOfAdapter {
    *                     snapshot cannot be read.
    * @param asOfDate   - ISO-8601 UTC date string to resolve state at.
    */
-  resolveMapThings(liveThings: Thing[], asOfDate: string): Promise<MapSnapshot>
+  resolveMapThings(
+    liveThings: Thing[],
+    asOfDate: string,
+    signal?: AbortSignal
+  ): Promise<MapSnapshot>
 }
 
 // ---------------------------------------------------------------------------
@@ -189,20 +196,27 @@ const asOfThingsApiPath = `${normalizedBasePath}/api/as-of/things`
 /** POST to one of our own as-of routes. Throws on a transport-level failure. */
 async function postAsOf<T>(
   path: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  signal?: AbortSignal
 ): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     cache: 'no-store',
+    signal,
   })
 
   if (!response.ok) {
     throw new Error(`As-of request failed (${response.status})`)
   }
 
-  const data = await response.json().catch(() => null)
+  const data = await response.json().catch((error) => {
+    signal?.throwIfAborted()
+    if (error?.name === 'AbortError') throw error
+    return null
+  })
+  signal?.throwIfAborted()
   if (!data) throw new Error('Malformed as-of response')
   return data as T
 }
@@ -268,7 +282,9 @@ function resolveVersions(versions: BackendVersion[]) {
  * deletion: the DELETE row when the backend writes one, otherwise the closed
  * end of the last version (see lib/deletion).
  */
-function existenceRangeFromVersions(versions: BackendVersion[]): ExistenceRange {
+function existenceRangeFromVersions(
+  versions: BackendVersion[]
+): ExistenceRange {
   const { versions: lived, deletion } = resolveVersions(versions)
   return {
     createdAt: lived[0]?.start ?? null,
@@ -286,7 +302,7 @@ type ThingAsOfResponse = {
 }
 
 const apiAdapter: AsOfAdapter = {
-  async resolveThing(thing, asOfDate) {
+  async resolveThing(thing, asOfDate, signal) {
     const id = thingId(thing)
     const endpoint = (thing.__sourceEndpoint ?? '').replace(/\/$/, '')
     if (!endpoint) {
@@ -300,12 +316,16 @@ const apiAdapter: AsOfAdapter = {
     // A failure is reported, never papered over with live data: showing live
     // rows under a "snapshot" banner is indistinguishable from a working
     // snapshot, which is exactly the bug this adapter used to have.
-    const payload = await postAsOf<ThingAsOfResponse>(asOfThingApiPath, {
-      endpoint,
-      thingId: id,
-      asOfDate,
-      token: getDataSourceToken(endpoint),
-    })
+    const payload = await postAsOf<ThingAsOfResponse>(
+      asOfThingApiPath,
+      {
+        endpoint,
+        thingId: id,
+        asOfDate,
+        token: getDataSourceToken(endpoint),
+      },
+      signal
+    )
 
     if (!payload.ok) {
       throw new Error(payload.error ?? 'Could not resolve snapshot')
@@ -369,7 +389,9 @@ const apiAdapter: AsOfAdapter = {
     // version start is a real change, and carries the commit that made it. A
     // delete's own row is not a version: it is split off here and becomes the
     // deletion tick below.
-    const { versions: lived, deletion } = resolveVersions(payload.versions ?? [])
+    const { versions: lived, deletion } = resolveVersions(
+      payload.versions ?? []
+    )
     const versionTicks = lived
       .filter((version) => !!version?.start)
       .map((version) => ({
@@ -403,9 +425,10 @@ const apiAdapter: AsOfAdapter = {
     // gone, just as every other tick shows the result of its change.
     if (deletion) {
       ticks.push({
-        id: deletion.commit?.['@iot.id'] != null
-          ? String(deletion.commit['@iot.id'])
-          : `d:${deletion.at}`,
+        id:
+          deletion.commit?.['@iot.id'] != null
+            ? String(deletion.commit['@iot.id'])
+            : `d:${deletion.at}`,
         authoredAt: deletion.at,
         // Free backend text, like the version ticks above.
         message: deletion.commit?.message ?? 'Deleted',
@@ -457,7 +480,7 @@ const apiAdapter: AsOfAdapter = {
     )
   },
 
-  async resolveMapThings(liveThings, asOfDate) {
+  async resolveMapThings(liveThings, asOfDate, signal) {
     const payload = await postAsOf<{
       ok: boolean
       error?: string
@@ -467,10 +490,14 @@ const apiAdapter: AsOfAdapter = {
         error: string | null
         readingsUnavailable?: boolean
       }>
-    }>(asOfThingsApiPath, {
-      asOfDate,
-      tokens: getAllDataSourceTokens(),
-    })
+    }>(
+      asOfThingsApiPath,
+      {
+        asOfDate,
+        tokens: getAllDataSourceTokens(),
+      },
+      signal
+    )
 
     if (!payload.ok) {
       throw new Error(payload.error ?? 'Could not resolve the map snapshot')

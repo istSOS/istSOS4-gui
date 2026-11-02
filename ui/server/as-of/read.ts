@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 /**
  * @file server/as-of/read.ts
  *
@@ -23,14 +22,16 @@
  * CORS headers — so a direct client-side `$as_of` fetch always fails and the
  * snapshot silently degrades to live data. Route handlers call these instead.
  */
+import {
+  SnapshotReadError,
+  type SnapshotReadOptions,
+  type ThingsAsOf,
+  readAll,
+  readSnapshotPage,
+  readThingsAsOf,
+} from '@/server/as-of/snapshot'
 
 import { parseValidity as readSystemTimeValidity } from '@/lib/systemTimeValidity'
-import {
-  readAll,
-  readThingsAsOf,
-  SnapshotReadError,
-  type ThingsAsOf,
-} from '@/server/as-of/snapshot'
 
 /** Commit shape as returned by the backend (`date`, not `authoredAt`). */
 export type BackendCommit = {
@@ -69,12 +70,20 @@ export async function fetchThingAsOf(
   endpoint: string,
   thingId: string,
   asOfDate: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  options: SnapshotReadOptions = {}
 ): Promise<ThingAsOfResult> {
   let snapshot: ThingsAsOf | null
   try {
-    snapshot = await readThingsAsOf(endpoint, asOfDate, headers, thingId)
+    snapshot = await readThingsAsOf(
+      endpoint,
+      asOfDate,
+      headers,
+      thingId,
+      options
+    )
   } catch (error) {
+    options.signal?.throwIfAborted()
     return {
       kind: 'error',
       status: error instanceof SnapshotReadError ? error.status : 502,
@@ -83,7 +92,12 @@ export async function fetchThingAsOf(
   }
 
   if (!snapshot || !snapshot.things[0]) {
-    const versions = await fetchThingVersions(endpoint, thingId, headers)
+    const versions = await fetchThingVersions(
+      endpoint,
+      thingId,
+      headers,
+      options
+    )
     return { kind: 'missing', versions }
   }
 
@@ -123,9 +137,7 @@ const FULL_HISTORY_WINDOW = '1970-01-01T00:00:00Z/2099-01-01T00:00:00Z'
  * superseded version as the current one. `degenerate` is kept: it is half of
  * what identifies the row a delete writes.
  */
-function parseValidity(
-  validity: unknown
-): Omit<ThingVersion, 'commit'> | null {
+function parseValidity(validity: unknown): Omit<ThingVersion, 'commit'> | null {
   const parsed = readSystemTimeValidity(validity)
   if (!parsed) return null
   return { start: parsed.start, end: parsed.end, degenerate: parsed.degenerate }
@@ -154,7 +166,8 @@ function parseValidity(
 export async function fetchThingVersions(
   endpoint: string,
   thingId: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  options: SnapshotReadOptions = {}
 ): Promise<ThingVersion[]> {
   const url =
     `${endpoint}/Things(${encodeURIComponent(thingId)})` +
@@ -166,11 +179,19 @@ export async function fetchThingVersions(
   try {
     // Every page: a busy Thing has more versions than one page holds, and a
     // first page ending on a closed version would read as a deletion.
-    rows = await readAll(url, headers)
+    rows = await readAll(
+      url,
+      headers,
+      options.signal,
+      options.timings
+        ? { timings: options.timings, name: `${options.prefix ?? ''}versions` }
+        : undefined
+    )
   } catch {
+    options.signal?.throwIfAborted()
     // A backend without versioning enabled has no systemTimeValidity column and
     // rejects $from_to outright; fall back to reading versions one at a time.
-    return walkThingVersions(endpoint, thingId, headers)
+    return walkThingVersions(endpoint, thingId, headers, 25, options)
   }
 
   const versions: ThingVersion[] = []
@@ -230,7 +251,8 @@ export async function fetchThingLocationChanges(
     )
     for (const row of rows) {
       const commit = row?.Commit as BackendCommit | undefined
-      const at = commit?.date ?? (typeof row?.time === 'string' ? row.time : null)
+      const at =
+        commit?.date ?? (typeof row?.time === 'string' ? row.time : null)
       if (at) {
         changes.push({
           at,
@@ -303,7 +325,9 @@ export async function fetchThingLocationChanges(
       .some(
         (other) =>
           other.locationId === locationId &&
-          Date.parse(parseValidity(other.row?.systemTimeValidity)?.start ?? '') < startMs
+          Date.parse(
+            parseValidity(other.row?.systemTimeValidity)?.start ?? ''
+          ) < startMs
       )
     if (created || !stoodAt(locationId, startMs)) continue
     const commit = row?.Commit as BackendCommit | undefined
@@ -332,7 +356,8 @@ async function walkThingVersions(
   endpoint: string,
   thingId: string,
   headers: Record<string, string>,
-  maxVersions = 25
+  maxVersions = 25,
+  options: SnapshotReadOptions = {}
 ): Promise<ThingVersion[]> {
   const id = encodeURIComponent(thingId)
   const versions: ThingVersion[] = []
@@ -341,16 +366,23 @@ async function walkThingVersions(
   let cursor = new Date().toISOString().replace(/\.\d+Z$/, 'Z')
 
   for (let hop = 0; hop < maxVersions; hop += 1) {
+    options.signal?.throwIfAborted()
     let range: Omit<ThingVersion, 'commit'> | null = null
     try {
-      const response = await fetch(
+      const data = await readSnapshotPage(
         `${endpoint}/Things(${id})?$as_of=${encodeURIComponent(cursor)}&$select=systemTimeValidity`,
-        { headers, cache: 'no-store' }
+        headers,
+        options.signal,
+        options.timings
+          ? {
+              timings: options.timings,
+              name: `${options.prefix ?? ''}version_walk`,
+            }
+          : undefined
       )
-      if (!response.ok) break
-      const data = await response.json().catch(() => null)
       range = parseValidity(data?.systemTimeValidity)
     } catch {
+      options.signal?.throwIfAborted()
       break
     }
 

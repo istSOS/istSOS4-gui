@@ -20,6 +20,7 @@ function deployment(setting, overrides = {}) {
     const localRequire = (specifier) => {
       if (Object.hasOwn(overrides, specifier)) return overrides[specifier]
       if (specifier === '@/config/versioning') return load('config/versioning.ts')
+      if (specifier === '@/server/as-of/diagnostics') return load('server/as-of/diagnostics.ts')
       if (specifier === '@/config/site') {
         return { siteConfig: { versioning: load('config/versioning.ts').isVersioningEnabled, api_root: 'http://test/v1.1' } }
       }

@@ -11,12 +11,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 import { isVersioningEnabled } from '@/config/versioning'
 
+import { diagnoseAsOfRequest } from '@/server/as-of/diagnostics'
 import { normalizeApiRoot } from '@/server/as-of/read'
 import { clampAsOf, readThingsAsOf } from '@/server/as-of/snapshot'
 import {
@@ -43,80 +43,100 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 404 })
   }
 
-  const body = (await request.json().catch(() => null)) as RequestPayload | null
-  const asOfDate = String(body?.asOfDate ?? '').trim()
+  return diagnoseAsOfRequest(request, 'things', async (timings) => {
+    const body = (await request
+      .json()
+      .catch(() => null)) as RequestPayload | null
+    const asOfDate = String(body?.asOfDate ?? '').trim()
 
-  if (!asOfDate || !clampAsOf(asOfDate)) {
-    return NextResponse.json(
-      { ok: false, error: 'A valid asOfDate is required' },
-      { status: 400 }
+    if (!asOfDate || !clampAsOf(asOfDate)) {
+      return NextResponse.json(
+        { ok: false, error: 'A valid asOfDate is required' },
+        { status: 400 }
+      )
+    }
+
+    const dataSources = await readDataSourcesConfigFile()
+    const primaryEndpoint = normalizeApiRoot(
+      getPrimaryDataSource(dataSources).apiRoot
     )
-  }
 
-  const dataSources = await readDataSourcesConfigFile()
-  const primaryEndpoint = normalizeApiRoot(getPrimaryDataSource(dataSources).apiRoot)
+    // Same token resolution as the live things route, so a source readable live
+    // is readable in a snapshot.
+    const tokens: Record<string, string> = {}
+    const requested =
+      body?.tokens && typeof body.tokens === 'object' ? body.tokens : {}
+    for (const [endpoint, token] of Object.entries(requested)) {
+      const key = normalizeApiRoot(endpoint)
+      const value = typeof token === 'string' ? token.trim() : ''
+      if (key && value) tokens[key] = value
+    }
+    const cookieToken = (await cookies()).get('token')?.value ?? ''
+    if (cookieToken && !tokens[primaryEndpoint])
+      tokens[primaryEndpoint] = cookieToken
 
-  // Same token resolution as the live things route, so a source readable live
-  // is readable in a snapshot.
-  const tokens: Record<string, string> = {}
-  const requested =
-    body?.tokens && typeof body.tokens === 'object' ? body.tokens : {}
-  for (const [endpoint, token] of Object.entries(requested)) {
-    const key = normalizeApiRoot(endpoint)
-    const value = typeof token === 'string' ? token.trim() : ''
-    if (key && value) tokens[key] = value
-  }
-  const cookieToken = (await cookies()).get('token')?.value ?? ''
-  if (cookieToken && !tokens[primaryEndpoint]) tokens[primaryEndpoint] = cookieToken
-
-  const results = await Promise.all(
-    dataSources.map(async (source) => {
-      const endpoint = normalizeApiRoot(source.apiRoot)
-      const token = tokens[endpoint]
-      const headers: Record<string, string> = token
-        ? { Authorization: `Bearer ${token}` }
-        : {}
-      const meta = {
-        __sourceId: source.id,
-        __sourceName: source.name,
-        __sourceEndpoint: endpoint,
-      }
-
-      try {
-        const snapshot = await readThingsAsOf(endpoint, asOfDate, headers)
-        const things = (snapshot?.things ?? []).map((thing) => ({
-          ...thing,
-          ...meta,
-          Datastreams: (Array.isArray(thing.Datastreams) ? thing.Datastreams : []).map(
-            (datastream: Record<string, unknown>) => ({ ...datastream, ...meta })
-          ),
-        }))
-        return {
-          endpoint,
-          things,
-          error: null as string | null,
-          readingsUnavailable: snapshot ? !snapshot.readingsAvailable : false,
+    const results = await Promise.all(
+      dataSources.map(async (source, sourceIndex) => {
+        const endpoint = normalizeApiRoot(source.apiRoot)
+        const token = tokens[endpoint]
+        const headers: Record<string, string> = token
+          ? { Authorization: `Bearer ${token}` }
+          : {}
+        const meta = {
+          __sourceId: source.id,
+          __sourceName: source.name,
+          __sourceEndpoint: endpoint,
         }
-      } catch (error) {
-        return {
-          endpoint,
-          things: [],
-          error: error instanceof Error ? error.message : String(error),
-          readingsUnavailable: false,
+
+        try {
+          const snapshot = await readThingsAsOf(
+            endpoint,
+            asOfDate,
+            headers,
+            undefined,
+            { signal: request.signal, timings, prefix: `source${sourceIndex}_` }
+          )
+          const things = (snapshot?.things ?? []).map((thing) => ({
+            ...thing,
+            ...meta,
+            Datastreams: (Array.isArray(thing.Datastreams)
+              ? thing.Datastreams
+              : []
+            ).map((datastream: Record<string, unknown>) => ({
+              ...datastream,
+              ...meta,
+            })),
+          }))
+          return {
+            endpoint,
+            things,
+            error: null as string | null,
+            readingsUnavailable: snapshot ? !snapshot.readingsAvailable : false,
+          }
+        } catch (error) {
+          request.signal?.throwIfAborted()
+          return {
+            endpoint,
+            things: [],
+            error: error instanceof Error ? error.message : String(error),
+            readingsUnavailable: false,
+          }
         }
-      }
+      })
+    )
+
+    return NextResponse.json({
+      ok: true,
+      asOf: clampAsOf(asOfDate),
+      things: results.flatMap((result) => result.things),
+      sources: results.map(
+        ({ endpoint, things, error, readingsUnavailable }) => ({
+          endpoint,
+          count: things.length,
+          error,
+          readingsUnavailable,
+        })
+      ),
     })
-  )
-
-  return NextResponse.json({
-    ok: true,
-    asOf: clampAsOf(asOfDate),
-    things: results.flatMap((result) => result.things),
-    sources: results.map(({ endpoint, things, error, readingsUnavailable }) => ({
-      endpoint,
-      count: things.length,
-      error,
-      readingsUnavailable,
-    })),
   })
 }

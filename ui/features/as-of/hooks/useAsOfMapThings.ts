@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+import type { Thing } from '@/types/domain'
 import { useEffect, useMemo, useState } from 'react'
 
 import { isVersioningEnabled } from '@/config/versioning'
 
-import type { Thing } from '@/types/domain'
 import { activeAdapter } from '../adapters/asOfAdapter'
 
 /** Trailing delay before a new instant is fetched, so scrubber drags coalesce. */
@@ -78,6 +77,7 @@ export function useAsOfMapThings({
   const [resolution, setResolution] = useState<Resolution | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
+  /* eslint-disable react-hooks/set-state-in-effect -- Reset stale snapshot state and expose loading when the requested instant changes. */
   useEffect(() => {
     if (!asOfDate) {
       // Leaving snapshot mode drops the snapshot entirely; re-entering later
@@ -88,11 +88,12 @@ export function useAsOfMapThings({
     }
 
     let cancelled = false
+    const controller = new AbortController()
     setIsLoading(true)
 
     const timer = setTimeout(() => {
       activeAdapter
-        .resolveMapThings(liveThings, asOfDate)
+        .resolveMapThings(liveThings, asOfDate, controller.signal)
         .then((snapshot) => {
           if (cancelled) return
           setResolution({
@@ -127,8 +128,10 @@ export function useAsOfMapThings({
     return () => {
       cancelled = true
       clearTimeout(timer)
+      controller.abort()
     }
   }, [asOfDate, liveThings])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const approximateCount = useMemo(
     () =>
@@ -168,7 +171,8 @@ export function useAsOfMapThings({
     isLoading: isLoading || resolution?.asOf !== asOfDate,
     error: resolution?.error ?? null,
     failedEndpoints: resolution?.failedEndpoints ?? [],
-    readingsUnavailableEndpoints: resolution?.readingsUnavailableEndpoints ?? [],
+    readingsUnavailableEndpoints:
+      resolution?.readingsUnavailableEndpoints ?? [],
     approximateCount,
     lostCount,
   }

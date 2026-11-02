@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 import { NextResponse } from 'next/server'
 
 import { isVersioningEnabled } from '@/config/versioning'
 
+import { diagnoseAsOfRequest } from '@/server/as-of/diagnostics'
 import {
   fetchThingAsOf,
   resolveAuthHeaders,
@@ -45,51 +45,62 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 404 })
   }
 
-  const body = (await request.json().catch(() => null)) as RequestPayload | null
-  const thingId = String(body?.thingId ?? '').trim()
-  const asOfDate = String(body?.asOfDate ?? '').trim()
+  return diagnoseAsOfRequest(request, 'thing', async (timings) => {
+    const body = (await request
+      .json()
+      .catch(() => null)) as RequestPayload | null
+    const thingId = String(body?.thingId ?? '').trim()
+    const asOfDate = String(body?.asOfDate ?? '').trim()
 
-  if (!thingId || !asOfDate) {
-    return NextResponse.json(
-      { ok: false, error: 'thingId and asOfDate are required' },
-      { status: 400 }
-    )
-  }
-
-  const endpoint = await resolveConfiguredEndpoint(body?.endpoint)
-  if (!endpoint) {
-    return NextResponse.json(
-      { ok: false, error: 'Unknown data source endpoint' },
-      { status: 400 }
-    )
-  }
-
-  try {
-    const headers = await resolveAuthHeaders(body?.token)
-    const result = await fetchThingAsOf(endpoint, thingId, asOfDate, headers)
-
-    if (result.kind === 'thing') {
-      return NextResponse.json({ ok: true, status: 200, thing: result.thing })
+    if (!thingId || !asOfDate) {
+      return NextResponse.json(
+        { ok: false, error: 'thingId and asOfDate are required' },
+        { status: 400 }
+      )
     }
-    if (result.kind === 'missing') {
+
+    const endpoint = await resolveConfiguredEndpoint(body?.endpoint)
+    if (!endpoint) {
+      return NextResponse.json(
+        { ok: false, error: 'Unknown data source endpoint' },
+        { status: 400 }
+      )
+    }
+
+    try {
+      const headers = await resolveAuthHeaders(body?.token)
+      const result = await fetchThingAsOf(
+        endpoint,
+        thingId,
+        asOfDate,
+        headers,
+        { signal: request.signal, timings }
+      )
+
+      if (result.kind === 'thing') {
+        return NextResponse.json({ ok: true, status: 200, thing: result.thing })
+      }
+      if (result.kind === 'missing') {
+        return NextResponse.json({
+          ok: true,
+          status: 404,
+          thing: null,
+          versions: result.versions,
+        })
+      }
+
       return NextResponse.json({
-        ok: true,
-        status: 404,
-        thing: null,
-        versions: result.versions,
+        ok: false,
+        status: result.status,
+        error: result.error,
+      })
+    } catch (error: unknown) {
+      request.signal?.throwIfAborted()
+      return NextResponse.json({
+        ok: false,
+        status: 0,
+        error: error instanceof Error ? error.message : String(error),
       })
     }
-
-    return NextResponse.json({
-      ok: false,
-      status: result.status,
-      error: result.error,
-    })
-  } catch (error: unknown) {
-    return NextResponse.json({
-      ok: false,
-      status: 0,
-      error: error instanceof Error ? error.message : String(error),
-    })
-  }
+  })
 }

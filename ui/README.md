@@ -118,3 +118,26 @@ changing URLs or introducing a `src/` directory.
 
 Regression checks are available through `test:map`, `test:observations`,
 `test:versioning`, `test:data-sources`, and `test:qc` in `package.json`.
+
+## Snapshot request diagnostics
+
+Map and station snapshot requests (`/api/as-of/things` and `/api/as-of/thing`)
+cancel obsolete browser fetches when the date or station changes, snapshot mode
+ends, or the view unmounts. The routes forward their request abort signal to
+upstream reads, including pagination and the missing-station history fallback.
+The optional readings timeout remains separate from cancellation: it can omit
+readings, while cancellation stops the snapshot without substituting live data.
+
+Inspect a snapshot request in browser DevTools → Network. `Server-Timing`
+reports total server duration and upstream stages: `things`, `metadata`,
+`readings`, `locations`, and `placement`. Map stages use `source0_`, `source1_`,
+etc., matching configured source order. Stage durations sum the time spent
+fetching and parsing their pages; parallel stages should not be added together
+to estimate total latency. Descriptions include request and row counts.
+
+`X-As-Of-Request-Id` matches one `[as-of]` JSON summary in GUI server logs.
+Summaries also count upstream errors, cancellations and timeouts per stage;
+cancelled requests use status 499. Tokens, upstream URLs and response data are
+excluded. These measurements cover snapshot map/panel reads; chart observation
+Server Actions and timeline commit requests are separate paths. Run
+`npm run test:versioning` for timing and cancellation regression checks.

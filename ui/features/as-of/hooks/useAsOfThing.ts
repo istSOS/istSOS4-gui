@@ -11,17 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+import type { Thing } from '@/types/domain'
 import { useEffect, useRef, useState } from 'react'
 
 import { isVersioningEnabled } from '@/config/versioning'
 
-import type { Thing } from '@/types/domain'
 import {
-  activeAdapter,
   type ExistenceRange,
   type ExistenceState,
   type ResolvedThing,
+  activeAdapter,
 } from '../adapters/asOfAdapter'
 
 // ---------------------------------------------------------------------------
@@ -95,7 +94,9 @@ export function useAsOfThing({
   // identity and the instant decide what to resolve, so that is not a reason
   // to ask again (or to cancel a request already on its way).
   const thingRef = useRef(thing)
-  thingRef.current = thing
+  useEffect(() => {
+    thingRef.current = thing
+  }, [thing])
 
   useEffect(() => {
     const thing = thingRef.current
@@ -110,11 +111,12 @@ export function useAsOfThing({
     }
 
     let cancelled = false
+    const controller = new AbortController()
     setIsLoading(true)
     setError(null)
 
     activeAdapter
-      .resolveThing(thing, asOfDate)
+      .resolveThing(thing, asOfDate, controller.signal)
       .then((result) => {
         if (cancelled) return
         setResolution({ key: requestKey, thingKey, result })
@@ -135,6 +137,7 @@ export function useAsOfThing({
 
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [asOfDate, requestKey, thingKey])
 
@@ -142,7 +145,8 @@ export function useAsOfThing({
   // the previous one for the SAME thing, which keeps scrubbing from flickering.
   // A resolution belonging to another thing is never reused.
   const active =
-    resolution && (resolution.key === requestKey || resolution.thingKey === thingKey)
+    resolution &&
+    (resolution.key === requestKey || resolution.thingKey === thingKey)
       ? resolution.result
       : null
 
