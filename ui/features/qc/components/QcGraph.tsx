@@ -288,8 +288,8 @@ export default function QcGraph({
         ],
       },
       grid: [
-        { left: 80, right: 35, top: 38, bottom: encoded ? 110 : 55 },
-        { left: 80, right: 35, height: 36, bottom: 57 },
+        { left: 80, right: 35, top: 38, bottom: encoded ? 80 : 25 },
+        { left: 80, right: 35, height: 36, bottom: 27 },
       ],
       toolbox: {
         right: 12,
@@ -449,14 +449,6 @@ export default function QcGraph({
           type: 'inside',
           xAxisIndex: [0, 1],
           filterMode: 'weakFilter',
-        },
-        {
-          id: 'qc-zoom-slider',
-          type: 'slider',
-          xAxisIndex: [0, 1],
-          filterMode: 'weakFilter',
-          bottom: 5,
-          height: 20,
         },
       ],
       series: [
