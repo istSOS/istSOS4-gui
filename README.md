@@ -328,9 +328,10 @@ observation records in the loaded period are modified. No timestamps are added.
 Interpolation uses elapsed time, requires bounding numeric observations, and
 never extrapolates. Gap filling measures the complete gap, including context
 outside the selection, and skips runs exceeding the maximum duration or cut off
-by the loaded context. Interpolation also limits the distance between anchors
-(60 minutes by default). If that limit is exceeded, the preview reports the
-actual anchor span separately from unavailable bounding observations.
+by the loaded context. Replacing by interpolation has no duration limit: the
+chosen interval or selection is what the user judges plausible. Each end of
+the line can be the average of a few observations instead of a single one
+(see **Anchors** below).
 Failed, unknown-quality and edited-but-pending anchors are excluded by default;
 an explicit option permits them. Unchanged bounding values with checks pending
 solely because of an earlier edit can still anchor interpolation unless they
@@ -356,9 +357,29 @@ In the formulas, $v$ is the current value of a targeted observation at time $t$.
 | Add / subtract offset | $v + k$ (missing values are skipped) |
 | Mark as missing | missing (`null`) |
 | Fill missing with a constant | $k$, only for missing values in gaps no longer than the maximum gap |
-| Fill missing by linear interpolation | $v_a + (v_b - v_a)\,\dfrac{t - t_a}{t_b - t_a}$, between the nearest valid observations $(t_a, v_a)$ before and $(t_b, v_b)$ after the gap |
-| Replace interval by linear interpolation | Same formula. For an interval, anchors are outside it; for a selection, each group of consecutive selected observations uses its own nearest unselected neighbours |
+| Fill missing by linear interpolation | $v_a + (v_b - v_a)\,\dfrac{t - t_a}{t_b - t_a}$, between the anchors $(t_a, v_a)$ before and $(t_b, v_b)$ after the gap |
+| Replace interval by linear interpolation | Same formula. For an interval, anchors are outside it; for a selection, each group of consecutive selected observations uses its own anchors among the unselected neighbours |
 | Correct drift | $v - D\,s(x)$, described below |
+
+**Anchors.** Linear interpolation draws a straight line from an anchor before
+the gap to an anchor after it. By default each anchor is simply the nearest
+valid observation on that side. A single observation can be noisy, so the
+**Anchor averaging window** $w$ (minutes) lets each anchor be an average
+instead:
+
+1. Start from the nearest valid observation on that side of the gap.
+2. Take it together with every valid observation up to $w$ minutes further
+   away from the gap.
+3. The anchor value $v_a$ is the mean of their values, and the anchor time
+   $t_a$ is the mean of their timestamps.
+
+Example: observations every 10 minutes, points 5–7 are replaced and
+$w = 20$ minutes. The left anchor averages points 2, 3 and 4 and sits at the
+time of point 3; the right anchor averages points 8, 9 and 10 and sits at the
+time of point 9. Using the mean time, rather than the gap edge, keeps the
+slope right when the series has a trend. Because of the averaging, the line
+need not pass exactly through the observations next to the gap. With $w = 0$
+each anchor is the nearest observation alone.
 
 **Correct drift** follows SaQC's `correctDrift` for a sensor that drifts between
 two maintenance events (for example, fouling that is removed by cleaning). The
