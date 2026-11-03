@@ -23,6 +23,7 @@ import {
   setMarkerSelected,
   showClusterHullPreview,
 } from './leafletCluster'
+import { phenomenonTimeTimestamp } from '../../../lib/phenomenonTime'
 import { getThingKey } from './leafletMapHelpers'
 
 dayjs.extend(duration)
@@ -365,7 +366,11 @@ function latestObservationOfDatastream(
   let bestT = -Infinity
 
   for (const obs of obsArr) {
-    const t = obs?.resultTime ? Date.parse(obs.resultTime) : NaN
+    // By phenomenonTime, the order the reads request; they may $select it
+    // without resultTime.
+    const t =
+      phenomenonTimeTimestamp(obs?.phenomenonTime) ??
+      (obs?.resultTime ? Date.parse(obs.resultTime) : NaN)
     if (!Number.isFinite(t)) continue
     if (t > bestT) {
       bestT = t

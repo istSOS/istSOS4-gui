@@ -94,12 +94,9 @@ export function useQcEditor(accessUnavailable: boolean) {
     workspace.qualitySchema?.mode === 'existing' && !qualityBlocked
   const sessionUser = getTokenUsername(token)
   const auditContext = {
-    actor:
-      source?.authorizationEnabled === false
-        ? 'Anonymous (authorization disabled)'
-        : getTokenUsername(
-            (source && getDataSourceToken(source.endpoint)) ?? token
-          ),
+    actor: getTokenUsername(
+      (source && getDataSourceToken(source.endpoint)) ?? token
+    ),
     source: source?.endpoint ?? '',
     datastream: streamId,
   }
@@ -178,6 +175,10 @@ export function useQcEditor(accessUnavailable: boolean) {
         setSources(data.sources)
         if (data.sources.length)
           void chooseSource(data.sources[0].id, data.sources)
+        else
+          setError(
+            'No editable data source: quality control needs a source with authorization enabled.'
+          )
       })
       .catch((error) => {
         if (alive) setError(error.message)
@@ -187,7 +188,7 @@ export function useQcEditor(accessUnavailable: boolean) {
       discovery.abort()
       requestRef.current?.abort()
     }
-    // Initial discovery uses the authenticated server cookie, not a captured token.
+    // Initial discovery only lists sources; each one is authorized when chosen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

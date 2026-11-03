@@ -143,6 +143,16 @@ test('selecting a property displays its latest values immediately and respects h
   assert.ok(markers[0].options.icon.html.includes('12 °C'))
 })
 
+test('latest values are found by phenomenonTime when reads select no resultTime', () => {
+  const thing = station(1, 'A')
+  thing.Datastreams[0].Observations = [
+    { result: 9, phenomenonTime: '2026-10-27T11:00:00Z' },
+    { result: 14, phenomenonTime: '2026-10-27T11:30:00Z/2026-10-27T12:00:00Z' },
+  ]
+  const markers = drawReadings([thing], ['A||Temperature'])
+  assert.ok(markers[0].options.icon.html.includes('14 °C'))
+})
+
 test('properties remain source-specific and missing readings retain their station anchor', () => {
   const things = [
     station(1, 'A'),

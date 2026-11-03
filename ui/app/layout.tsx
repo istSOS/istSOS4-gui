@@ -24,8 +24,8 @@ import {
 import { AsOfProvider } from '@/context/AsOfContext'
 import { AuthProvider } from '@/context/AuthContext'
 
-import { getSaqcServiceUrl } from '@/server/qc'
 import { getAggregationSources } from '@/server/aggregations'
+import { getSaqcServiceUrl } from '@/server/qc'
 
 import '@/styles/globals.css'
 
@@ -33,8 +33,17 @@ import Providers from './providers'
 
 export const dynamic = 'force-dynamic'
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode
+}) {
   const aggregationSources = await getAggregationSources()
+  // Read at request time: the data sources page edits the file, and its
+  // router.refresh() re-renders this layout. Anonymous sources are read-only.
+  const qcEnabled =
+    !!getSaqcServiceUrl() &&
+    aggregationSources.some((source) => source.authorizationEnabled)
   return (
     <html suppressHydrationWarning lang="en">
       <head>
@@ -51,7 +60,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <Providers>
           <AuthProvider>
             <AsOfProvider>
-              <Navbar saqcEnabled={!!getSaqcServiceUrl()} aggregationSources={aggregationSources} />
+              <Navbar
+                saqcEnabled={qcEnabled}
+                aggregationSources={aggregationSources}
+              />
               <AsOfBanner />
               {children}
             </AsOfProvider>

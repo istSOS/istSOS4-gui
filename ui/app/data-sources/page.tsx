@@ -13,23 +13,31 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import DataSourcesPage from '@/features/data-sources/components/DataSourcesPage'
+import { getDataSources } from '@/services/dataSources'
+
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import DataSourcesPage from '@/features/data-sources/components/DataSourcesPage'
-
-import { siteConfig } from '@/config/site'
+import {
+  getPrimaryDataSource,
+  readDataSourcesConfigFile,
+} from '@/server/data-sources/config'
 
 import { isTokenExpired } from '@/lib/auth'
-import { getDataSources } from '@/services/dataSources'
 
 export default async function Page() {
+  // Read at request time, so that with no sources this page stays reachable
+  // without a login.
+  const authorizationEnabled =
+    getPrimaryDataSource(await readDataSourcesConfigFile())
+      ?.authorizationEnabled ?? false
   const cookieStore = await cookies()
-  const token = siteConfig.authorizationEnabled
+  const token = authorizationEnabled
     ? (cookieStore.get('token')?.value ?? null)
     : null
 
-  if (siteConfig.authorizationEnabled && (!token || isTokenExpired(token))) {
+  if (authorizationEnabled && (!token || isTokenExpired(token))) {
     redirect('/login')
   }
 

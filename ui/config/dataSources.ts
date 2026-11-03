@@ -51,22 +51,32 @@ const normalizeSource = (
   }
 }
 
-const parsedSources = Array.isArray(rawDataSources?.sources)
-  ? rawDataSources.sources
-      .map((source, index) => normalizeSource(source, index))
-      .filter((source): source is ConfiguredDataSource => !!source)
-  : []
+declare global {
+  // Registered by instrumentation.ts on the server: reads the file as it is now.
+  var readDataSourcesFile: (() => unknown) | undefined
+}
 
-// An explicit empty list means no sources; the fallback only replaces a
-// malformed configuration.
-export const dataSourcesConfig: ConfiguredDataSource[] = Array.isArray(
-  rawDataSources?.sources
-)
-  ? parsedSources
-  : [FALLBACK_SOURCE]
-
-export const primaryDataSource: ConfiguredDataSource | undefined =
-  dataSourcesConfig.find((source) => source.id === PRIMARY_DATA_SOURCE_ID) ??
-  dataSourcesConfig[0]
-
-export const isPrimaryDataSource = (id: string) => id === primaryDataSource?.id
+/**
+ * The primary source. On the server it is read from the file on each call,
+ * because the data sources page edits that file while the app runs; the
+ * browser uses the bundled copy.
+ */
+export function getPrimaryDataSource(): ConfiguredDataSource | undefined {
+  const raw = (
+    globalThis.readDataSourcesFile
+      ? globalThis.readDataSourcesFile()
+      : rawDataSources
+  ) as {
+    sources?: Array<Partial<ConfiguredDataSource> | null>
+  } | null
+  // An explicit empty list means no sources; the fallback only replaces a
+  // malformed configuration.
+  const sources = Array.isArray(raw?.sources)
+    ? raw.sources
+        .map((source, index) => normalizeSource(source, index))
+        .filter((source): source is ConfiguredDataSource => !!source)
+    : [FALLBACK_SOURCE]
+  return (
+    sources.find((source) => source.id === PRIMARY_DATA_SOURCE_ID) ?? sources[0]
+  )
+}

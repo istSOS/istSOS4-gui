@@ -21,6 +21,7 @@ import { siteConfig } from '@/config/site'
 
 import { canWriteWithToken, decodeTokenPayload, isTokenExpired } from '@/lib/auth'
 import {
+  getDataSourceToken,
   removeDataSourceToken,
   setDataSourceToken,
 } from '@/lib/dataSourceTokens'
@@ -94,12 +95,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (typeof window !== 'undefined') {
-      //take the token from local storage if it exists
-      const storedToken = localStorage.getItem('token')
-      if (storedToken) {
-        setTokenState(storedToken)
-        setDataSourceToken(siteConfig.api_root, storedToken)
-      }
+      //take the primary source's own token from the per-endpoint map. A
+      //generic copy would outlive a change of primary source and overwrite
+      //the new source's token with one its server never issued.
+      const storedToken = getDataSourceToken(siteConfig.api_root)
+      if (storedToken) setToken(storedToken)
+      else deleteCookie('token')
       setLoading(false)
     }
   }, [])
@@ -113,7 +114,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (newToken) {
-      localStorage.setItem('token', newToken)
       setDataSourceToken(siteConfig.api_root, newToken)
       const payload = decodeTokenPayload(newToken)
       const now = Math.floor(Date.now() / 1000)
@@ -130,7 +130,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         path: '/',
       })
     } else {
-      localStorage.removeItem('token')
       removeDataSourceToken(siteConfig.api_root)
       deleteCookie('token')
     }

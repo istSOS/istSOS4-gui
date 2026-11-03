@@ -31,7 +31,6 @@ import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { canUseQcWithToken } from '@/lib/qcAccess'
 import { getDataSourceToken } from '@/lib/dataSourceTokens'
 import { canManageAggregations } from '@/features/aggregations/lib/access'
 import type { AggregationSource } from '@/features/aggregations/lib/types'
@@ -56,10 +55,12 @@ export default function Navbar({
   useEffect(() => {
     setMounted(true)
   }, [])
+  // Anonymous sources are read-only, so they never offer aggregation jobs.
   const canManageJobs = mounted && aggregationSources.some((source) =>
+    source.authorizationEnabled &&
     canManageAggregations(
       source.isPrimary ? token ?? getDataSourceToken(source.endpoint) : getDataSourceToken(source.endpoint),
-      source.authorizationEnabled
+      true
     )
   )
 
@@ -91,7 +92,7 @@ export default function Navbar({
               <AggregationsIcon size={22} />
             </Button>
           </Tooltip>}
-          {saqcEnabled && canUseQcWithToken(token) && (
+          {saqcEnabled && (
             <Tooltip content={t('qc.nav_label')}>
               <Button
                 isIconOnly

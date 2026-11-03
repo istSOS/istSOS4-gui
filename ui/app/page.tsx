@@ -13,8 +13,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { getDatastreams } from '@/services/datastreams'
+import HomePage from '@/features/home/components/HomePage'
 import { getDataSources } from '@/services/dataSources'
+import { getDatastreams } from '@/services/datastreams'
 import { getLocations } from '@/services/locations'
 import { getNetworks } from '@/services/networks'
 import { getObservedProperties } from '@/services/observedProperties'
@@ -24,11 +25,16 @@ import { getThings } from '@/services/things'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import HomePage from '@/features/home/components/HomePage'
 import { siteConfig } from '@/config/site'
+
+import { readDataSourcesConfigFile } from '@/server/data-sources/config'
+
 import { isTokenExpired } from '@/lib/auth'
 
 export default async function Page() {
+  // Nothing to show without a source: start by configuring one.
+  if (!(await readDataSourcesConfigFile()).length) redirect('/data-sources')
+
   const cookieStore = await cookies()
   const token = siteConfig.authorizationEnabled
     ? (cookieStore.get('token')?.value ?? null)
@@ -36,21 +42,6 @@ export default async function Page() {
 
   if (siteConfig.authorizationEnabled && (!token || isTokenExpired(token))) {
     redirect('/login')
-  }
-
-  // No configured data source: an empty map, nothing to read.
-  if (!siteConfig.api_root) {
-    return (
-      <HomePage
-        things={[]}
-        locations={[]}
-        sensors={[]}
-        observedProperties={[]}
-        datastreams={[]}
-        networks={[]}
-        writableDataSources={[]}
-      />
-    )
   }
 
   try {
@@ -63,16 +54,16 @@ export default async function Page() {
       networks,
       dataSources,
     ] = await Promise.all([
-        getThings(token),
-        getLocations(token),
-        getSensors(token),
-        getObservedProperties(token),
-        getDatastreams(token),
-        siteConfig.networkEnabled
-          ? getNetworks(token)
-          : Promise.resolve({ networkData: [] }),
-        getDataSources(token),
-      ])
+      getThings(token),
+      getLocations(token),
+      getSensors(token),
+      getObservedProperties(token),
+      getDatastreams(token),
+      siteConfig.networkEnabled
+        ? getNetworks(token)
+        : Promise.resolve({ networkData: [] }),
+      getDataSources(token),
+    ])
 
     const writableDataSources = dataSources
       .filter((source) => source.authorizationEnabled)

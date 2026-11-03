@@ -64,7 +64,7 @@ const normalizeSource = (
   }
 }
 
-const CONFIG_PATH_CANDIDATES = [
+export const CONFIG_PATH_CANDIDATES = [
   path.join(process.cwd(), 'ui', 'config', 'data-sources.json'),
   path.join(process.cwd(), 'config', 'data-sources.json'),
 ]

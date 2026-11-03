@@ -14,12 +14,15 @@ export async function GET() {
   try {
     const sources = await readDataSourcesConfigFile()
     return NextResponse.json({
-      sources: sources.map((source) => ({
-        id: source.id,
-        name: source.name,
-        endpoint: source.apiRoot,
-        authorizationEnabled: source.authorizationEnabled,
-      })),
+      // Anonymous sources are read-only, so they cannot be edited here.
+      sources: sources
+        .filter((source) => source.authorizationEnabled)
+        .map((source) => ({
+          id: source.id,
+          name: source.name,
+          endpoint: source.apiRoot,
+          authorizationEnabled: source.authorizationEnabled,
+        })),
     })
   } catch (error) {
     return qcFailure(error)
