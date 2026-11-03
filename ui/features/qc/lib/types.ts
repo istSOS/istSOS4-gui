@@ -93,12 +93,19 @@ export type EditOperation =
   | 'fill-constant'
   | 'fill-linear'
   | 'interpolate'
+  | 'correct-drift'
 export type EditRequest = {
   operation: EditOperation
   start: number
   end: number
   value?: number
   maxGapMs?: number
+  driftModel?: 'linear' | 'exponential'
+  /** Averaging window for the clean, fouled and newly cleaned levels. */
+  windowMs?: number
+  /** Bounds every drift-corrected value must stay within. */
+  min?: number
+  max?: number
   includeFailedAnchors: boolean
   note: string
   /** When provided, edit exactly these observations within the interval. */

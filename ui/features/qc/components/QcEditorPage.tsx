@@ -268,7 +268,7 @@ export default function QcEditorPage({
       {discarding && (
         <div
           role="alert"
-          className="flex flex-wrap items-center gap-3 rounded border border-warning p-3 text-sm"
+          className="fixed inset-x-0 top-16 z-50 mx-auto flex w-fit max-w-[calc(100vw-2rem)] flex-wrap items-center gap-3 rounded border border-warning bg-content1 p-3 text-sm shadow-lg"
         >
           <p>{t('qc.discard_confirm')}</p>
           <Button
@@ -304,7 +304,7 @@ export default function QcEditorPage({
       <div
         role="status"
         aria-live="polite"
-        className="space-y-1 text-sm empty:hidden"
+        className="min-h-5 space-y-1 text-sm"
       >
         {editor.error && (
           <p role="alert" className="text-danger">
@@ -319,10 +319,19 @@ export default function QcEditorPage({
         {editor.rangeChanged && (
           <p className="text-warning-700">{t('qc.reload_range')}</p>
         )}
+        {step === 1 &&
+          editor.source &&
+          !editor.busy &&
+          !editor.error &&
+          !editor.streams.length && (
+            <p className="text-default-500">
+              {t('qc.workflow.no_constrained_streams')}
+            </p>
+          )}
       </div>
 
       {step === 1 && (
-        <section className="mx-auto w-full max-w-4xl space-y-5 rounded-lg border border-default-200 p-5 lg:p-8">
+        <section className="w-full space-y-5 rounded-lg border border-default-200 p-5 lg:p-8">
           <div>
             <h2 className="text-xl font-semibold">
               {t('qc.workflow.steps.choose')}
@@ -374,14 +383,6 @@ export default function QcEditorPage({
             </label>
           </div>
 
-          {editor.source &&
-            !editor.busy &&
-            !editor.error &&
-            !editor.streams.length && (
-              <p role="status" className="text-sm text-default-500">
-                {t('qc.workflow.no_constrained_streams')}
-              </p>
-            )}
           <div className="flex flex-wrap gap-2">
             {[1, 7, 30].map((days) => (
               <Button
@@ -487,6 +488,9 @@ export default function QcEditorPage({
                 lockedReason={lockedReason}
                 encoded={encoded}
                 unit={editor.stream?.unit ?? ''}
+                range={editor.constraints.find(
+                  (constraint) => constraint.type === 'flagRange'
+                )}
                 onPreview={setPreview}
                 onApply={(request) => {
                   const applied = editor.applyOperation(request)
@@ -517,53 +521,48 @@ export default function QcEditorPage({
                         : 'qc.workflow.add_human_review'
                     )}
                   </label>
-                  {reviewEnabled && (
-                    <>
-                      <label className="flex flex-col gap-1 text-sm">
-                        {t('qc.workflow.apply_to')}
-                        <select
-                          className={control}
-                          disabled={blocked}
-                          value={reviewScope}
-                          onChange={(event) =>
-                            setReviewScope(event.target.value)
-                          }
-                        >
-                          <option value="changed">
-                            {t('qc.workflow.corrected_values')} (
-                            {corrected.length})
-                          </option>
-                          <option value="selected">
-                            {t('qc.selected_rows')} (
-                            {
-                              windowRows.filter((row) => selected.has(row.key))
-                                .length
-                            }
-                            )
-                          </option>
-                          <option value="all">
-                            {t('qc.all_rows')} ({windowRows.length})
-                          </option>
-                        </select>
-                      </label>
-                      <Button
-                        className="w-full sm:w-auto"
-                        variant="flat"
-                        isDisabled={blocked || !reviewTargets.length}
-                        onPress={() => {
-                          editor.setError('')
-                          setReviewKeys(reviewTargets)
-                        }}
-                      >
-                        {t(
-                          editor.serviceMode
-                            ? 'qc.workflow.assign_flag'
-                            : 'qc.human_review'
-                        )}{' '}
-                        ({reviewTargets.length})
-                      </Button>
-                    </>
-                  )}
+                  <label className="flex flex-col gap-1 text-sm">
+                    {t('qc.workflow.apply_to')}
+                    <select
+                      className={control}
+                      disabled={blocked || !reviewEnabled}
+                      value={reviewScope}
+                      onChange={(event) => setReviewScope(event.target.value)}
+                    >
+                      <option value="changed">
+                        {t('qc.workflow.corrected_values')} ({corrected.length})
+                      </option>
+                      <option value="selected">
+                        {t('qc.selected_rows')} (
+                        {
+                          windowRows.filter((row) => selected.has(row.key))
+                            .length
+                        }
+                        )
+                      </option>
+                      <option value="all">
+                        {t('qc.all_rows')} ({windowRows.length})
+                      </option>
+                    </select>
+                  </label>
+                  <Button
+                    className="w-full sm:w-auto"
+                    variant="flat"
+                    isDisabled={
+                      blocked || !reviewEnabled || !reviewTargets.length
+                    }
+                    onPress={() => {
+                      editor.setError('')
+                      setReviewKeys(reviewTargets)
+                    }}
+                  >
+                    {t(
+                      editor.serviceMode
+                        ? 'qc.workflow.assign_flag'
+                        : 'qc.human_review'
+                    )}{' '}
+                    ({reviewTargets.length})
+                  </Button>
                 </section>
               </div>
             )}
@@ -595,6 +594,7 @@ export default function QcEditorPage({
                     encoded={encoded}
                     originalEncoded={encoded}
                     preview={step === 3 ? preview : undefined}
+                    editing={step === 3}
                   />
                 </div>
               </div>

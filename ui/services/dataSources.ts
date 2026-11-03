@@ -43,7 +43,7 @@ export async function getDataSources(
   token?: string | null
 ): Promise<UiDataSource[]> {
   const configuredSources = await readDataSourcesConfigFile()
-  const primaryDataSourceId = getPrimaryDataSource(configuredSources).id
+  const primaryDataSourceId = getPrimaryDataSource(configuredSources)?.id
 
   const sources: SourceToProbe[] = configuredSources.map((source) => ({
     id: source.id,
@@ -57,7 +57,9 @@ export async function getDataSources(
 
   const checks = await Promise.all(
     sources.map(async (source): Promise<UiDataSource> => {
-      const accessMode = source.authorizationEnabled ? 'read_write' : 'anonymous'
+      const accessMode = source.authorizationEnabled
+        ? 'read_write'
+        : 'anonymous'
 
       try {
         const response = await fetch(source.probeUrl, {

@@ -85,14 +85,14 @@ const resolveConfigFilePath = async () => {
 const normalizeSources = (
   sources: Array<Partial<ConfiguredDataSource> | null | undefined>
 ) => {
-  const normalized = sources
+  return sources
     .map((source, index) => normalizeSource(source, index))
     .filter((source): source is ConfiguredDataSource => !!source)
-
-  return normalized.length > 0 ? normalized : [FALLBACK_SOURCE]
 }
 
-export const getPrimaryDataSource = (sources: ConfiguredDataSource[]) => {
+export const getPrimaryDataSource = (
+  sources: ConfiguredDataSource[]
+): ConfiguredDataSource | undefined => {
   return (
     sources.find((source) => source.id === PRIMARY_DATA_SOURCE_ID) ?? sources[0]
   )
@@ -108,14 +108,12 @@ export async function readDataSourcesConfigFile(): Promise<
 
   try {
     const parsed = JSON.parse(raw) as { sources?: unknown } | null
-    const candidateSources = Array.isArray(parsed?.sources)
-      ? parsed.sources
-      : []
+    // An explicit empty list means no sources; the fallback only replaces a
+    // missing or malformed file.
+    if (!Array.isArray(parsed?.sources)) return [FALLBACK_SOURCE]
 
     return normalizeSources(
-      candidateSources as Array<
-        Partial<ConfiguredDataSource> | null | undefined
-      >
+      parsed.sources as Array<Partial<ConfiguredDataSource> | null | undefined>
     )
   } catch {
     return [FALLBACK_SOURCE]

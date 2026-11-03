@@ -38,6 +38,21 @@ export default async function Page() {
     redirect('/login')
   }
 
+  // No configured data source: an empty map, nothing to read.
+  if (!siteConfig.api_root) {
+    return (
+      <HomePage
+        things={[]}
+        locations={[]}
+        sensors={[]}
+        observedProperties={[]}
+        datastreams={[]}
+        networks={[]}
+        writableDataSources={[]}
+      />
+    )
+  }
+
   try {
     const [
       things,

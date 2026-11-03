@@ -345,7 +345,6 @@ export function useQcEditor(accessUnavailable: boolean) {
       loaded.rows,
       selected,
       checkWorkspace.drafts,
-      constraints.length,
       checkSlots
     )
     if (scope !== 'affected' && (!targetKeys.length || !checkSlots.length))

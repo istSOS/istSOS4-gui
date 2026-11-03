@@ -1115,8 +1115,10 @@ test('check scopes keep an empty selection empty and make all-loaded explicit', 
   const ws = workspace()
   const rows = Object.values(ws.rows)
   ws.drafts['2'] = { result: 5, resultQuality: 3, staleSlots: [1, 2, 3] }
+  // Never checked in the source (checks 00) but not touched by an edit.
+  ws.drafts['3'] = { result: rows[3].result, resultQuality: 3, staleSlots: [] }
   const targets = (scope, selected) =>
-    qcCheckTargets(scope, rows, selected, ws.drafts, 3, [1])
+    qcCheckTargets(scope, rows, selected, ws.drafts, [1])
   assert.deepEqual(targets('selected', []), [])
   assert.deepEqual(targets('selected', ['4', '1', '1', '9', 'missing']), [
     '1',
@@ -1973,4 +1975,122 @@ test('unknown and reserved check flags are pending until explicitly recalculated
     () => reviewHuman(next, ['0'], 3, checks),
     /Run the stored QC checks/
   )
+})
+
+function driftRows(values, cleanedTs, cleanedValue) {
+  const rows = values.map(([ts, result], i) => ({
+    key: String(i),
+    id: String(i),
+    ts,
+    time: new Date(ts).toISOString(),
+    result,
+    resultQuality: 255,
+    scope: 'window',
+  }))
+  rows.push({
+    ...rows[0],
+    key: 'cleaned',
+    id: 'cleaned',
+    ts: cleanedTs,
+    time: new Date(cleanedTs).toISOString(),
+    result: cleanedValue,
+  })
+  return rows
+}
+const driftRequest = (rows, extra) => ({
+  operation: 'correct-drift',
+  start: 0,
+  end: cleanedEnd(rows),
+  keys: rows.filter((r) => r.key !== 'cleaned').map((r) => r.key),
+  includeFailedAnchors: false,
+  note: 'Sensor cleaned',
+  ...extra,
+})
+const cleanedEnd = (rows) => rows.at(-1).ts
+
+test('linear drift correction uses window means for clean, fouled and newly cleaned levels', () => {
+  // 10 + t over minutes 0..8, cleaned back to 10 at minute 9.
+  const rows = driftRows(
+    Array.from({ length: 9 }, (_, t) => [t * 60000, 10 + t]),
+    9 * 60000,
+    10
+  )
+  const plan = planEdits(
+    rows,
+    {},
+    driftRequest(rows, { driftModel: 'linear', windowMs: 60000 }),
+    3
+  )
+  // clean 10.5, fouled 17.5, newly cleaned 10 → drift 7.5 at the end.
+  assert.equal(plan.changes[0], undefined)
+  assert.equal(plan.changes[4], 14 - 7.5 / 2)
+  assert.equal(plan.changes[8], 18 - 7.5)
+  assert.equal(plan.changes.cleaned, undefined)
+})
+
+test('exponential drift correction fits the curve and removes the drift', () => {
+  const shape = (x) => Math.expm1(3 * x) / Math.expm1(3)
+  const rows = driftRows(
+    Array.from({ length: 81 }, (_, t) => [t * 60000, 10 + 8 * shape(t / 80)]),
+    80 * 60000 + 1,
+    10
+  )
+  const plan = planEdits(
+    rows,
+    {},
+    driftRequest(rows, {
+      end: 80 * 60000,
+      driftModel: 'exponential',
+      windowMs: 1,
+    }),
+    3
+  )
+  for (const value of Object.values(plan.changes))
+    assert.ok(Math.abs(value - 10) < 1e-3, value)
+  assert.ok(Object.keys(plan.changes).length > 70)
+})
+
+test('drift correction shrinks the drift just enough to respect Min and Max', () => {
+  const rows = driftRows(
+    Array.from({ length: 9 }, (_, t) => [t * 60000, 10 + t]),
+    9 * 60000,
+    10
+  )
+  const request = driftRequest(rows, { driftModel: 'linear', windowMs: 60000 })
+  // Unbounded drift 7.5 ends at 10.5; Max 10.25 forces a drift of 7.75.
+  const plan = planEdits(rows, {}, { ...request, min: 10, max: 10.25 }, 3)
+  assert.equal(plan.changes[8], 10.25)
+  assert.equal(plan.changes[4], 14 - 7.75 / 2)
+  // The start value 10 cannot be moved, so Max 9 is infeasible.
+  assert.throws(
+    () => planEdits(rows, {}, { ...request, max: 9 }, 3),
+    /within Min and Max/
+  )
+  assert.throws(
+    () => planEdits(rows, {}, { ...request, min: 5, max: 1 }, 3),
+    /Min must not/
+  )
+})
+
+test('bounded exponential drift refits the curve within Min and Max', () => {
+  const shape = (x) => Math.expm1(3 * x) / Math.expm1(3)
+  // Drifts from 10 to 18, cleaned to 9: unbounded correction ends at 9.
+  const rows = driftRows(
+    Array.from({ length: 81 }, (_, t) => [t * 60000, 10 + 8 * shape(t / 80)]),
+    80 * 60000 + 1,
+    9
+  )
+  const request = driftRequest(rows, {
+    end: 80 * 60000,
+    driftModel: 'exponential',
+    windowMs: 1,
+  })
+  const free = Object.values(planEdits(rows, {}, request, 3).changes)
+  assert.ok(Math.min(...free) < 9.01)
+  const bounded = Object.values(
+    planEdits(rows, {}, { ...request, min: 9.5 }, 3).changes
+  )
+  assert.ok(bounded.every((value) => value >= 9.5))
+  // The bound is active: the curve is not shrunk more than needed.
+  assert.ok(Math.min(...bounded) < 9.51)
 })

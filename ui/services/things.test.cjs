@@ -34,7 +34,7 @@ function load(relative) {
       return Module.prototype.require.call(loaded, name)
     }
     loaded._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true },
     }).outputText, filename)
     return loaded.exports
   }
@@ -155,4 +155,33 @@ test('repeated continuation URLs fail instead of looping or returning duplicates
   await assert.rejects(readThingsWithDatastreams(endpoint, 'Sensor', async () => ({
     value: [{ '@iot.id': 1 }], '@iot.nextLink': '?$skip=1',
   })), /Repeated SensorThings page/)
+})
+
+test('an unreachable source lists no Things instead of crashing the home page', async (context) => {
+  context.mock.method(globalThis, 'fetch', async () => {
+    throw new TypeError('fetch failed')
+  })
+  const errors = context.mock.method(console, 'error', () => {})
+  context.mock.method(console, 'warn', () => {})
+  const { getThings } = load('services/things.ts')
+  assert.deepEqual(await getThings(null), { thingData: [] })
+  // Next.js shows server console.error calls as issues; offline is not one.
+  assert.equal(errors.mock.callCount(), 0)
+})
+
+test('deleting every source leaves the configuration empty, without a fallback', async (context) => {
+  const dir = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'sources-'))
+  fs.mkdirSync(path.join(dir, 'ui', 'config'), { recursive: true })
+  const cwd = process.cwd()
+  process.chdir(dir)
+  context.after(() => process.chdir(cwd))
+  process.env.NEXT_PUBLIC_ISTSOS4_URL ??= 'http://fallback.test'
+  const config = load('server/data-sources/config.ts')
+  assert.deepEqual(await config.writeDataSourcesConfigFile([]), [])
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(dir, 'ui', 'config', 'data-sources.json'), 'utf8')),
+    { sources: [] }
+  )
+  assert.deepEqual(await config.readDataSourcesConfigFile(), [])
+  assert.equal(config.getPrimaryDataSource([]), undefined)
 })

@@ -69,11 +69,11 @@ export default function QcObservationExport({
           </option>
         </select>
       </label>
-      {scope === 'changed' && (
-        <p className="text-xs text-default-500">
-          {t('qc.observation_export.changed_hint')}
-        </p>
-      )}
+      <p
+        className={`text-xs text-default-500 ${scope === 'changed' ? '' : 'invisible'}`}
+      >
+        {t('qc.observation_export.changed_hint')}
+      </p>
       <label className="block text-sm">
         {t(
           versioningEnabled

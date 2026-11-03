@@ -48,7 +48,10 @@ export const fetchData = async (endpoint: string, token?: string | null) => {
     const data = JSON.parse(text)
     return data
   } catch (error) {
-    console.error('Error fetching data:', error)
+    // fetch rejects with a TypeError when the host is unreachable: an offline
+    // source is an expected state, not an error. HTTP and JSON failures are.
+    const log = error instanceof TypeError ? console.warn : console.error
+    log('Error fetching data:', error)
     return null
   }
 }

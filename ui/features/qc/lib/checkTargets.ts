@@ -1,4 +1,3 @@
-import { unrunSlots } from './checks'
 import { rowValue } from './model'
 import type { Drafts, QcRow } from './types'
 
@@ -9,7 +8,6 @@ export function qcCheckTargets(
   rows: QcRow[],
   selected: string[],
   drafts: Drafts,
-  checkCount: number,
   slots: number[]
 ): string[] {
   const keys = new Set(selected)
@@ -20,7 +18,10 @@ export function qcCheckTargets(
         (scope === 'all' ||
           (scope === 'selected'
             ? keys.has(row.key)
-            : unrunSlots(rowValue(row, drafts), checkCount).some((slot) =>
+            : // Only checks an edit invalidated: the edited observations
+              // and those whose window includes one. Checks never run in
+              // the source data stay as they are.
+              rowValue(row, drafts).staleSlots.some((slot) =>
                 slots.includes(slot)
               )))
     )

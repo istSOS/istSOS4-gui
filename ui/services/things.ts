@@ -72,12 +72,19 @@ export type UpdateThingPayload = {
 }
 
 export async function getThings(token?: string | null) {
-  const thingData = await readThingsWithDatastreams(
-    siteConfig.api_root,
-    'Network,Sensor,ObservedProperty',
-    (url) => fetchData(url, token)
-  )
-  return { thingData }
+  try {
+    const thingData = await readThingsWithDatastreams(
+      siteConfig.api_root,
+      'Network,Sensor,ObservedProperty',
+      (url) => fetchData(url, token)
+    )
+    return { thingData }
+  } catch {
+    // An unreachable source lists no Things, like the other collections, and
+    // is reported offline on the data sources page instead of crashing.
+    // fetchData has already logged why.
+    return { thingData: [] }
+  }
 }
 
 export async function getThingsCount(token: string) {

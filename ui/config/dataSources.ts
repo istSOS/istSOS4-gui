@@ -57,11 +57,16 @@ const parsedSources = Array.isArray(rawDataSources?.sources)
       .filter((source): source is ConfiguredDataSource => !!source)
   : []
 
-export const dataSourcesConfig: ConfiguredDataSource[] =
-  parsedSources.length > 0 ? parsedSources : [FALLBACK_SOURCE]
+// An explicit empty list means no sources; the fallback only replaces a
+// malformed configuration.
+export const dataSourcesConfig: ConfiguredDataSource[] = Array.isArray(
+  rawDataSources?.sources
+)
+  ? parsedSources
+  : [FALLBACK_SOURCE]
 
-export const primaryDataSource =
+export const primaryDataSource: ConfiguredDataSource | undefined =
   dataSourcesConfig.find((source) => source.id === PRIMARY_DATA_SOURCE_ID) ??
   dataSourcesConfig[0]
 
-export const isPrimaryDataSource = (id: string) => id === primaryDataSource.id
+export const isPrimaryDataSource = (id: string) => id === primaryDataSource?.id

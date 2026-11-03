@@ -649,3 +649,32 @@ test('QC selection tool changes colour and clearing a point exits brush mode wit
   chart.trigger('click', { data: [rows[51].ts, rows[51].result, '51'] })
   assert.deepEqual(selection, ['51'])
 })
+
+test('dense change connectors are thinned when zoomed out and complete when zoomed in', (t) => {
+  const denseRows = Array.from({ length: 5000 }, (_, index) => ({
+    ...rows[0],
+    key: String(index),
+    id: String(index),
+    ts: rows[0].ts + index * 60000,
+    time: new Date(rows[0].ts + index * 60000).toISOString(),
+  }))
+  const drafts = Object.fromEntries(
+    denseRows.map((row) => [
+      row.key,
+      { result: row.result + 1, resultQuality: 255, staleSlots: [] },
+    ])
+  )
+  const { chart, series } = mount(t, { rows: denseRows, drafts })
+  const lines = () => series('qc-change-connectors').option.data.length / 3
+  // 1000px chart, 885px plot: at most one connector per 4px.
+  assert.ok(lines() > 100 && lines() <= Math.ceil(885 / 4), lines())
+  chart.dispatchAction({ type: 'dataZoom', start: 0, end: 1 })
+  // About 50 edits are visible: every one of them gets its connector.
+  assert.ok(lines() >= 45 && lines() <= 52, lines())
+})
+
+test('the correction step opens tooltips on click only and hides the hover toggle', (t) => {
+  const { chart } = mount(t, { editing: true })
+  assert.equal(chart.getOption().tooltip[0].triggerOn, 'click')
+  assert.equal(chart.getOption().toolbox[0].feature.myHoverTooltips.show, false)
+})

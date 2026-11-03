@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-
 /**
  * @file server/upstream.ts
  *
@@ -21,7 +19,6 @@
  * in NEXT_PUBLIC_ISTSOS4_URL, which a browser cannot resolve, and it sends no
  * CORS headers — so such reads run inside the Next server instead.
  */
-
 import { cookies } from 'next/headers'
 
 import {
@@ -46,7 +43,8 @@ export async function resolveConfiguredEndpoint(
   const normalizedRequested = requested ? normalizeApiRoot(requested) : ''
 
   if (!normalizedRequested) {
-    return normalizeApiRoot(getPrimaryDataSource(sources).apiRoot)
+    const primary = getPrimaryDataSource(sources)
+    return primary ? normalizeApiRoot(primary.apiRoot) : null
   }
 
   const match = sources.find(

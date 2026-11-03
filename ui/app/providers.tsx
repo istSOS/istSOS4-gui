@@ -13,6 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import i18n from '@/i18n'
 import { HeroUIProvider } from '@heroui/system'
 import * as React from 'react'
 
@@ -25,6 +26,11 @@ export interface ProvidersProps {
 }
 
 export default function Providers({ children, themeProps }: ProvidersProps) {
+  // No argument: runs the detector (localStorage) once hydration is done.
+  React.useEffect(() => {
+    i18n.changeLanguage()
+  }, [])
+
   return (
     <HeroUIProvider>
       <ThemeProvider

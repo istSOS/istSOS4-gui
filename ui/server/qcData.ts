@@ -52,7 +52,7 @@ export async function qcContext(request: Request) {
   const sources = await readDataSourcesConfigFile()
   const primary = getPrimaryDataSource(sources)
   const source = sources.find(
-    (s) => s.id === String(body.sourceId ?? primary.id)
+    (s) => s.id === String(body.sourceId ?? primary?.id)
   )
   if (!source) throw new QcError('Unknown data source')
   const token =

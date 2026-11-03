@@ -52,9 +52,10 @@ export const BASEMAPS: Record<
   },
 }
 
-const API_ROOT = primaryDataSource.apiRoot
-const AUTHORIZATION_ENABLED = primaryDataSource.authorizationEnabled
-const NETWORK_ENABLED = primaryDataSource.networkEnabled
+// With no configured source there is nothing to sign in to or to read.
+const API_ROOT = primaryDataSource?.apiRoot ?? ''
+const AUTHORIZATION_ENABLED = primaryDataSource?.authorizationEnabled ?? false
+const NETWORK_ENABLED = primaryDataSource?.networkEnabled ?? false
 
 export const siteConfig = {
   name: 'istSOS4 admin ui',

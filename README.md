@@ -181,8 +181,9 @@ The indicator includes current Undo/Redo and audit counts for the active session
    Unrun tests remain pending, and no human approval is inferred from an unknown
    code. Streams with more than four checks remain available for inspection only.
 3. **Correct values** selects exact observations or an explicit inclusive interval.
-   Replace values, apply an offset, mark missing, or fill/interpolate existing
-   records. The chart and a before/after table preview changes. A correction reason
+   Replace values, apply an offset, mark missing, fill/interpolate existing
+   records, or correct sensor drift (see [Correction methods](#correction-methods)).
+   The chart and a before/after table preview changes. A correction reason
    is required. **Set up correction** expands a horizontal form above the plot;
    applying a correction collapses it and clears the proposed preview. Each interval
    operation is one Undo step. For cell edits, enter their reason above the
@@ -316,8 +317,8 @@ JSON quotes, and `$$` represents a literal dollar sign in Docker Compose.
 Run the configuration tests with `cd ui && npm run test:quality-config`.
 
 **Edit values** applies a constant or offset, marks values missing, fills missing values
-with a constant or linear interpolation, or replaces an interval by a straight
-line between exterior anchors. For selected observations, anchors are taken from
+with a constant or linear interpolation, replaces an interval by a straight
+line between exterior anchors, or corrects drift. For selected observations, anchors are taken from
 outside the first and last selected timestamps, rather than the full loaded
 period. Choose an inclusive UTC interval directly or
 choose exact graph/table selections without expanding them to intervening records. The preview shows affected
@@ -337,6 +338,116 @@ had a known failure. Filled, interpolated and manually corrected values use data
 check slots become pending and supported checks are rerun automatically after
 applying the correction, including dependent observations.
 
+#### Correction methods
+
+All corrections are computed in the browser by `planEdits`
+([`ui/features/qc/lib/operations.ts`](ui/features/qc/lib/operations.ts)). It is
+a pure function: it returns the proposed new values, which drive the live
+preview and are applied unchanged. The SaQC service only reruns checks
+afterwards. Missing values and no-data markers are never used as input.
+In the chart, proposed values are drawn as a fine black dashed line with
+round markers where each changed run starts and ends.
+
+In the formulas, $v$ is the current value of a targeted observation at time $t$.
+
+| Operation | New value of each targeted observation |
+|---|---|
+| Set constant | $k$, the entered value |
+| Add / subtract offset | $v + k$ (missing values are skipped) |
+| Mark as missing | missing (`null`) |
+| Fill missing with a constant | $k$, only for missing values in gaps no longer than the maximum gap |
+| Fill missing by linear interpolation | $v_a + (v_b - v_a)\,\dfrac{t - t_a}{t_b - t_a}$, between the nearest valid observations $(t_a, v_a)$ before and $(t_b, v_b)$ after the gap |
+| Replace interval by linear interpolation | Same formula, with anchors taken outside the interval |
+| Correct drift | $v - D\,s(x)$, described below |
+
+**Correct drift** follows SaQC's `correctDrift` for a sensor that drifts between
+two maintenance events (for example, fouling that is removed by cleaning). The
+selection is the drift period, from $t_0$ to $t_1$. With the **Averaging
+window** $w$ (minutes), three levels are measured as means of valid values:
+
+- **clean** $\bar v_{\text{clean}}$: values in $[t_0,\ t_0 + w]$, just after the
+  previous cleaning;
+- **fouled** $\bar v_{\text{fouled}}$: values in $[t_1 - w,\ t_1]$, the most
+  drifted part;
+- **newly cleaned** $\bar v_{\text{new}}$: values in $(t_1,\ t_1 + w]$, just
+  after the period. These observations must be loaded, so a selection that ends
+  at the end of the loaded data may need a wider period.
+
+Time is normalized to $x = \dfrac{t - t_0}{t_1 - t_0} \in [0, 1]$. The
+**Drift curve** gives the shape $s(x)$, which rises from $s(0) = 0$ to
+$s(1) = 1$:
+
+- **Linear**: $s(x) = x$.
+- **Exponential**: $s(c, x) = \dfrac{e^{c x} - 1}{e^{c} - 1}$, which tends to
+  the linear curve as $c \to 0$. The parameter $c$ is fitted by least squares
+  over the observations $(x_i, v_i)$ of the drift period:
+
+$$
+c_0 = \arg\min_{c} \sum_i \Big( v_i - \bar v_{\text{clean}} - s(c, x_i)\,\big(\bar v_{\text{fouled}} - \bar v_{\text{clean}}\big) \Big)^2
+$$
+
+The drift amount is $D_0 = \bar v_{\text{fouled}} - \bar v_{\text{new}}$, and each
+value becomes
+
+$$
+v_i' = v_i - D_0\, s(c_0, x_i)
+$$
+
+Nothing changes at the start of the period, and the end comes down to the newly
+cleaned level.
+
+**Min / Max after correction** are optional bounds $[m, M]$ on every corrected
+value. They default to the `min` and `max` of the datastream's stored
+`flagRange` check, if there is one, and an empty field means no bound. If the
+unbounded correction already respects them, it is used unchanged. Otherwise the
+curve is refitted by **constrained nonlinear least squares** over both the shape
+$c$ and the amount $D$:
+
+$$
+\begin{aligned}
+\min_{c,\,D}\quad & \sum_i \big( D\, s(c, x_i) - g_i \big)^2, \qquad g_i = D_0\, s(c_0, x_i) \\
+\text{subject to}\quad & m \le v_i - D\, s(c, x_i) \le M \quad \text{for every corrected value}
+\end{aligned}
+$$
+
+In other words, the corrected values stay as close as possible, in the
+least-squares sense, to the unbounded SaQC correction while respecting the
+bounds. The problem is separable (**variable projection**). $D$ enters
+linearly, so for a fixed $c$ each value with $s_i = s(c, x_i) > 0$ gives a
+linear limit
+
+$$
+\frac{v_i - M}{s_i} \;\le\; D \;\le\; \frac{v_i - m}{s_i}
+$$
+
+The optimal $D$ is the unconstrained least-squares value clamped to the
+intersection $[D_{\text{lo}}, D_{\text{hi}}]$ of those limits:
+
+$$
+D^*(c) = \operatorname{clamp}\!\left( \frac{\sum_i s_i\, g_i}{\sum_i s_i^2},\ D_{\text{lo}},\ D_{\text{hi}} \right)
+$$
+
+That step is the exact solution of a one-variable quadratic program, so only
+$c$ is searched numerically. With the linear curve there is no $c$, so only $D$
+changes. If no curve satisfies every bound, the operation reports an error.
+That is always the case when the first value of the period is already out of
+bounds, because $s(0) = 0$ and the correction cannot move it. Corrected values
+are finally clamped to $[m, M]$ only to absorb floating-point rounding.
+
+*Optimizer.* $c$ is minimized with a coarse grid over $[-30, 30]$ followed by
+a golden-section search around the best grid point. That replaces SciPy's
+`curve_fit` and, for the bounded case, solvers such as SLSQP or `trust-constr`.
+It is exact enough for one smooth parameter, but it can miss a narrow second
+minimum.
+
+*Differences from SaQC.* SaQC's `correctDrift(field, maintenance_field, model,
+cal_range)` takes the maintenance times as a separate series and `cal_range` as a
+number of values. Here the selection defines the period and the window is a
+duration. SaQC has no Min/Max bounds. The correction is implemented in
+TypeScript so that the preview updates instantly and works on draft values.
+The trade-off is that it is a reimplementation rather than a call into the
+pinned SaQC version.
+
 **Audit log** records UTC event time, the current source user, source/datastream,
 action, correction/review reason, parameters, interpolation anchors, and
 per-observation before/after values, masks and check state. Cell edits, manual
@@ -346,6 +457,33 @@ Detailed exports include **Audit log**, **Audit changes** and **Audit parameters
 worksheets. Leaving the editor clears this in-memory history.
 This browser history is not a permanent or tamper-proof server audit trail;
 server commit auditing will accompany the later save workflow.
+
+#### Quality bitmask
+
+`resultQuality` is an integer read as pairs of bits. With N stored checks it
+has N + 2 pairs, read from right (lowest bits) to left:
+
+```
+ pair N+1      pair N   …   pair 1    pair 0
+human review   check N  …   check 1   data state
+```
+
+The human review is always the last (leftmost) pair, right after the last check.
+
+| Bits | Data state (pair 0) | Check (pairs 1..N) | Human review (pair N+1) |
+|---|---|---|---|
+| `11` | raw | passed | accepted |
+| `10` | filled or corrected | failed | rejected |
+| `01` | digital | unused | unused |
+| `00` | missing | not executed | not reviewed |
+
+Examples with three checks (10 bits: human, check 3, check 2, check 1, data):
+
+| Mask | Bits | Meaning |
+|---|---|---|
+| `239` | `00 11 10 11 11` | raw, check 2 failed, not reviewed |
+| `1007` | `11 11 10 11 11` | same, human accepted |
+| `751` | `10 11 10 11 11` | same, human rejected |
 
 Mask decoding follows `istsos4_client.quality`: pair 0 is data state
 (`11` raw, `10` filled/corrected, `00` missing, `01` digital), pairs 1..N

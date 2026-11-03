@@ -11,15 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import {
+  Datastream,
+  EntityRef,
+  ObservedPropertyRef,
+  SensorRef,
+  Thing,
+} from '@/types/domain'
+
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { readThingsWithDatastreams } from '@/lib/sensorThingsPagination'
 
 import {
   getPrimaryDataSource,
   readDataSourcesConfigFile,
 } from '@/server/data-sources/config'
-import { Datastream, EntityRef, ObservedPropertyRef, SensorRef, Thing } from '@/types/domain'
+
+import { readThingsWithDatastreams } from '@/lib/sensorThingsPagination'
 
 type SourceMeta = {
   __sourceId: string
@@ -83,31 +91,29 @@ async function fetchThingsForSource(
   const endpoint = normalizeApiRoot(source.apiRoot)
 
   try {
-    const [
-      values,
-      sensorsValues,
-      observedPropertiesValues,
-      networkValues,
-    ] = await Promise.all([
-      readThingsWithDatastreams(
-        endpoint,
-        'Network,Sensor,Observations($top=1;$orderby=phenomenonTime desc),ObservedProperty',
-        async (url) => {
-          const response = await fetch(url, {
-            method: 'GET',
-            headers: withAuthHeaders(token),
-            cache: 'no-store',
-          })
-          if (!response.ok) {
-            throw new Error(`${response.status} ${response.statusText}`.trim())
+    const [values, sensorsValues, observedPropertiesValues, networkValues] =
+      await Promise.all([
+        readThingsWithDatastreams(
+          endpoint,
+          'Network,Sensor,Observations($top=1;$orderby=phenomenonTime desc),ObservedProperty',
+          async (url) => {
+            const response = await fetch(url, {
+              method: 'GET',
+              headers: withAuthHeaders(token),
+              cache: 'no-store',
+            })
+            if (!response.ok) {
+              throw new Error(
+                `${response.status} ${response.statusText}`.trim()
+              )
+            }
+            return response.json()
           }
-          return response.json()
-        }
-      ),
-      fetchSourceCollection(buildSensorsUrl(endpoint), token),
-      fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
-      fetchSourceCollection(buildNetworksUrl(endpoint), token),
-    ])
+        ),
+        fetchSourceCollection(buildSensorsUrl(endpoint), token),
+        fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
+        fetchSourceCollection(buildNetworksUrl(endpoint), token),
+      ])
 
     const things = values.map((thing) => ({
       ...thing,
@@ -135,14 +141,12 @@ async function fetchThingsForSource(
         __sourceName: source.name,
         __sourceEndpoint: endpoint,
       })),
-      observedProperties: observedPropertiesValues.map(
-        (observedProperty) => ({
-          ...observedProperty,
-          __sourceId: source.id,
-          __sourceName: source.name,
-          __sourceEndpoint: endpoint,
-        })
-      ),
+      observedProperties: observedPropertiesValues.map((observedProperty) => ({
+        ...observedProperty,
+        __sourceId: source.id,
+        __sourceName: source.name,
+        __sourceEndpoint: endpoint,
+      })),
       networks: networkValues.map((network) => ({
         ...network,
         __sourceId: source.id,
@@ -185,8 +189,8 @@ export async function POST(request: Request) {
 
   const cookieStore = await cookies()
   const cookieToken = cookieStore.get('token')?.value ?? null
-  const primaryEndpoint = normalizeApiRoot(primaryDataSource.apiRoot)
-  if (cookieToken && !normalizedTokens[primaryEndpoint]) {
+  const primaryEndpoint = normalizeApiRoot(primaryDataSource?.apiRoot ?? '')
+  if (cookieToken && primaryEndpoint && !normalizedTokens[primaryEndpoint]) {
     normalizedTokens[primaryEndpoint] = cookieToken
   }
 

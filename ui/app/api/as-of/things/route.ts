@@ -58,7 +58,7 @@ export async function POST(request: Request) {
 
     const dataSources = await readDataSourcesConfigFile()
     const primaryEndpoint = normalizeApiRoot(
-      getPrimaryDataSource(dataSources).apiRoot
+      getPrimaryDataSource(dataSources)?.apiRoot ?? ''
     )
 
     // Same token resolution as the live things route, so a source readable live

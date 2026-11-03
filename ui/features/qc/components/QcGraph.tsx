@@ -45,6 +45,42 @@ const escapeHtml = (value: string) =>
       ]!
   )
 
+const GRID_LEFT = 80
+const GRID_RIGHT = 35
+const CONNECTOR_SPACING_PX = 4
+type Connector = [number, number | null, number | null]
+
+// At most one change connector per few pixels: the rest are skipped evenly,
+// so dense edits never merge into a solid block when zoomed out. The stride
+// runs over all edits, so panning keeps the same lines.
+function drawConnectors(
+  chart: echarts.EChartsType,
+  connectors: Connector[],
+  drawn: { current: string }
+) {
+  const width = chart.getWidth() - GRID_LEFT - GRID_RIGHT
+  const [from, to] = [GRID_LEFT, GRID_LEFT + width].map(
+    (x) => chart.convertFromPixel({ xAxisIndex: 0 }, x) as number
+  )
+  const visible = connectors.filter(([ts]) => ts >= from && ts <= to).length
+  const stride = Math.max(
+    1,
+    Math.ceil(visible / (width / CONNECTOR_SPACING_PX))
+  )
+  const data = connectors
+    .filter(([ts], index) => index % stride === 0 && ts >= from && ts <= to)
+    .flatMap(([ts, original, draft]) => [
+      [ts, original],
+      [ts, draft],
+      [ts, null],
+    ])
+  // Zooming to a selection must not resubmit an unchanged series.
+  const signature = JSON.stringify(data)
+  if (signature === drawn.current) return
+  drawn.current = signature
+  chart.setOption({ series: [{ id: 'qc-change-connectors', data }] })
+}
+
 export default function QcGraph({
   rows,
   drafts,
@@ -58,6 +94,7 @@ export default function QcGraph({
   utcOffset,
   preview,
   unit,
+  editing = false,
 }: {
   rows: QcRow[]
   drafts: Drafts
@@ -71,6 +108,8 @@ export default function QcGraph({
   utcOffset: number
   preview?: Record<string, number | null>
   unit?: string
+  /** Correction step: tooltips open on click only, never on hover. */
+  editing?: boolean
 }) {
   const { t } = useTranslation()
   const node = useRef<HTMLDivElement>(null)
@@ -88,6 +127,8 @@ export default function QcGraph({
   const onSelectRef = useRef(onSelect)
   const rowRef = useRef(rows)
   const brushSelectionRef = useRef<string[] | null>(null)
+  const connectorsRef = useRef<Connector[]>([])
+  const drawnConnectorsRef = useRef('')
   function resetZoom() {
     // No target index: reset every zoom controller, including the ones added
     // internally by the box-zoom tool. Keep the selected observations intact.
@@ -103,8 +144,14 @@ export default function QcGraph({
     const chart = echarts.init(node.current)
     chartRef.current = chart
     zoomRef.current = null
-    const resize = new ResizeObserver(() => chart.resize())
+    const resize = new ResizeObserver(() => {
+      chart.resize()
+      drawConnectors(chart, connectorsRef.current, drawnConnectorsRef)
+    })
     resize.observe(node.current)
+    chart.on('datazoom', () =>
+      drawConnectors(chart, connectorsRef.current, drawnConnectorsRef)
+    )
     chart.on('click', (params) => {
       const data = params.data as unknown as [number, number, string]
       if (Array.isArray(data) && typeof data[2] === 'string')
@@ -184,14 +231,11 @@ export default function QcGraph({
             : t(`qc.${humanStatus(slotState(mask, checkCount + 1))}`),
       }
     }
-    const connectors: Array<[number, number | null]> = []
-    editedRows.forEach((row) => {
-      connectors.push(
-        [row.ts, point(row, false)[1]],
-        [row.ts, point(row, true)[1]],
-        [row.ts, null]
-      )
-    })
+    connectorsRef.current = editedRows.map((row) => [
+      row.ts,
+      point(row, false)[1],
+      point(row, true)[1],
+    ])
     const gaps = rows
       .slice(1)
       .map((row, i) => row.ts - rows[i].ts)
@@ -266,6 +310,14 @@ export default function QcGraph({
           : null
       },
     }
+    const proposed = rows.map(
+      (row) => !!preview && Object.hasOwn(preview, row.key)
+    )
+    const proposedEdges = new Set(
+      rows
+        .filter((_, i) => proposed[i] && (!proposed[i - 1] || !proposed[i + 1]))
+        .map((row) => row.key)
+    )
     const option: echarts.EChartsOption = {
       animation: false,
       // Keep hover highlights on the same canvas as their current geometry,
@@ -284,20 +336,28 @@ export default function QcGraph({
         ],
       },
       grid: [
-        { left: 80, right: 35, top: 38, bottom: encoded ? 80 : 25 },
-        { left: 80, right: 35, height: 36, bottom: 27 },
+        {
+          left: GRID_LEFT,
+          right: GRID_RIGHT,
+          top: 38,
+          bottom: encoded ? 80 : 25,
+        },
+        { left: GRID_LEFT, right: GRID_RIGHT, height: 36, bottom: 27 },
       ],
       toolbox: {
         right: 12,
         top: 0,
         feature: {
           myResetZoom: resetZoomTool(t('qc.zoom_reset'), resetZoom),
-          myHoverTooltips: hoverTooltipTool(
-            hoverTooltipsRef.current,
-            t('observations.show_on_hover'),
-            () =>
-              plotTooltipPreference.set(!plotTooltipPreference.getSnapshot())
-          ),
+          myHoverTooltips: {
+            ...hoverTooltipTool(
+              hoverTooltipsRef.current,
+              t('observations.show_on_hover'),
+              () =>
+                plotTooltipPreference.set(!plotTooltipPreference.getSnapshot())
+            ),
+            show: !editing,
+          },
           brush: {
             ...brushToolStyle(),
             type: ['lineX', 'clear'],
@@ -322,7 +382,8 @@ export default function QcGraph({
       },
       tooltip: {
         trigger: 'axis',
-        triggerOn: hoverTooltipsRef.current ? 'mousemove|click' : 'click',
+        triggerOn:
+          !editing && hoverTooltipsRef.current ? 'mousemove|click' : 'click',
         renderMode: 'html',
         confine: true,
         formatter: (params: unknown) => {
@@ -484,7 +545,7 @@ export default function QcGraph({
           id: 'qc-change-connectors',
           name: 'Changes',
           type: 'line',
-          data: connectors,
+          data: [],
           showSymbol: false,
           silent: true,
           lineStyle: { color: '#eb6834', type: 'dotted', width: 1 },
@@ -524,11 +585,14 @@ export default function QcGraph({
             row.key,
           ]),
           showSymbol: true,
-          symbolSize: 6,
+          // Round markers only where a previewed run starts or ends.
+          symbol: (value: unknown[]) =>
+            proposedEdges.has(value[2] as string) ? 'circle' : 'none',
+          symbolSize: 9,
           connectNulls: false,
           silent: true,
-          lineStyle: { type: 'dashed', width: 2, color: '#00897b' },
-          itemStyle: { color: '#00897b' },
+          lineStyle: { type: [2, 2], width: 1.2, color: '#000' },
+          itemStyle: { color: '#000', borderColor: '#fff', borderWidth: 2 },
         },
         quality,
       ],
@@ -536,6 +600,8 @@ export default function QcGraph({
     // Selection changes update only markers in the effect below. Keep the
     // observation curves and zoom controllers intact while choosing rows.
     chart.setOption(option, { replaceMerge: ['series'] })
+    drawnConnectorsRef.current = '[]'
+    drawConnectors(chart, connectorsRef.current, drawnConnectorsRef)
   }, [
     rows,
     drafts,
@@ -547,6 +613,7 @@ export default function QcGraph({
     utcOffset,
     preview,
     unit,
+    editing,
     t,
   ])
 
@@ -616,20 +683,25 @@ export default function QcGraph({
     const chart = chartRef.current
     if (!chart) return
     chart.setOption({
-      tooltip: { triggerOn: hoverTooltips ? 'mousemove|click' : 'click' },
+      tooltip: {
+        triggerOn: !editing && hoverTooltips ? 'mousemove|click' : 'click',
+      },
       toolbox: {
         feature: {
-          myHoverTooltips: hoverTooltipTool(
-            hoverTooltips,
-            t('observations.show_on_hover'),
-            () =>
-              plotTooltipPreference.set(!plotTooltipPreference.getSnapshot())
-          ),
+          myHoverTooltips: {
+            ...hoverTooltipTool(
+              hoverTooltips,
+              t('observations.show_on_hover'),
+              () =>
+                plotTooltipPreference.set(!plotTooltipPreference.getSnapshot())
+            ),
+            show: !editing,
+          },
         },
       },
     })
     chart.dispatchAction({ type: 'hideTip' })
-  }, [hoverTooltips, t])
+  }, [hoverTooltips, editing, t])
 
   return (
     <div className="flex h-full w-full flex-col">
