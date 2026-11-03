@@ -384,22 +384,64 @@ test('selected interpolation keeps unselected interior values intact and anchors
   )
 })
 
-test('interpolation distinguishes missing anchors from exceeding the full anchor span', () => {
+test('interpolation has no anchor span limit and reports missing anchors', () => {
   const rows = interpolationRows()
   const request = {
     ...linearRequest,
     operation: 'interpolate',
     keys: ['1', '2'],
-    maxGapMs: 180000,
+    maxGapMs: undefined,
   }
-  const tooWide = planEdits(rows, {}, request, 3)
-  assert.deepEqual(tooWide.skippedRows, [
-    { key: '1', reason: 'anchor_span', spanMs: 240000 },
-    { key: '2', reason: 'anchor_span', spanMs: 240000 },
-  ])
+  assert.deepEqual(planEdits(rows, {}, request, 3).changes, { 1: 5, 2: 15 })
   const noAnchor = planEdits(rows.slice(1), {}, request, 3)
   assert.ok(noAnchor.skippedRows.every((row) => row.reason === 'anchors'))
   assert.equal(noAnchor.skippedRows.length, 2)
+})
+
+test('windowed anchors average beyond the nearest observation at their mean time', () => {
+  const rows = [0, 1, 2, 3, 100, 100, 6, 7, 8, 9].map((result, i) => ({
+    key: String(i),
+    id: String(i),
+    ts: i * 60000,
+    time: new Date(i * 60000).toISOString(),
+    result,
+    resultQuality: 255,
+    scope: 'window',
+  }))
+  const request = {
+    operation: 'interpolate',
+    start: 0,
+    end: 9 * 60000,
+    keys: ['4', '5'],
+    includeFailedAnchors: false,
+    note: 'Spikes',
+  }
+  // Means 2 at t=2 and 7 at t=7: the trend is kept, not steepened.
+  const plan = planEdits(rows, {}, { ...request, windowMs: 120000 }, 3)
+  assert.deepEqual(plan.changes, { 4: 4, 5: 5 })
+  assert.deepEqual(plan.anchors.map((anchor) => anchor.key).sort(), [
+    '1',
+    '2',
+    '3',
+    '6',
+    '7',
+    '8',
+  ])
+  const single = planEdits(rows, {}, request, 3)
+  assert.deepEqual(single.changes, { 4: 4, 5: 5 })
+  assert.deepEqual(
+    single.anchors.map((anchor) => anchor.key),
+    ['3', '6']
+  )
+  rows[2].result = 5
+  assert.deepEqual(
+    planEdits(rows, {}, { ...request, windowMs: 120000 }, 3).changes,
+    { 4: 4.6, 5: 5.4 }
+  )
+  assert.throws(
+    () => planEdits(rows, {}, { ...request, windowMs: -1 }, 3),
+    /anchor window/
+  )
 })
 
 test('operations reject invalid intervals, non-finite numbers, no-data constants and invalid gap limits', () => {

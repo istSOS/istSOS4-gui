@@ -68,6 +68,7 @@ export default function QcEditValues({
     'linear'
   )
   const [windowMinutes, setWindowMinutes] = useState('60')
+  const [anchorMinutes, setAnchorMinutes] = useState('0')
   // null follows the flagRange default until the user types a bound.
   const [minText, setMinText] = useState<string | null>(null)
   const [maxText, setMaxText] = useState<string | null>(null)
@@ -84,7 +85,9 @@ export default function QcEditValues({
     value: value.trim() ? Number(value) : undefined,
     maxGapMs: Number(gapMinutes) * 60000,
     driftModel,
-    windowMs: Number(windowMinutes) * 60000,
+    windowMs:
+      Number(operation === 'correct-drift' ? windowMinutes : anchorMinutes) *
+      60000,
     min: bound(minValue),
     max: bound(maxValue),
     includeFailedAnchors,
@@ -151,6 +154,13 @@ export default function QcEditValues({
     setGapMinutes,
     '0'
   )
+  const anchorWindowField = numberField(
+    'anchor-window',
+    t('qc.anchor_window'),
+    anchorMinutes,
+    setAnchorMinutes,
+    '0'
+  )
   const anchorsField = (
     <Field
       key="anchors"
@@ -199,8 +209,8 @@ export default function QcEditValues({
     offset: [valueField],
     missing: [],
     'fill-constant': [valueField, gapField],
-    'fill-linear': [gapField, anchorsField],
-    interpolate: [gapField, anchorsField],
+    'fill-linear': [gapField, anchorWindowField, anchorsField],
+    interpolate: [anchorWindowField, anchorsField],
     'correct-drift': driftFields,
   }[operation]
   return (
@@ -354,20 +364,14 @@ export default function QcEditValues({
             {t('qc.workflow.skipped_details', { count: plan?.skipped ?? 0 })}
           </summary>
           <ul className="mt-2 max-h-40 space-y-2 overflow-auto">
-            {(plan?.skippedRows ?? [])
-              .slice(0, 10)
-              .map(({ key, reason, spanMs }) => (
-                <li key={key}>
-                  <time>
-                    {formatObservationTime(rowByKey.get(key)!.time, utcOffset)}
-                  </time>{' '}
-                  ·{' '}
-                  {t(`qc.workflow.skip_reasons.${reason}`, {
-                    minutes: spanMs === undefined ? 0 : spanMs / 60000,
-                    maxMinutes: Number(gapMinutes),
-                  })}
-                </li>
-              ))}
+            {(plan?.skippedRows ?? []).slice(0, 10).map(({ key, reason }) => (
+              <li key={key}>
+                <time>
+                  {formatObservationTime(rowByKey.get(key)!.time, utcOffset)}
+                </time>{' '}
+                · {t(`qc.workflow.skip_reasons.${reason}`)}
+              </li>
+            ))}
           </ul>
           {(plan?.skippedRows.length ?? 0) > 10 && (
             <p>{t('qc.skipped_first_ten')}</p>

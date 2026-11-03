@@ -354,9 +354,10 @@
     "edit_to": "Edit to (UTC)",
     "use_selection_interval": "Use graph/table selection as interval",
     "constant_value": "Constant value",
-    "max_gap": "Maximum gap / anchor span (minutes)",
+    "max_gap": "Maximum gap (minutes)",
+    "anchor_window": "Anchor averaging window (minutes)",
     "include_failed_anchors": "Allow failed, pending or unknown-quality observations as anchors",
-    "interpolation_hint": "Uses actual timestamps and existing bounding observations; never extrapolates. For replacement, anchors must be outside the interval. Maximum duration applies to the complete gap and anchor span.",
+    "interpolation_hint": "Uses actual timestamps; never extrapolates. Each anchor is the mean of the valid observations within the anchor window beyond the nearest one (0: that observation alone). For replacement, anchors are outside the interval or selected group. Maximum gap applies to the complete missing run when filling.",
     "operation_note": "Reason / note (audit log)",
     "invalid_operation": "Review the operation settings.",
     "operation_preview": "{{targets}} targeted · {{changes}} values would change · {{skipped}} skipped",
@@ -565,8 +566,7 @@
       "skip_reasons": {
         "missing": "This correction cannot be applied to a missing value.",
         "gap": "The complete gap exceeds the duration limit or extends beyond the loaded context.",
-        "anchors": "A suitable numeric observation is needed before and after the interval or gap. Load a wider period or review anchor quality in Interpolation details.",
-        "anchor_span": "Bounding observations are {{minutes}} minutes apart, exceeding the {{maxMinutes}} minute limit. Increase Maximum gap / anchor span or narrow the interval."
+        "anchors": "A suitable numeric observation is needed before and after the interval or gap. Load a wider period or review anchor quality in Interpolation details."
       }
     },
     "operation_offset": "Add / subtract offset",

@@ -101,7 +101,10 @@ export type EditRequest = {
   value?: number
   maxGapMs?: number
   driftModel?: 'linear' | 'exponential'
-  /** Averaging window for the clean, fouled and newly cleaned levels. */
+  /**
+   * Averaging window for the clean, fouled and newly cleaned drift levels,
+   * or for each interpolation anchor (0: the nearest observation).
+   */
   windowMs?: number
   /** Bounds every drift-corrected value must stay within. */
   min?: number
@@ -118,8 +121,7 @@ export type EditPlan = {
   skipped: number
   skippedRows: Array<{
     key: string
-    reason: 'missing' | 'gap' | 'anchors' | 'anchor_span'
-    spanMs?: number
+    reason: 'missing' | 'gap' | 'anchors'
   }>
   anchors: Array<{ key: string; time: string; value: number }>
 }

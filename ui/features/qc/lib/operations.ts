@@ -33,7 +33,7 @@ export function planEdits(
       )
   }
   if (
-    (fill || linear) &&
+    fill &&
     (!request.maxGapMs ||
       !Number.isFinite(request.maxGapMs) ||
       request.maxGapMs <= 0)
@@ -47,6 +47,9 @@ export function planEdits(
       request.windowMs <= 0)
   )
     throw new Error('Choose a positive averaging window.')
+  const anchorWindow = linear ? (request.windowMs ?? 0) : 0
+  if (!Number.isFinite(anchorWindow) || anchorWindow < 0)
+    throw new Error('Choose a non-negative anchor window.')
   if (
     drift &&
     [request.min, request.max].some(
@@ -156,6 +159,35 @@ export function planEdits(
     after[i] = last
     if (valid[i]) last = i
   }
+  // An anchor is the mean of the valid observations within the anchor window
+  // beyond the nearest valid one, placed at their mean time so that a trend
+  // does not bias the slope. A zero window is the nearest observation alone.
+  const windowMeans = new Map<
+    string,
+    { ts: number; value: number; rows: number[] }
+  >()
+  const anchorMean = (i: number, direction: 1 | -1) => {
+    const id = `${direction}:${i}`
+    if (!windowMeans.has(id)) {
+      const rows: number[] = []
+      for (
+        let j = i;
+        j >= 0 &&
+        j < ordered.length &&
+        Math.abs(ordered[j].ts - ordered[i].ts) <= anchorWindow;
+        j += direction
+      )
+        if (valid[j]) rows.push(j)
+      const mean = (of: (j: number) => number) =>
+        rows.reduce((sum, j) => sum + of(j), 0) / rows.length
+      windowMeans.set(id, {
+        ts: mean((j) => ordered[j].ts),
+        value: mean((j) => numericValue(values[j].result)!),
+        rows,
+      })
+    }
+    return windowMeans.get(id)!
+  }
   // Measure complete missing runs, including the part outside the chosen range.
   const missingSpan = new Map<number, number>()
   for (let i = 0; i < ordered.length; i++) {
@@ -197,29 +229,20 @@ export function planEdits(
       return
     }
     if (linear) {
-      const left = before[i],
-        right = after[i]
-      if (left < 0 || right < 0 || ordered[right].ts <= ordered[left].ts) {
+      const a = before[i] >= 0 ? anchorMean(before[i], -1) : null,
+        b = after[i] >= 0 ? anchorMean(after[i], 1) : null
+      if (!a || !b || b.ts <= a.ts) {
         plan.skipped++
         plan.skippedRows.push({ key: row.key, reason: 'anchors' })
         return
       }
-      const spanMs = ordered[right].ts - ordered[left].ts
-      if (spanMs > request.maxGapMs!) {
-        plan.skipped++
-        plan.skippedRows.push({ key: row.key, reason: 'anchor_span', spanMs })
-        return
-      }
-      const a = numericValue(values[left].result)!,
-        b = numericValue(values[right].result)!
-      const ratio =
-        (row.ts - ordered[left].ts) / (ordered[right].ts - ordered[left].ts)
-      next = a * (1 - ratio) + b * ratio
+      const ratio = (row.ts - a.ts) / (b.ts - a.ts)
+      next = a.value * (1 - ratio) + b.value * ratio
       if (!Number.isFinite(next) || isMissing(next)) {
         plan.skipped++
         return
       }
-      for (const j of [left, right])
+      for (const j of [...a.rows, ...b.rows])
         anchors.set(ordered[j].key, {
           key: ordered[j].key,
           time: ordered[j].time,
