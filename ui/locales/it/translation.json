@@ -148,9 +148,10 @@
     "edit_to": "Modifica fino a (UTC)",
     "use_selection_interval": "Usa la selezione del grafico/tabella come intervallo",
     "constant_value": "Valore costante",
-    "max_gap": "Durata massima lacuna / distanza ancore (minuti)",
+    "max_gap": "Durata massima lacuna (minuti)",
+    "anchor_window": "Finestra di media delle ancore (minuti)",
     "include_failed_anchors": "Consenti ancore con controlli falliti, da eseguire o qualità sconosciuta",
-    "interpolation_hint": "Usa i timestamp reali e le osservazioni ai due lati; non estrapola. Per la sostituzione, le ancore devono essere esterne all’intervallo. La durata massima vale per l’intera lacuna e la distanza tra le ancore.",
+    "interpolation_hint": "Usa i timestamp reali; non estrapola. Ogni ancora è la media delle osservazioni valide nella finestra oltre quella più vicina (0: solo quell’osservazione). Per la sostituzione, le ancore sono esterne all’intervallo o al gruppo selezionato. La durata massima vale per l’intera lacuna quando si riempie.",
     "operation_note": "Motivo / nota (registro attività)",
     "invalid_operation": "Controlla le impostazioni dell’operazione.",
     "operation_preview": "{{targets}} interessati · {{changes}} valori da modificare · {{skipped}} saltati",
@@ -359,8 +360,7 @@
       "skip_reasons": {
         "missing": "Non è possibile applicare questa correzione a un valore mancante.",
         "gap": "Il tratto mancante supera il limite di durata o si estende oltre il contesto caricato.",
-        "anchors": "Servono osservazioni numeriche adatte prima e dopo l’intervallo o la lacuna. Carica un periodo più ampio o verifica la qualità delle ancore nei dettagli dell’interpolazione.",
-        "anchor_span": "Le osservazioni di riferimento distano {{minutes}} minuti, oltre il limite di {{maxMinutes}} minuti. Aumenta la durata massima tra le ancore o restringi l’intervallo."
+        "anchors": "Servono osservazioni numeriche adatte prima e dopo l’intervallo o la lacuna. Carica un periodo più ampio o verifica la qualità delle ancore nei dettagli dell’interpolazione."
       }
     },
     "operation_offset": "Aggiungi / sottrai offset",
