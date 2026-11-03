@@ -80,8 +80,8 @@ export function planEdits(
     skippedRows: [],
     anchors: [],
   }
-  // Selected-point replacement is bounded by the selected targets, rather
-  // than the full loaded period used by the form's hidden interval fields.
+  // A selected drift period is bounded by the selected targets, rather than
+  // the full loaded period used by the form's hidden interval fields.
   const firstTarget = target.indexOf(true)
   const lastTarget = target.lastIndexOf(true)
   const replacementStart =
@@ -106,11 +106,14 @@ export function planEdits(
     { key: string; time: string; value: number }
   >()
   const valid = ordered.map((row, i) => {
+    // Replaced values never anchor. An interval is replaced as a whole, from
+    // anchors outside it. In a selection each run of consecutive targets is
+    // interpolated between its own nearest anchors, so separate groups
+    // become one interpolation per group.
     if (
       isMissing(values[i].result) ||
       (request.operation === 'interpolate' &&
-        row.ts >= replacementStart &&
-        row.ts <= replacementEnd)
+        (keys ? target[i] : row.ts >= request.start && row.ts <= request.end))
     )
       return false
     const draft = values[i]

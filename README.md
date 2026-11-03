@@ -318,9 +318,9 @@ Run the configuration tests with `cd ui && npm run test:quality-config`.
 
 **Edit values** applies a constant or offset, marks values missing, fills missing values
 with a constant or linear interpolation, replaces an interval by a straight
-line between exterior anchors, or corrects drift. For selected observations, anchors are taken from
-outside the first and last selected timestamps, rather than the full loaded
-period. Choose an inclusive UTC interval directly or
+line between exterior anchors, or corrects drift. For selected observations, each group of consecutive selected observations
+is interpolated between its own nearest unselected neighbours, so several
+separate groups are corrected in one operation. Choose an inclusive UTC interval directly or
 choose exact graph/table selections without expanding them to intervening records. The preview shows affected
 values before applying; the whole operation is one Undo step. Only existing
 observation records in the loaded period are modified. No timestamps are added.
@@ -357,7 +357,7 @@ In the formulas, $v$ is the current value of a targeted observation at time $t$.
 | Mark as missing | missing (`null`) |
 | Fill missing with a constant | $k$, only for missing values in gaps no longer than the maximum gap |
 | Fill missing by linear interpolation | $v_a + (v_b - v_a)\,\dfrac{t - t_a}{t_b - t_a}$, between the nearest valid observations $(t_a, v_a)$ before and $(t_b, v_b)$ after the gap |
-| Replace interval by linear interpolation | Same formula, with anchors taken outside the interval |
+| Replace interval by linear interpolation | Same formula. For an interval, anchors are outside it; for a selection, each group of consecutive selected observations uses its own nearest unselected neighbours |
 | Correct drift | $v - D\,s(x)$, described below |
 
 **Correct drift** follows SaQC's `correctDrift` for a sensor that drifts between

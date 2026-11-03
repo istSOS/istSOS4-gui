@@ -357,14 +357,14 @@ test('selected-point interpolation uses neighbours of the selection inside the l
   assert.equal(plan.skipped, 0)
 })
 
-test('selected interpolation keeps unselected interior values intact and uses exterior anchors', () => {
+test('selected interpolation keeps unselected interior values intact and anchors each group on them', () => {
   const rows = Array.from({ length: 5 }, (_, index) => ({
     ...interpolationRows()[0],
     key: String(index),
     id: String(index),
     ts: index * 60000,
     time: new Date(index * 60000).toISOString(),
-    result: [0, 100, 999, 100, 40][index],
+    result: [0, 100, 20, 100, 40][index],
   }))
   const plan = planEdits(
     rows,
@@ -376,10 +376,11 @@ test('selected interpolation keeps unselected interior values intact and uses ex
     },
     3
   )
+  // 1 between 0 and 20, 3 between 20 and 40; 2 itself is not changed.
   assert.deepEqual(plan.changes, { 1: 10, 3: 30 })
   assert.deepEqual(
     plan.anchors.map((anchor) => anchor.key),
-    ['0', '4']
+    ['0', '2', '4']
   )
 })
 
@@ -2093,4 +2094,38 @@ test('bounded exponential drift refits the curve within Min and Max', () => {
   assert.ok(bounded.every((value) => value >= 9.5))
   // The bound is active: the curve is not shrunk more than needed.
   assert.ok(Math.min(...bounded) < 9.51)
+})
+
+test('interpolating separate selected points uses each point its own anchors', () => {
+  const rows = [0, 99, 40, 0, 99, 50].map((result, i) => ({
+    key: String(i),
+    id: String(i),
+    ts: i * 60000,
+    time: new Date(i * 60000).toISOString(),
+    result,
+    resultQuality: 255,
+    scope: 'window',
+  }))
+  const plan = planEdits(
+    rows,
+    {},
+    {
+      operation: 'interpolate',
+      start: 0,
+      end: 5 * 60000,
+      keys: ['1', '4'],
+      maxGapMs: 120000,
+      includeFailedAnchors: false,
+      note: 'Spikes',
+    },
+    3
+  )
+  // 1 between 0 and 40, 4 between 0 and 50: not one line from 0 to 50.
+  assert.deepEqual(plan.changes, { 1: 20, 4: 25 })
+  assert.deepEqual(plan.anchors.map((anchor) => anchor.key).sort(), [
+    '0',
+    '2',
+    '3',
+    '5',
+  ])
 })
