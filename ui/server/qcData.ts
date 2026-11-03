@@ -21,6 +21,11 @@ import {
 } from '@/server/data-sources/config'
 import { getQcAccess, getSaqcServiceUrl } from '@/server/qc'
 
+import {
+  phenomenonTimeTimestamp,
+  phenomenonTimeWindowFilter,
+} from '@/lib/phenomenonTime'
+
 const MAX_ROWS = QC_LIMITS.observations
 export class QcError extends Error {
   constructor(
@@ -248,7 +253,10 @@ export async function loadQcData(
       source,
       headers,
       query(
-        `phenomenonTime ge ${new Date(start).toISOString()} and phenomenonTime le ${new Date(end).toISOString()}`,
+        phenomenonTimeWindowFilter(
+          new Date(start).toISOString(),
+          new Date(end).toISOString()
+        ),
         'asc',
         10000
       )
@@ -256,7 +264,11 @@ export async function loadQcData(
     readQcCollection(
       source,
       headers,
-      query(`phenomenonTime gt ${new Date(end).toISOString()}`, 'asc', n - 1),
+      query(
+        `not (phenomenonTime le ${new Date(end).toISOString()})`,
+        'asc',
+        n - 1
+      ),
       n - 1,
       true
     ),
@@ -269,8 +281,8 @@ export async function loadQcData(
     .map(({ raw, scope }): QcRow => {
       const time = String(raw.phenomenonTime ?? '')
       const observationId = String(raw['@iot.id'] ?? raw.id ?? '')
-      const ts = Date.parse(time.split('/')[0])
-      if (!observationId || !Number.isFinite(ts))
+      const ts = phenomenonTimeTimestamp(time)
+      if (!observationId || ts === null)
         throw new QcError('An observation is missing its ID or timestamp', 422)
       return {
         key: `${observationId}@${time}`,
@@ -367,8 +379,8 @@ export async function runQcPreview(
     if (!edit || typeof edit !== 'object') throw new QcError('Invalid draft')
     const original = rows.get(edit.key)
     if (!original) {
-      const instant = Date.parse(
-        String(edit.key).split('@').slice(1).join('@').split('/')[0]
+      const instant = phenomenonTimeTimestamp(
+        String(edit.key).split('@').slice(1).join('@')
       )
       const first = Math.min(
         Date.parse(String(body.start)),
@@ -378,7 +390,7 @@ export async function runQcPreview(
         Date.parse(String(body.end)),
         data.rows.at(-1)?.ts ?? -Infinity
       )
-      if (Number.isFinite(instant) && instant >= first && instant <= last) {
+      if (instant !== null && instant >= first && instant <= last) {
         throw new QcError(
           'A drafted observation was removed or its access changed. Export your draft and reload.',
           409

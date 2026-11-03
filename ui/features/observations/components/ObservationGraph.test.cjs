@@ -628,3 +628,31 @@ test('Details selection tool changes colour and clearing a point exits brush mod
   app.click(row.x, row.row.value)
   assert.equal(app.table().selected.length, 1)
 })
+
+test('interval observations render at bucket ends and select the same table identities', (context) => {
+  const interval = '2026-11-03T14:30:00Z/2026-11-03T14:40:00Z'
+  const end = Date.parse('2026-11-03T14:40:00Z')
+  const app = mount(context, {
+    observations: [
+      {
+        '@iot.id': 47632903,
+        phenomenonTime: interval,
+        resultTime: '2026-11-03T14:43:00Z',
+        result: 0,
+        resultQuality: 210,
+      },
+    ],
+    windowStart: end - 600000,
+    windowEnd: end + 600000,
+  })
+  const point = app.series('1').option.data[0]
+  assert.equal(point[0], end)
+  assert.equal(point[1], 0)
+  const row = app.table().rows[0]
+  assert.equal(row.x, end)
+  assert.equal(row.time, interval)
+  app.table().onSelect([row.key])
+  app.render()
+  assert.equal(app.series('__selected__1').option.data[0][0], end)
+  assert.deepEqual(app.table().selected, [row.key])
+})

@@ -129,6 +129,7 @@ type Props = {
 }
 
 type DatastreamColumnKey =
+  | 'id'
   | 'thing'
   | 'source'
   | 'name'
@@ -239,6 +240,7 @@ export default function DatastreamTable({
     align: 'start' | 'center' | 'end'
   }> = useMemo(
     () => [
+      { name: 'ID', uid: 'id', sortable: true, align: 'start' },
       ...(isMapTable
         ? [
             {
@@ -312,6 +314,8 @@ export default function DatastreamTable({
   const getSortValue = useCallback(
     (item: Datastream, columnKey: DatastreamColumnKey) => {
       switch (columnKey) {
+        case 'id':
+          return item['@iot.id'] ?? item.id ?? ''
         case 'thing':
           return (item as MapDatastreamRow).__thing?.name ?? ''
         case 'source':
@@ -375,6 +379,12 @@ export default function DatastreamTable({
       }
 
       switch (columnKey) {
+        case 'id':
+          return (
+            <span className="tabular-nums">
+              {item['@iot.id'] ?? item.id ?? ''}
+            </span>
+          )
         case 'thing':
           return <span>{rowThing?.name ?? ''}</span>
         case 'source':
@@ -602,6 +612,13 @@ export default function DatastreamTable({
             autoFitRows
             columnSelectorPlacement="header"
             enableColumnSelector
+            initialVisibleColumns={
+              new Set(
+                columns
+                  .filter((column) => column.uid !== 'id')
+                  .map((column) => column.uid)
+              )
+            }
             columnSelectorLabel={t('general.columns')}
             emptyContent={t(rows ? 'map.table_empty' : 'general.no_data')}
             renderCell={(item, columnKey) => renderCell(item, columnKey)}

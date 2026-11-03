@@ -13,6 +13,7 @@ import {
   qualityModeOf,
 } from './resultQuality'
 
+import { phenomenonTimeTimestamp } from '../../../lib/phenomenonTime'
 import { isMissing, numericValue } from '../../qc/lib/bitmask'
 
 dayjs.extend(utc)
@@ -234,11 +235,7 @@ export function computeChangeRegions(
 export const toNumber = numericValue
 
 export function extractTimestamp(obs: Observation): number | null {
-  const raw = obs?.phenomenonTime
-  if (!raw) return null
-  const d = dayjs.utc(raw)
-  const ts = d.valueOf()
-  return Number.isFinite(ts) ? ts : null
+  return phenomenonTimeTimestamp(obs?.phenomenonTime)
 }
 
 export function withAlpha(color: string, alpha: number) {

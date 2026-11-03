@@ -17,6 +17,7 @@
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import { useTranslation } from 'react-i18next'
+import { usePathname } from 'next/navigation'
 
 import { useAsOf } from '@/context/AsOfContext'
 
@@ -30,8 +31,9 @@ function formatBannerDate(iso: string): string {
 export default function AsOfBanner() {
   const { isSnapshot, asOfDate } = useAsOf()
   const { t } = useTranslation()
+  const pathname = usePathname()
 
-  if (!isSnapshot || !asOfDate) return null
+  if (!isSnapshot || !asOfDate || (pathname ?? '').startsWith('/aggregations')) return null
 
   return (
     <div

@@ -87,7 +87,7 @@ for (const mode of ['initial', 'refresh']) {
         const expand = url.searchParams.get('$expand')
         assert.match(expand, /Network,Sensor,/)
         assert.match(expand, /ObservedProperty/)
-        assert.equal(expand.includes('Observations($top=1;$orderby=phenomenonTime desc)'), mode === 'refresh')
+        assert.equal(expand.includes('Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime)'), mode === 'refresh')
         return Response.json({ value: things[17].Datastreams.slice(skip) })
       }
       return Response.json({ value: [] })

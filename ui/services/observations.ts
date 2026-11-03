@@ -14,9 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { fetchData } from '@/services/fetch'
+import { Observation } from '@/types/domain'
 
 import { siteConfig } from '@/config/site'
-import { Observation } from '@/types/domain'
+
+import { phenomenonTimeWindowFilter } from '@/lib/phenomenonTime'
 
 export async function getObservationsByDatastream(
   token: string | null | undefined,
@@ -29,20 +31,21 @@ export async function getObservationsByDatastream(
   const values: Observation[] = []
   const baseRoot = (apiRoot ?? siteConfig.api_root).trim().replace(/\/+$/, '')
 
-  const filters: string[] = []
-  if (end) filters.push(`phenomenonTime le ${end}`)
-  if (start) filters.push(`phenomenonTime ge ${start}`)
+  const filter = phenomenonTimeWindowFilter(start, end)
 
   let url =
     `${baseRoot}/Datastreams(${datastreamId})/Observations` +
     '?$orderby=phenomenonTime desc' +
+    '&$select=id,result,resultQuality,phenomenonTime' +
     // The commit each observation carries — what the chart shows when a point
     // is clicked. Works in live mode and under $as_of alike (a snapshot returns
     // the commit in effect at that instant), and rides along on the request the
     // chart already makes. Must be the SINGULAR `Commit`.
     (siteConfig.versioning ? '&$expand=Commit' : '') +
-    (siteConfig.versioning && asOfDate ? `&$as_of=${encodeURIComponent(asOfDate)}` : '') +
-    (filters.length ? `&$filter=${filters.join(' and ')}` : '') +
+    (siteConfig.versioning && asOfDate
+      ? `&$as_of=${encodeURIComponent(asOfDate)}`
+      : '') +
+    (filter ? `&$filter=${filter}` : '') +
     '&$top=1440'
 
   const apiBase = new URL(baseRoot)
@@ -85,8 +88,10 @@ export async function getLatestObservationTime(
   const baseRoot = (apiRoot ?? siteConfig.api_root).trim().replace(/\/+$/, '')
   const url =
     `${baseRoot}/Datastreams(${datastreamId})/Observations` +
-    '?$orderby=phenomenonTime desc&$top=1' +
-    (siteConfig.versioning && asOfDate ? `&$as_of=${encodeURIComponent(asOfDate)}` : '')
+    '?$orderby=phenomenonTime desc&$top=1&$select=phenomenonTime,resultTime' +
+    (siteConfig.versioning && asOfDate
+      ? `&$as_of=${encodeURIComponent(asOfDate)}`
+      : '')
 
   const data = await fetchData(url, token)
   const latest = (data?.value ?? [])[0] as Observation | undefined
@@ -98,7 +103,10 @@ export async function getLatestObservationTime(
 
 export async function getObservationsCount(token: string) {
   const [observationData] = await Promise.all([
-    fetchData(`${siteConfig.api_root}/Observations?$count=true&$top=1`, token),
+    fetchData(
+      `${siteConfig.api_root}/Observations?$count=true&$top=1&$select=id`,
+      token
+    ),
   ])
   return {
     observationData: observationData['@iot.count'] || 0,
@@ -116,10 +124,9 @@ export async function getObservationsCountByNetwork(
     ),
   ])
 
-  const counts = ((observationData['value'] as Array<Record<string, unknown>>) || []).reduce(
-    (total, ds) => total + Number(ds['Observations@iot.count'] ?? 0),
-    0
-  )
+  const counts = (
+    (observationData['value'] as Array<Record<string, unknown>>) || []
+  ).reduce((total, ds) => total + Number(ds['Observations@iot.count'] ?? 0), 0)
 
   return {
     observationData: counts,

@@ -15,6 +15,14 @@ The UI uses the Next.js App Router with feature folders outside `app`.
 | `types/` | Shared domain and application types. Feature-local types stay with their feature. |
 | `locales/`, `styles/`, `public/` | Translations, global styles, and static assets. |
 
+## Navigation
+
+The navbar keeps the page tools together. **Account** contains English/Italian
+language selection and, when authentication is enabled, sign-in or logout.
+The menu remains available when signed out or using an unauthenticated source.
+**Help / About** contains documentation, the GitHub source link and the GUI
+version from `package.json`.
+
 ## Home
 
 `app/page.tsx` loads the initial data and renders
@@ -74,6 +82,11 @@ labelled left/right axes. Plots retain only faint horizontal grid lines.
 The date axis targets seven ticks with horizontal labels that adapt to the
 visible period as the user zooms; tooltips retain precise ISO8601 timestamps.
 
+Aggregated observations with `phenomenonTime` in `start/end` form plot at the
+interval end in Details and Edit/QC. Period filtering, sorting, selection and
+QC history calculations use that same endpoint. Tables, tooltips and workbook
+exports retain the complete interval; `resultTime` does not set the plot position.
+
 Date changes and snapshot refreshes load only the active streams. Snapshot
 comparisons keep rows separate and show real timestamps even on an aligned
 plot. Quality info icons use the Edit/QC explanation inside the modal's focus
@@ -100,6 +113,56 @@ bitmask decoding, magenta selection markers, selection zoom, and brush-range
 handling. Scrolling an edited QC row out of the rendered window commits its
 cell value through the existing blur behaviour. Details has no
 quality customization or editing workflow. Exports retain stored quality flags.
+
+## Aggregation management
+
+`/aggregations` manages live backend TimescaleDB aggregation jobs independently
+of the GUI's version-history setting. Administrators can list and search jobs,
+inspect configuration and execution statistics, create jobs targeting existing
+or newly created datastreams, and enable or suspend scheduling. The navbar entry is available when
+at least one configured source has administrator credentials in this browser,
+or has authorization disabled. Source logins are managed on Data sources.
+
+The creation form includes calculation, timezone, optional completeness rules,
+quality filters, availability checks, recomputation and scheduling. Blank
+completeness fields preserve the backend's default behavior; zero remains an
+explicit limit. Expected sampling intervals and other PostgreSQL intervals are
+validated by the backend before a job is scheduled. The backend must expose
+`AggregationJobs` and have `VERSIONING=1` and `DUPLICATES=0`. Configuration editing
+and deletion are unavailable because the API currently supports only creation,
+reads, and `PATCH {enabled}`.
+
+Older API deployments can reject `minObservations`,
+`expectedObservationInterval` and `maxConsecutiveMissing` as invalid keys. The
+GUI identifies this as unsupported completeness rules and retains the form.
+Update the source's API deployment to use those rules, or leave all three
+optional fields blank to create a job without them. The GUI never removes
+requested rules or retries job creation automatically.
+
+**Create from source** prepares a new target with a suggested name and
+description and editable station, observed property, units and network (where
+enabled). Users explicitly select an existing sensor/processing method and
+confirm the target units. Raw observations, properties and QC checks are never
+copied. Name and description suggestions follow the calculation until edited;
+changing the source resets the template. Calculation or unit changes invalidate
+the unit-review confirmation.
+
+The target is created before the job. If scheduling fails, the confirmed target
+is retained in the catalog and selected as an existing target so retries only
+submit the job. Existing names are rejected rather than silently reused.
+Unconfirmed target creation asks users to check the catalog before retrying.
+The `/api/aggregations/target` routes verify administrator access through the
+jobs endpoint, load source-specific entity catalogs with pagination, and create
+only the minimal target metadata. Datastream writes include an automatic commit
+message even when GUI history is disabled; the backend's empty `201` response
+is resolved through its `Location` header.
+
+`/api/aggregations` resolves source IDs against the server's configuration and
+proxies these operations with source-specific credentials. Secondary sources
+never inherit the primary cookie token. Catalog reads authenticate through the
+administrator-only jobs endpoint before loading all datastream pages. No
+automatic retries are made for writes. Run `npm run test:aggregations` for form,
+access, transport and pagination regression checks.
 
 ## Dependencies
 

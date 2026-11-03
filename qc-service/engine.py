@@ -180,7 +180,7 @@ def preview(
     ordered = sorted(rows, key=lambda row: row["ts"])
     times = (
         pd.to_datetime(
-            [row["time"].split("/")[0] for row in ordered],
+            [row["time"].rsplit("/", 1)[-1] for row in ordered],
             utc=True,
             format="ISO8601",
         )

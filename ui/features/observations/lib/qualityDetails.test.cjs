@@ -595,3 +595,67 @@ test('QC date helpers accept editor UTC values and API ISO dates without shiftin
     '2026-10-30T18:45:00.000'
   )
 })
+
+test('aggregate observations plot at their interval end, retain zero and display the complete interval', () => {
+  const load = modules()
+  const observation = {
+    '@iot.id': 47632903,
+    phenomenonTime: '2026-11-03T14:30:00Z/2026-11-03T14:40:00Z',
+    resultTime: '2026-11-03T14:43:00Z',
+    result: 0,
+    resultQuality: 210,
+  }
+  const { option, entry } = optionFor(load, stream, [observation], {
+    utcOffset: 60,
+  })
+  const row = entry.rows[0]
+  assert.equal(entry.rows.length, 1)
+  assert.equal(row.ts, Date.parse('2026-11-03T14:40:00Z'))
+  assert.equal(row.value, 0)
+  assert.equal(row.time, observation.phenomenonTime)
+  assert.equal(row.key, '47632903')
+  assert.equal(row.rawQuality, 210)
+  const html = option.tooltip.formatter({
+    seriesName: entry.id,
+    data: [row.ts, 0],
+    axisValue: row.ts,
+  })
+  assert.ok(
+    html.includes('2026-11-03T15:30:00+01:00/2026-11-03T15:40:00+01:00')
+  )
+  assert.equal(html.includes('14:43:00'), false)
+})
+
+test('station workbooks sort intervals by their end and preserve the original phenomenonTime', async () => {
+  const load = modules()
+  const { buildDatastreamWorkbookPayload } = load(
+    '../../home/lib/downloadWorkbook.ts'
+  )
+  const XLSX = require('xlsx')
+  const early = '2026-11-03T14:30:00Z/2026-11-03T14:40:00Z'
+  const late = '2026-11-03T14:00:00Z/2026-11-03T15:00:00Z'
+  const payload = await buildDatastreamWorkbookPayload({
+    selectedThing: {
+      name: 'Station',
+      Datastreams: [{ '@iot.id': 1, name: 'Aggregated' }],
+    },
+    obsStart: null,
+    obsEnd: null,
+    fetchObservations: async () => ({
+      data: [
+        { phenomenonTime: late, result: 2, resultQuality: 200 },
+        { phenomenonTime: early, result: 0, resultQuality: 210 },
+      ],
+      startIso: null,
+      endIso: null,
+    }),
+  })
+  const book = XLSX.read(payload.bytes, { type: 'array' })
+  const rows = XLSX.utils.sheet_to_json(book.Sheets.Aggregated)
+  assert.deepEqual(
+    rows.map((row) => row.phenomenonTime),
+    [early, late]
+  )
+  assert.equal(rows[0].result, 0)
+  assert.equal(rows[0].resultQuality, 210)
+})

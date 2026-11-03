@@ -678,3 +678,35 @@ test('the correction step opens tooltips on click only and hides the hover toggl
   assert.equal(chart.getOption().tooltip[0].triggerOn, 'click')
   assert.equal(chart.getOption().toolbox[0].feature.myHoverTooltips.show, false)
 })
+
+test('QC plots aggregate zero values and selection at the interval end while showing the full interval', (t) => {
+  const { phenomenonTimeTimestamp } = require('../../../lib/phenomenonTime.ts')
+  const time = '2026-11-03T14:30:00Z/2026-11-03T14:40:00Z'
+  const row = {
+    key: `47632903@${time}`,
+    id: '47632903',
+    time,
+    ts: phenomenonTimeTimestamp(time),
+    result: 0,
+    resultQuality: 210,
+    scope: 'window',
+  }
+  const { chart, series } = mount(t, {
+    rows: [row],
+    selected: [row.key],
+    utcOffset: 60,
+    encoded: false,
+    originalEncoded: false,
+  })
+  const end = Date.parse('2026-11-03T14:40:00Z')
+  for (const id of ['qc-original', 'qc-selected']) {
+    const point = series(id).option.data[0]
+    assert.equal(point[0], end)
+    assert.equal(point[1], 0)
+  }
+  const tooltip = pointTooltip(chart, row)
+  assert.ok(
+    tooltip.includes('2026-11-03T15:30:00+01:00/2026-11-03T15:40:00+01:00')
+  )
+  assert.ok(tooltip.includes('210'))
+})

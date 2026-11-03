@@ -105,6 +105,8 @@ test('observation reads ignore stale snapshot arguments when disabled and preser
     assert.equal(await service.getLatestObservationTime(null, '42', undefined, instant), instant)
     for (const url of requests) assert.equal(url.searchParams.get('$as_of'), setting === 'true' ? instant : null)
     assert.equal(requests[0].searchParams.get('$expand'), setting === 'true' ? 'Commit' : null)
+    assert.equal(requests[0].searchParams.get('$select'), 'id,result,resultQuality,phenomenonTime')
+    assert.equal(requests[1].searchParams.get('$select'), 'phenomenonTime,resultTime')
   }
 })
 
@@ -135,3 +137,25 @@ for (const [file, entity] of [['things', 'Thing'], ['locations', 'Location'], ['
     }
   })
 }
+
+test('observation date filters retain aggregation buckets ending at the lower boundary', async () => {
+  const requests = []
+  const service = deployment('false', {
+    '@/services/fetch': {
+      fetchData: async (url) => {
+        requests.push(new URL(url))
+        return { value: [] }
+      },
+    },
+  })('services/observations.ts')
+  await service.getObservationsByDatastream(
+    null,
+    '1',
+    '2026-11-03T14:40:00Z',
+    '2026-11-03T15:00:00Z'
+  )
+  assert.equal(
+    requests[0].searchParams.get('$filter'),
+    'phenomenonTime le 2026-11-03T15:00:00Z and not (phenomenonTime lt 2026-11-03T14:40:00Z)'
+  )
+})

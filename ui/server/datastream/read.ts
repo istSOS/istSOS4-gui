@@ -25,7 +25,7 @@ export async function getDatastreams(token: string) {
     `${siteConfig.api_root}` +
     '/Datastreams' +
     '?$select=id,name,observedArea,properties,unitOfMeasurement,phenomenonTime' +
-    '&$expand=Network($select=name),Observations($top=1;$orderby=phenomenonTime desc;$select=result,phenomenonTime)'
+    '&$expand=Network($select=name),Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime)'
 
   while (url) {
     const data = await fetchData(url, token)

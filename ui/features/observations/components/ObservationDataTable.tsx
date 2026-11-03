@@ -8,6 +8,7 @@ import { tableStyles } from '@/components/table/tableStyles'
 import ObservationQuality from './ObservationQuality'
 import ObservationTable from './ObservationTable'
 
+import { phenomenonTimeEnd } from '../../../lib/phenomenonTime'
 import QcExplanation from '../../qc/components/QcExplanation'
 import { CheckDefinition } from '../../qc/components/QcQualityDetails'
 import {
@@ -106,7 +107,7 @@ export default function ObservationDataTable({
                   className="tabular-nums hover:text-primary"
                   onClick={() => onSelect([item.key])}
                 >
-                  <time dateTime={item.time}>
+                  <time dateTime={phenomenonTimeEnd(item.time) ?? undefined}>
                     {formatObservationTime(item.time, utcOffset)}
                   </time>
                 </button>

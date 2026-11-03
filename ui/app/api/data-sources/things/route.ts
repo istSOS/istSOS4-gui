@@ -95,7 +95,7 @@ async function fetchThingsForSource(
       await Promise.all([
         readThingsWithDatastreams(
           endpoint,
-          'Network,Sensor,Observations($top=1;$orderby=phenomenonTime desc),ObservedProperty',
+          'Network,Sensor,Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime),ObservedProperty',
           async (url) => {
             const response = await fetch(url, {
               method: 'GET',

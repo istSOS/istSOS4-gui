@@ -20,6 +20,30 @@ CHECKS = [{"type": "flagRange", "min": 0, "max": 10},
 
 
 class EngineTests(unittest.TestCase):
+    def test_interval_history_is_measured_at_bucket_ends(self):
+        data = rows([5, 5], quality=15)
+        periods = [
+            "2026-11-03T00:00:00Z/2026-11-03T00:50:00Z",
+            "2026-11-03T00:45:00Z/2026-11-03T01:00:00Z",
+        ]
+        for row, period in zip(data, periods):
+            row["time"] = period
+            row["ts"] = int(pd.Timestamp(period.rsplit("/", 1)[-1]).timestamp() * 1000)
+        checks = [{"type": "flagConstants", "window": "30min", "thresh": 0, "min_periods": 1}]
+        result = preview(data, checks, [1], "PT10M", target_keys=["1"], include_affected=False)
+        outcome = result["results"][0]["outcomes"][-1]
+        self.assertEqual(outcome["state"], 0)
+        self.assertEqual(outcome["reason"], "Insufficient history")
+        self.assertEqual([row["time"] for row in data], periods)
+
+    def test_intervals_with_the_same_end_are_duplicate_qc_timestamps(self):
+        data = rows([1, 2], quality=15)
+        for row, start in zip(data, ["14:20:00", "14:30:00"]):
+            row["time"] = f"2026-11-03T{start}Z/2026-11-03T14:40:00Z"
+            row["ts"] = int(pd.Timestamp("2026-11-03T14:40:00Z").timestamp() * 1000)
+        with self.assertRaisesRegex(ValueError, "Duplicate observation"):
+            preview(data, CHECKS[:1], [1], "PT10M")
+
     def test_saqc_bad_is_encoded_in_its_slot_not_stored_as_255(self):
         result = preview(rows([100]), CHECKS, [1], "PT1M")
         self.assertEqual(result["results"][0]["resultQuality"], 251)

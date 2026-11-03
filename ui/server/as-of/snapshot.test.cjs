@@ -139,8 +139,10 @@ test('cancellation between pages prevents another upstream fetch', async () => {
 
 test('a readings timeout still returns historical metadata and is recorded separately', async () => {
   const { load } = modules(async (url) => {
-    if (url.includes('Observations('))
+    if (url.includes('Observations(')) {
+      assert.ok(url.includes('Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime)'))
       throw new DOMException('Readings timed out', 'TimeoutError')
+    }
     if (url.includes('/Things?'))
       return Response.json({ value: [{ '@iot.id': 1 }] })
     if (url.includes('/Datastreams?'))

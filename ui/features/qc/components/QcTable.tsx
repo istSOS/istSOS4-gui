@@ -11,6 +11,7 @@ import { tableStyles } from '@/components/table/tableStyles'
 import QcExplanation from './QcExplanation'
 import { CheckDefinition, QualityDetails } from './QcQualityDetails'
 
+import { phenomenonTimeEnd } from '../../../lib/phenomenonTime'
 import {
   dataStatus,
   fitsMask,
@@ -235,7 +236,10 @@ export default function QcTable({
                   className="text-left tabular-nums hover:text-primary"
                   onClick={() => onSelect([row.key])}
                 >
-                  <time title={row.time}>
+                  <time
+                    title={row.time}
+                    dateTime={phenomenonTimeEnd(row.time) ?? undefined}
+                  >
                     {formatObservationTime(row.time, utcOffset)}
                   </time>
                 </button>

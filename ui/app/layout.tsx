@@ -25,6 +25,7 @@ import { AsOfProvider } from '@/context/AsOfContext'
 import { AuthProvider } from '@/context/AuthContext'
 
 import { getSaqcServiceUrl } from '@/server/qc'
+import { getAggregationSources } from '@/server/aggregations'
 
 import '@/styles/globals.css'
 
@@ -32,7 +33,8 @@ import Providers from './providers'
 
 export const dynamic = 'force-dynamic'
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const aggregationSources = await getAggregationSources()
   return (
     <html suppressHydrationWarning lang="en">
       <head>
@@ -49,7 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Providers>
           <AuthProvider>
             <AsOfProvider>
-              <Navbar saqcEnabled={!!getSaqcServiceUrl()} />
+              <Navbar saqcEnabled={!!getSaqcServiceUrl()} aggregationSources={aggregationSources} />
               <AsOfBanner />
               {children}
             </AsOfProvider>

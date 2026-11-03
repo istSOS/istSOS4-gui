@@ -1,9 +1,7 @@
 import { Datastream, Observation, Thing } from '@/types/domain'
-import dayjs from 'dayjs'
-import utc from 'dayjs/plugin/utc'
 import * as XLSX from 'xlsx'
 
-dayjs.extend(utc)
+import { phenomenonTimeTimestamp } from '../../../lib/phenomenonTime'
 
 /**
  * `resultQuality` as it goes into a spreadsheet cell.
@@ -83,11 +81,11 @@ export async function buildDatastreamWorkbookPayload({
       const rows = (Array.isArray(result.data) ? result.data : [])
         .slice()
         .sort((a: Observation, b: Observation) => {
-          const aTs = dayjs.utc(a?.phenomenonTime).valueOf()
-          const bTs = dayjs.utc(b?.phenomenonTime).valueOf()
-          if (!Number.isFinite(aTs) && !Number.isFinite(bTs)) return 0
-          if (!Number.isFinite(aTs)) return 1
-          if (!Number.isFinite(bTs)) return -1
+          const aTs = phenomenonTimeTimestamp(a?.phenomenonTime)
+          const bTs = phenomenonTimeTimestamp(b?.phenomenonTime)
+          if (aTs === null && bTs === null) return 0
+          if (aTs === null) return 1
+          if (bTs === null) return -1
           return aTs - bTs
         })
         .map((obs: Observation) => ({

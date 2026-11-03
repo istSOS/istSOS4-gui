@@ -187,7 +187,7 @@ const DATASTREAM_EXPAND = ['Network', 'Sensor', 'ObservedProperty'].join(',')
  * substituted: they would show today's value under a past date.
  */
 const LATEST_READING_EXPAND =
-  'Observations($top=1;$orderby=phenomenonTime desc)'
+  'Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime)'
 
 /** How long the latest readings may take before the snapshot goes without. */
 const READINGS_BUDGET_MS = 8_000

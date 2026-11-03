@@ -1057,6 +1057,7 @@ function previewServer() {
     if (name === '@/features/qc/lib/limits') return require('./limits.ts')
     if (name === '@/features/qc/lib/storedBitmask')
       return require('./storedBitmask.ts')
+    if (name === '@/lib/phenomenonTime') return require('../../../lib/phenomenonTime.ts')
     if (name === '@/server/qc')
       return { getSaqcServiceUrl: () => 'http://saqc.test' }
     if (name.startsWith('next/') || name === '@/server/data-sources/config')
@@ -1086,7 +1087,7 @@ function upstreamFixture(context, constraints) {
       return Response.json({ '@iot.id': 1, properties: { constraints } })
     const query = new URL(address).searchParams.get('$filter') ?? ''
     return Response.json({
-      value: query.includes(' ge ')
+      value: query.includes(' and ')
         ? [
             {
               id: 1,
@@ -2128,4 +2129,113 @@ test('interpolating separate selected points uses each point its own anchors', (
     '3',
     '5',
   ])
+})
+
+test('QC loads aggregate observations at their end and includes buckets ending at the selected lower boundary', async (context) => {
+  const interval = '2026-11-03T14:30:00Z/2026-11-03T14:40:00Z'
+  const queries = []
+  context.mock.method(globalThis, 'fetch', async (url) => {
+    if (String(url).includes('/Datastreams(1)?'))
+      return Response.json({
+        '@iot.id': 1,
+        properties: {
+          constraints: [{ type: 'flagConstants', window: '20min', thresh: 0 }],
+          samplingFrequency: 'PT10M',
+        },
+      })
+    const query = new URL(url).searchParams.get('$filter')
+    queries.push(query)
+    const observation = (id, time) => ({
+      '@iot.id': id,
+      phenomenonTime: time,
+      result: 0,
+      resultQuality: 210,
+    })
+    return Response.json({
+      value: query.startsWith('phenomenonTime lt')
+        ? [observation(1, '2026-11-03T14:20:00Z/2026-11-03T14:30:00Z')]
+        : query.startsWith('not (phenomenonTime le')
+          ? [observation(3, '2026-11-03T14:50:00Z/2026-11-03T15:00:00Z')]
+          : [observation(47632903, interval)],
+    })
+  })
+  const { loadQcData } = previewServer()
+  const data = await loadQcData(
+    { apiRoot: 'https://istsos.test/v1.1' },
+    {},
+    {
+      datastreamId: '1',
+      start: '2026-11-03T14:40:00Z',
+      end: '2026-11-03T14:50:00Z',
+    }
+  )
+  const row = data.rows.find((row) => row.id === '47632903')
+  assert.equal(row.ts, Date.parse('2026-11-03T14:40:00Z'))
+  assert.equal(row.time, interval)
+  assert.equal(row.key, `47632903@${interval}`)
+  assert.equal(row.result, 0)
+  assert.equal(row.resultQuality, 210)
+  assert.equal(row.scope, 'window')
+  assert.deepEqual(
+    data.rows.map((row) => row.scope),
+    ['history', 'window', 'following']
+  )
+  assert.ok(
+    queries.includes(
+      'phenomenonTime le 2026-11-03T14:50:00.000Z and not (phenomenonTime lt 2026-11-03T14:40:00.000Z)'
+    )
+  )
+  assert.ok(
+    queries.includes('not (phenomenonTime le 2026-11-03T14:50:00.000Z)')
+  )
+  const ws = { ...emptyWorkspace(), rows: { [row.key]: row } }
+  const book = observationWorkbook(
+    { aggregate: ws },
+    { scope: 'loaded', utcOffset: 0, versioningEnabled: false }
+  )
+  assert.equal(
+    XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]])[0].time,
+    '2026-11-03T14:30:00+0000/2026-11-03T14:40:00+0000'
+  )
+})
+
+test('a removed drafted interval inside the view is detected using its end rather than silently ignored', async (context) => {
+  const key = '2@2026-11-03T14:45:00Z'
+  const constraints = [{ type: 'flagRange', min: 0, max: 10 }]
+  context.mock.method(globalThis, 'fetch', async (url) => {
+    if (String(url).includes('/Datastreams(1)?'))
+      return Response.json({ '@iot.id': 1, properties: { constraints } })
+    const filter = new URL(url).searchParams.get('$filter')
+    return Response.json({
+      value: filter.includes(' and ')
+        ? [
+            {
+              '@iot.id': 2,
+              phenomenonTime: '2026-11-03T14:45:00Z',
+              result: 5,
+              resultQuality: 15,
+            },
+          ]
+        : [],
+    })
+  })
+  const { runQcPreview } = previewServer()
+  await assert.rejects(
+    () =>
+      runQcPreview(
+        { apiRoot: 'https://istsos.test/v1.1' },
+        {},
+        {
+          ...previewRequest,
+          start: '2026-11-03T14:35:00Z',
+          end: '2026-11-03T14:50:00Z',
+          constraints,
+          targetKeys: [key],
+          edits: [
+            { key: '47632903@2026-11-03T14:30:00Z/2026-11-03T14:40:00Z' },
+          ],
+        }
+      ),
+    /drafted observation was removed/
+  )
 })

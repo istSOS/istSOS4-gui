@@ -14,105 +14,58 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import AsOfNavbarButton from '@/features/as-of/components/AsOfNavbarButton'
-import i18n from '@/i18n'
-import { logout } from '@/services/auth'
-import { Avatar } from '@heroui/avatar'
 import { Button } from '@heroui/button'
-import {
-  Dropdown,
-  DropdownItem,
-  DropdownMenu,
-  DropdownTrigger,
-} from '@heroui/dropdown'
 import { Link } from '@heroui/link'
 import { Tooltip } from '@heroui/tooltip'
-import 'flag-icons/css/flag-icons.min.css'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import NextLink from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
-import { DataSourcesIcon, GithubIcon, LogoIstSOS } from '@/components/icons'
+import { AggregationsIcon, DataSourcesIcon, EditIcon, LogoIstSOS } from '@/components/icons'
+import AccountMenu from './AccountMenu'
+import HelpMenu from './HelpMenu'
 
 import { siteConfig } from '@/config/site'
 
 import { useAuth } from '@/context/AuthContext'
 
-import { getTokenUsername } from '@/lib/auth'
 import { canUseQcWithToken } from '@/lib/qcAccess'
+import { getDataSourceToken } from '@/lib/dataSourceTokens'
+import { canManageAggregations } from '@/features/aggregations/lib/access'
+import type { AggregationSource } from '@/features/aggregations/lib/types'
 
 export default function Navbar({
   saqcEnabled = false,
+  aggregationSources = [],
 }: {
   saqcEnabled?: boolean
+  aggregationSources?: AggregationSource[]
 }) {
-  const { token, setToken } = useAuth()
+  const { token } = useAuth()
   const { t } = useTranslation()
   const router = useRouter()
   const pathname = usePathname()
   const isHistoryRoute = (pathname ?? '').startsWith('/history')
   const isQcRoute = (pathname ?? '').startsWith('/qc')
+  const isAggregationRoute = (pathname ?? '').startsWith('/aggregations')
 
-  const languages = [
-    { code: 'en', label: 'EN', flag: 'fi fi-gb fis w-12 h-8' },
-    { code: 'it', label: 'IT', flag: 'fi fi-it fis w-12 h-8' },
-  ]
-
-  // ✅ render-stable default for SSR + first client render
-  const [selectedLang, setSelectedLang] = useState<string>('en')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-
-    // ✅ after mount, sync with i18n (client-only)
-    const current = i18n.resolvedLanguage ?? i18n.language ?? 'en'
-    setSelectedLang(current)
-
-    // keep in sync if language changes elsewhere
-    const onLangChanged = (lng: string) => setSelectedLang(lng)
-    i18n.on('languageChanged', onLangChanged)
-    return () => {
-      i18n.off('languageChanged', onLangChanged)
-    }
   }, [])
-
-  const handleLanguageChange = (langCode: string) => {
-    i18n.changeLanguage(langCode)
-    // state will also update via languageChanged listener
-    setSelectedLang(langCode)
-  }
-
-  const username = useMemo(() => {
-    if (!siteConfig.authorizationEnabled) return null
-    if (!token) return null
-    return getTokenUsername(token)
-  }, [token])
-
-  const initials = useMemo(() => {
-    if (!username) return ''
-    const parts = username.trim().split(/\s+/)
-    const first = parts[0]?.[0] ?? ''
-    const second = parts.length > 1 ? (parts[1]?.[0] ?? '') : ''
-    return (first + second).toUpperCase()
-  }, [username])
-
-  const handleLogout = async () => {
-    try {
-      if (token) await logout(token)
-    } finally {
-      setToken(null)
-      router.push(siteConfig.authorizationEnabled ? '/login' : '/')
-    }
-  }
-
-  const selectedFlag =
-    languages.find((l) => l.code === selectedLang)?.flag ?? languages[0].flag
+  const canManageJobs = mounted && aggregationSources.some((source) =>
+    canManageAggregations(
+      source.isPrimary ? token ?? getDataSourceToken(source.endpoint) : getDataSourceToken(source.endpoint),
+      source.authorizationEnabled
+    )
+  )
 
   return (
     <header className="w-full bg-[var(--color-primary)] text-white">
-      <div className="mx-auto grid h-14 w-full grid-cols-3 items-center lg:px-[25px] text-sm">
+      <div className="mx-auto grid min-h-14 w-full grid-cols-[auto_1fr] items-center px-3 text-sm sm:grid-cols-3 lg:px-[25px]">
         {/* Left: logo */}
         <Link as={NextLink} aria-label="istSOS4" href="/">
           <div className="w-[150px]">
@@ -126,108 +79,47 @@ export default function Navbar({
             mode — leaving a snapshot control there would suggest the whole
             application is being re-read, which is exactly what it is not. */}
         <div className="flex justify-center">
-          {siteConfig.versioning && !isHistoryRoute && !isQcRoute && (
+          {siteConfig.versioning && !isHistoryRoute && !isQcRoute && !isAggregationRoute && (
             <AsOfNavbarButton />
           )}
         </div>
 
-        {/* Right: language / github / data-sources / user */}
-        <div className="flex items-center justify-end gap-1">
+        {/* Page tools, followed by global help and account preferences. */}
+        <div className="col-span-2 flex flex-wrap items-center justify-end gap-1 sm:col-span-1">
+          {canManageJobs && <Tooltip content={t('aggregations.title')}>
+            <Button as={NextLink} href="/aggregations" isIconOnly variant="light" className="text-white" aria-label={t('aggregations.title')}>
+              <AggregationsIcon size={22} />
+            </Button>
+          </Tooltip>}
           {saqcEnabled && canUseQcWithToken(token) && (
-            <Button
-              variant="light"
-              className="text-white"
-              onPress={() => router.push('/qc')}
-            >
-              {t('qc.nav_label')}
-            </Button>
+            <Tooltip content={t('qc.nav_label')}>
+              <Button
+                isIconOnly
+                variant="light"
+                className="text-white"
+                aria-label={t('qc.nav_label')}
+                onPress={() => router.push('/qc')}
+              >
+                <EditIcon size={22} />
+              </Button>
+            </Tooltip>
           )}
-          <Tooltip content="Change language">
-            <Dropdown>
-              <DropdownTrigger>
-                <Button variant="light" isIconOnly>
-                  {mounted ? (
-                    <span className={selectedFlag} />
-                  ) : (
-                    <span className="w-12 h-8 inline-block" />
-                  )}
-                </Button>
-              </DropdownTrigger>
-
-              <DropdownMenu variant="light">
-                {languages.map((lang) => (
-                  <DropdownItem
-                    key={lang.code}
-                    onPress={() => handleLanguageChange(lang.code)}
-                    startContent={<span className={lang.flag} />}
-                  >
-                    {lang.label}
-                  </DropdownItem>
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          </Tooltip>
-
-          <Tooltip content="Source code">
-            <Button
-              as={Link}
-              isExternal
-              href={siteConfig.links.github}
-              isIconOnly
-              variant="light"
-              className="text-white"
-              aria-label="Source Code"
-            >
-              <GithubIcon />
-            </Button>
-          </Tooltip>
-
           <Tooltip content={t('data_sources.nav_label')}>
             <Button
               isIconOnly
               variant="light"
               className="text-white"
+              aria-label={t('data_sources.nav_label')}
               onPress={() => router.push('/data-sources')}
             >
               <DataSourcesIcon />
             </Button>
           </Tooltip>
 
-          {username && (
-            <div className="flex items-center gap-1">
-              <Dropdown>
-                <DropdownTrigger>
-                  <Button isIconOnly variant="light" className="text-white">
-                    <Avatar
-                      size="sm"
-                      fallback={initials}
-                      className="bg-white text-[var(--color-primary)]"
-                    />
-                  </Button>
-                </DropdownTrigger>
-
-                <DropdownMenu aria-label="User menu" variant="light">
-                  <DropdownItem key="user" isReadOnly className="opacity-100">
-                    <div className="flex flex-col">
-                      <span className="text-xs opacity-70">
-                        {t('login.username')}
-                      </span>
-                      <span className="font-semibold">{username}</span>
-                    </div>
-                  </DropdownItem>
-
-                  <DropdownItem
-                    key="logout"
-                    color="danger"
-                    className="text-danger"
-                    onPress={handleLogout}
-                  >
-                    {t('login.logout')}
-                  </DropdownItem>
-                </DropdownMenu>
-              </Dropdown>
-            </div>
-          )}
+          <div className="ml-2 flex items-center gap-1 border-l border-white/25 pl-2">
+            <HelpMenu />
+            <AccountMenu />
+          </div>
         </div>
       </div>
     </header>

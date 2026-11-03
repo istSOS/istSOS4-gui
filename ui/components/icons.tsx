@@ -1007,3 +1007,26 @@ export const ClearSelectionIcon = ({ size = 24, ...props }: IconSvgProps) => (
     <path d="m16 4 5 5m0-5-5 5" />
   </svg>
 )
+
+export const AggregationsIcon = ({ size = 24, ...props }: IconSvgProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <path d="M4 4v16h16M8 15v-4m5 4V7m5 8v-6" />
+    <path d="m15 3 3 3 3-3" />
+  </svg>
+)
+
+export const AccountIcon = ({ size = 24, ...props }: IconSvgProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+  </svg>
+)
+
+export const HelpIcon = ({ size = 24, ...props }: IconSvgProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.5 9a2.5 2.5 0 1 1 4 2c-1 .75-1.5 1.25-1.5 2.5" />
+    <path d="M12 17h.01" />
+  </svg>
+)

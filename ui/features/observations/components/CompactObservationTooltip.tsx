@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 
 import ObservationQuality from './ObservationQuality'
 
+import { phenomenonTimeEnd } from '../../../lib/phenomenonTime'
 import { rawText } from '../../qc/lib/bitmask'
 import { formatObservationTime } from '../../qc/lib/timezone'
 import type { TooltipReading } from '../lib/observationTooltip'
@@ -46,7 +47,7 @@ export default function CompactObservationTooltip({
             </span>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1.5 tabular-nums">
-            <time dateTime={row.time}>
+            <time dateTime={phenomenonTimeEnd(row.time) ?? undefined}>
               {formatObservationTime(row.time, utcOffset)}
             </time>
             <span aria-hidden>·</span>

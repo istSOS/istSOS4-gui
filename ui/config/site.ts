@@ -15,6 +15,7 @@ import type { BasemapKey } from '@/types'
 
 import { primaryDataSource } from '@/config/dataSources'
 import { isVersioningEnabled } from '@/config/versioning'
+import guiPackage from '@/package.json'
 
 export const BASEMAPS: Record<
   BasemapKey,
@@ -56,9 +57,11 @@ export const BASEMAPS: Record<
 const API_ROOT = primaryDataSource?.apiRoot ?? ''
 const AUTHORIZATION_ENABLED = primaryDataSource?.authorizationEnabled ?? false
 const NETWORK_ENABLED = primaryDataSource?.networkEnabled ?? false
+const GUI_REPOSITORY = 'https://github.com/istSOS/istSOS4-gui'
 
 export const siteConfig = {
   name: 'istSOS4 admin ui',
+  version: guiPackage.version,
   versioning: isVersioningEnabled,
   api_root: API_ROOT,
   authorizationEnabled: AUTHORIZATION_ENABLED,
@@ -126,7 +129,8 @@ export const siteConfig = {
   ],
 
   links: {
-    github: 'https://github.com/istSOS/istSOS4-gui',
+    github: GUI_REPOSITORY,
+    documentation: `${GUI_REPOSITORY}#readme`,
     istSOS: 'https://istsos.org',
     OSGeo: 'https://www.osgeo.org/',
   },
