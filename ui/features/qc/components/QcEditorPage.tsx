@@ -22,8 +22,7 @@ import QcObservationExport from './QcObservationExport'
 import QcResources from './QcResources'
 import QcTable, { PAGE_SIZE } from './QcTable'
 
-import { fitsMask, parseMask, slotState } from '../lib/bitmask'
-import { unrunSlots } from '../lib/checks'
+import { failedChecks, needsAttention } from '../lib/checks'
 import { exportDrafts } from '../lib/export'
 import { changed, rowValue } from '../lib/model'
 import { formatUtcOffset, toOffsetInput } from '../lib/timezone'
@@ -72,30 +71,21 @@ export default function QcEditorPage({
       JSON.stringify(row.result) !==
       JSON.stringify(rowValue(row, editor.workspace.drafts).result)
   )
-  const pending = rows.filter((row) => {
-    const draft = rowValue(row, editor.workspace.drafts)
-    return (
-      draft.qualityPending ||
-      draft.staleSlots.length > 0 ||
-      (encoded && unrunSlots(draft, editor.constraints.length).length > 0)
+  const pending = rows.filter((row) =>
+    needsAttention(
+      rowValue(row, editor.workspace.drafts),
+      editor.constraints.length,
+      encoded
     )
-  })
-  const failed = rows.filter((row) => {
-    const draft = rowValue(row, editor.workspace.drafts)
-    if (editor.serviceMode) return Number(draft.resultQuality) === 310
-    if (!encoded || !fitsMask(draft.resultQuality, editor.constraints.length))
-      return false
-    const mask = parseMask(draft.resultQuality)
-    return (
-      mask !== null &&
-      (slotState(mask, editor.constraints.length + 1) === 2 ||
-        editor.constraints.some(
-          (_, index) =>
-            !draft.staleSlots.includes(index + 1) &&
-            slotState(mask, index + 1) === 2
-        ))
+  )
+  const failed = rows.filter((row) =>
+    failedChecks(
+      rowValue(row, editor.workspace.drafts),
+      editor.constraints.length,
+      encoded,
+      editor.serviceMode
     )
-  })
+  )
   const selected = new Set(editor.selected)
   const selectedWindowCount = windowRows.filter((row) =>
     selected.has(row.key)

@@ -18,16 +18,18 @@ export function layoutMapValueLabels(container: HTMLElement) {
     ),
     (element) => element.getBoundingClientRect()
   )
+  // Every rect is read before the first class change: a write between two
+  // reads forces a layout per label. Hidden labels keep their box.
   const labels = Array.from(
-    container.querySelectorAll<HTMLElement>('.map-station-value')
-  ).sort(
-    (a, b) =>
-      Number(!!b.closest('.map-marker-selected')) -
-      Number(!!a.closest('.map-marker-selected'))
-  )
+    container.querySelectorAll<HTMLElement>('.map-station-value'),
+    (label) => ({
+      label,
+      rect: label.getBoundingClientRect(),
+      selected: !!label.closest('.map-marker-selected'),
+    })
+  ).sort((a, b) => Number(b.selected) - Number(a.selected))
   const placed: Rect[] = []
-  for (const label of labels) {
-    const rect = label.getBoundingClientRect()
+  for (const { label, rect } of labels) {
     const hidden =
       rect.width === 0 ||
       rect.left < bounds.left ||

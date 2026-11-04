@@ -46,3 +46,36 @@ export function unrunSlots(draft: Draft, count: number): number[] {
     (slot) => mask === null || slotState(mask, slot) < 2
   )
 }
+
+/** "Needs attention": quality still pending, stale, or a check never ran. */
+export function needsAttention(
+  draft: Draft,
+  count: number,
+  encoded: boolean
+): boolean {
+  return (
+    !!draft.qualityPending ||
+    draft.staleSlots.length > 0 ||
+    (encoded && unrunSlots(draft, count).length > 0)
+  )
+}
+
+/** "Failed checks / rejected": a current check failed or human review rejected. */
+export function failedChecks(
+  draft: Draft,
+  count: number,
+  encoded: boolean,
+  serviceMode: boolean
+): boolean {
+  if (serviceMode) return Number(draft.resultQuality) === 310
+  if (!encoded || !fitsMask(draft.resultQuality, count)) return false
+  const mask = parseMask(draft.resultQuality)
+  return (
+    mask !== null &&
+    (slotState(mask, count + 1) === 2 ||
+      Array.from({ length: count }, (_, index) => index + 1).some(
+        (slot) =>
+          !draft.staleSlots.includes(slot) && slotState(mask, slot) === 2
+      ))
+  )
+}

@@ -780,8 +780,11 @@ export function drawNetworkLayers(args: {
             ? `≈ ${asOfLabel}`
             : asOfLabel
           : undefined,
-        value: single?.text
-          ? { text: single.text, description: labelDescription }
+        // Value label only when the filter narrows to one observed property;
+        // a station that merely has one datastream gets none.
+        value:
+          single?.text && observedPropertyFilter?.size === 1
+            ? { text: single.text, description: labelDescription }
           : undefined,
       })
       const marker = L.marker(centerLL, {

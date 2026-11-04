@@ -36,6 +36,7 @@ import QualityLegend, { type QualityLegendLane } from './QualityLegend'
 import { SELECTION_COLOR } from '../../../lib/chartSelection'
 import { hoverTooltipTool } from '../../../lib/chartToolbar'
 import { plotTooltipPreference } from '../../../lib/plotTooltipPreference'
+import { failedChecks, needsAttention } from '../../qc/lib/checks'
 import { selectionZoom } from '../../qc/lib/selectionZoom'
 import {
   type QualityLane,
@@ -206,6 +207,9 @@ export default function ObservationGraph({
   const [showTable, setShowTable] = useState(true)
   const [page, setPage] = useState(0)
   const [tableFilter, setTableFilter] = useState<'all' | 'A' | 'B'>('all')
+  const [qualityFilter, setQualityFilter] = useState<
+    'all' | 'pending' | 'failed'
+  >('all')
   const stylesRef = useRef(seriesStyles)
   useEffect(() => {
     stylesRef.current = seriesStyles
@@ -327,7 +331,8 @@ export default function ObservationGraph({
           }))
         ),
       })
-      legend.push({ tag, label, tally, asOf })
+      // Legend only names the snapshot(s); on live data the strips speak for themselves.
+      if (isCompare || asOf) legend.push({ tag, label, tally, asOf })
     }
 
     return {
@@ -356,6 +361,26 @@ export default function ObservationGraph({
       )
       .sort((a, b) => a.x - b.x || a.entry.id.localeCompare(b.entry.id))
   }, [seriesEntries, activeDatastreamIds, alignedAxis])
+
+  // Same "Needs attention" / "Failed" rules as the QC editor, on stored quality.
+  const qualityRows = useMemo(() => {
+    const pending: ObservationDataRow[] = []
+    const failed: ObservationDataRow[] = []
+    for (const item of tableRows) {
+      const { row, entry } = item
+      const count = entry.qualityConstraints?.length ?? 0
+      const encoded = entry.qualityMode === 'bitmask' && count > 0 && count <= 4
+      const draft = {
+        result: row.rawValue,
+        resultQuality: row.rawQuality,
+        staleSlots: [],
+      }
+      if (needsAttention(draft, count, encoded)) pending.push(item)
+      if (failedChecks(draft, count, encoded, entry.qualityMode === 'service'))
+        failed.push(item)
+    }
+    return { all: tableRows, pending, failed }
+  }, [tableRows])
 
   const pinTooltip = useCallback((open: boolean) => {
     tooltipPinnedRef.current = open
@@ -394,6 +419,7 @@ export default function ObservationGraph({
     setSelectedX(null)
     setPage(0)
     setTableFilter('all')
+    setQualityFilter('all')
   }
 
   const focusRows = useCallback(
@@ -401,6 +427,7 @@ export default function ObservationGraph({
       setSelection({ keys, origin })
       if (origin === 'graph' && keys.length) {
         setTableFilter('all')
+        setQualityFilter('all')
         const index = tableRows.findIndex((row) => row.key === keys[0])
         if (index >= 0) setPage(Math.floor(index / PAGE_SIZE))
       }
@@ -871,14 +898,13 @@ export default function ObservationGraph({
     seriesEntries,
     activeDatastreamIds
   )
-  const filteredRows =
-    secondarySeries && tableFilter !== 'all'
-      ? tableRows.filter(
-          (row) =>
-            row.entry.id ===
-            (tableFilter === 'A' ? primarySeries?.id : secondarySeries.id)
-        )
-      : tableRows
+  const filteredRows = qualityRows[qualityFilter].filter(
+    (row) =>
+      !secondarySeries ||
+      tableFilter === 'all' ||
+      row.entry.id ===
+        (tableFilter === 'A' ? primarySeries?.id : secondarySeries.id)
+  )
 
   const selectFromTable = (keys: string[]) => {
     if (keys.length === 1) {
@@ -921,6 +947,28 @@ export default function ObservationGraph({
           <div ref={containerRef} className="min-h-0 flex-1" />
           {!loading && !error && <QualityLegend lanes={qualityLegendLanes} />}
         </div>
+      </div>
+      <div className="flex shrink-0 flex-wrap gap-2">
+        {(['all', 'pending', 'failed'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={qualityFilter === value}
+            onClick={() => {
+              setQualityFilter(value)
+              setPage(0)
+              setShowTable(true)
+              focusRows(
+                qualityRows[value].map((row) => row.key),
+                'table'
+              )
+              setSelectedX(null)
+            }}
+            className={`rounded-full border px-3 py-1 text-xs ${qualityFilter === value ? 'border-primary bg-primary-50 text-primary' : 'border-default-200 text-default-600'}`}
+          >
+            {t(`qc.workflow.filters.${value}`)} · {qualityRows[value].length}
+          </button>
+        ))}
       </div>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 text-sm">
         <button

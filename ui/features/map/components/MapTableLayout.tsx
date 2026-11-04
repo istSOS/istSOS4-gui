@@ -21,6 +21,7 @@ export default function MapTableLayout({
 }) {
   const { t } = useTranslation()
   const root = useRef<HTMLDivElement>(null)
+  const frame = useRef(0)
   const [height, setHeight] = useState(40)
   const clamp = (value: number) => Math.min(65, Math.max(25, value))
   return (
@@ -46,9 +47,12 @@ export default function MapTableLayout({
               if (!event.currentTarget.hasPointerCapture(event.pointerId))
                 return
               const rect = root.current?.getBoundingClientRect()
+              const y = event.clientY
+              // One resize per frame: each one relays out the map and table.
+              cancelAnimationFrame(frame.current)
               if (rect)
-                setHeight(
-                  clamp(((rect.bottom - event.clientY) / rect.height) * 100)
+                frame.current = requestAnimationFrame(() =>
+                  setHeight(clamp(((rect.bottom - y) / rect.height) * 100))
                 )
             }}
             onPointerUp={(event) => {

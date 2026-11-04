@@ -75,7 +75,10 @@ export async function getThings(token?: string | null) {
   try {
     const thingData = await readThingsWithDatastreams(
       siteConfig.api_root,
-      'Network,Sensor,ObservedProperty',
+      // A server without networks answers a Network expand with a 500.
+      siteConfig.networkEnabled
+        ? 'Network,Sensor,ObservedProperty'
+        : 'Sensor,ObservedProperty',
       (url) => fetchData(url, token)
     )
     return { thingData }

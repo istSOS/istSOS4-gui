@@ -85,17 +85,24 @@ async function fetchSourceCollection(
 }
 
 async function fetchThingsForSource(
-  source: { id: string; name: string; apiRoot: string },
+  source: {
+    id: string
+    name: string
+    apiRoot: string
+    networkEnabled?: boolean
+  },
   token: string | null
 ): Promise<SourceResult> {
   const endpoint = normalizeApiRoot(source.apiRoot)
+  // A server without networks answers a Network expand with a 500.
+  const network = source.networkEnabled === true
 
   try {
     const [values, sensorsValues, observedPropertiesValues, networkValues] =
       await Promise.all([
         readThingsWithDatastreams(
           endpoint,
-          'Network,Sensor,Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime),ObservedProperty',
+          `${network ? 'Network,' : ''}Sensor,Observations($top=1;$orderby=phenomenonTime desc;$select=result,resultQuality,phenomenonTime),ObservedProperty`,
           async (url) => {
             const response = await fetch(url, {
               method: 'GET',
@@ -112,7 +119,9 @@ async function fetchThingsForSource(
         ),
         fetchSourceCollection(buildSensorsUrl(endpoint), token),
         fetchSourceCollection(buildObservedPropertiesUrl(endpoint), token),
-        fetchSourceCollection(buildNetworksUrl(endpoint), token),
+        network
+          ? fetchSourceCollection(buildNetworksUrl(endpoint), token)
+          : Promise.resolve([]),
       ])
 
     const things = values.map((thing) => ({

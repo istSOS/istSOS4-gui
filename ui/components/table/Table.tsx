@@ -33,6 +33,7 @@ import { orderTableItems } from './tableOrdering'
 import { tableStyles } from './tableStyles'
 
 const BROWSE_ROW_HEIGHT = 36
+const BROWSE_TABLE_HEIGHT = 380
 const BROWSE_PAGE_SIZE = 25
 
 type TableColumn<TColumnKey extends string = string> = {
@@ -124,8 +125,6 @@ export default function TableComponent<
   ),
 }: TableProps<TItem, TColumnKey>) {
   const continuous = continuousScroll && scrollable && enablePagination
-  const [viewportHeight, setViewportHeight] = React.useState(380)
-  const scrollPosition = React.useRef(0)
   const [filterValue, setFilterValue] = React.useState('')
   const q = filterValue.trim()
 
@@ -170,7 +169,6 @@ export default function TableComponent<
     const frame = requestAnimationFrame(() => {
       setPage(1)
       if (continuous) {
-        scrollPosition.current = 0
         const wrapper = tableRoot.current?.querySelector('table')?.parentElement
         if (wrapper) wrapper.scrollTop = 0
       }
@@ -213,21 +211,14 @@ export default function TableComponent<
     const wrapper = tableRoot.current?.querySelector('table')?.parentElement
     if (continuous && wrapper) {
       wrapper.scrollTop = (next - 1) * rowsPerPage * BROWSE_ROW_HEIGHT
-      scrollPosition.current = wrapper.scrollTop
     }
   }
-
-  React.useLayoutEffect(() => {
-    const wrapper = tableRoot.current?.querySelector('table')?.parentElement
-    if (continuous && wrapper) wrapper.scrollTop = scrollPosition.current
-  }, [continuous, viewportHeight])
 
   React.useEffect(() => {
     const root = tableRoot.current
     const wrapper = root?.querySelector('table')?.parentElement
     if (!continuous || !root || !wrapper) return
     const onScroll = () => {
-      scrollPosition.current = wrapper.scrollTop
       const atBottom =
         wrapper.scrollTop > 0 &&
         wrapper.scrollTop + wrapper.clientHeight >= wrapper.scrollHeight - 1
@@ -236,24 +227,9 @@ export default function TableComponent<
         : Math.floor(wrapper.scrollTop / BROWSE_ROW_HEIGHT)
       setPage(Math.max(1, Math.min(pages, Math.floor(index / rowsPerPage) + 1)))
     }
-    let frame = 0
-    const measure = () => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        if (wrapper.clientHeight > 0) setViewportHeight(wrapper.clientHeight)
-      })
-    }
     wrapper.addEventListener('scroll', onScroll, { passive: true })
-    const observer = new ResizeObserver(measure)
-    observer.observe(root)
-    observer.observe(wrapper)
-    measure()
-    return () => {
-      cancelAnimationFrame(frame)
-      observer.disconnect()
-      wrapper.removeEventListener('scroll', onScroll)
-    }
-  }, [continuous, pages, rowsPerPage, sortedItems.length, viewportHeight])
+    return () => wrapper.removeEventListener('scroll', onScroll)
+  }, [continuous, pages, rowsPerPage, sortedItems.length])
 
   React.useEffect(() => {
     if (focusedKey == null) return
@@ -270,7 +246,6 @@ export default function TableComponent<
         const wrapper = tableRoot.current?.querySelector('table')?.parentElement
         if (continuous && wrapper) {
           wrapper.scrollTop = index * BROWSE_ROW_HEIGHT
-          scrollPosition.current = wrapper.scrollTop
         }
       }
     })
@@ -449,7 +424,9 @@ export default function TableComponent<
           ? {
               isVirtualized: true,
               rowHeight: BROWSE_ROW_HEIGHT,
-              maxTableHeight: viewportHeight,
+              // Fixed on purpose: HeroUI remounts the whole virtualized table
+              // when this changes. The flex-1 wrapper takes its real height.
+              maxTableHeight: BROWSE_TABLE_HEIGHT,
             }
           : {})}
         isHeaderSticky
