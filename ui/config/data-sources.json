@@ -2,8 +2,8 @@
   "sources": [
     {
       "id": "source-1",
-      "name": "TSDB",
-      "apiRoot": "https://hydromet.supsi.ch/tsdb/v1.1",
+      "name": "ISTSOS4",
+      "apiRoot": "/ISTSOS4_URL",
       "authorizationEnabled": true,
       "networkEnabled": true
     }
