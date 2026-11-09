@@ -1,7 +1,7 @@
 services:
   istsos4-gui:
     container_name: istsos4-gui
-    image: ghcr.io/istsos/istsos4/gui:1.5
+    image: ghcr.io/istsos/istsos4/gui:1.6
     restart: always
     ports:
       - 2000:3000
@@ -16,15 +16,14 @@ services:
       RESULT_QUALITY_CODES: ${RESULT_QUALITY_CODES:-}
       SAQC_SERVICE_URL: ${SAQC_SERVICE_URL:-}
     networks:
-     - istsos4-network
+      - istsos4-network
 
   saqc:
-    profiles: [saqc]
-    build: ./qc-service
-    restart: unless-stopped
+    image: ghcr.io/istsos/istsos4/gui-saqc:1.0
+    restart: always
     networks:
       - istsos4-network
-     
+
 networks:
   istsos4-network:
     external: true
