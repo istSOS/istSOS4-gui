@@ -79,7 +79,16 @@ const LANE_TAG_GAP = 6
  * chart — the band the date labels and the toolbox live in. The lane
  * block is inserted above it, and the plot gives up exactly that much height.
  */
-const AXIS_BAND = 64
+const AXIS_BAND = 84
+
+/**
+ * Room under the toolbox for the icons' hover titles. Without it ECharts puts a
+ * title above its icon, over the date labels. AXIS_BAND grows by the same
+ * amount so the icons do not reach the dates.
+ */
+const TOOLBOX_BOTTOM = 20
+
+const TOOLBOX_TITLE_BELOW_ICON = { textPosition: 'bottom' as const }
 
 /** Breathing room between the plot's lower edge and the first strip. */
 const LANE_OFFSET = 10
@@ -827,7 +836,12 @@ export function buildObservationGraphOption({
       },
     },
     toolbox: {
-      bottom: 'bottom',
+      bottom: TOOLBOX_BOTTOM,
+      // Hover titles below the icons. Features inherit it from the toolbox;
+      // the toolbox-level type just omits the text fields.
+      emphasis: {
+        iconStyle: { borderColor: primaryColor, ...TOOLBOX_TITLE_BELOW_ICON },
+      },
       feature: {
         brush: {
           ...brushToolStyle(primaryColor),
