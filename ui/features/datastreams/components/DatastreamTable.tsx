@@ -50,6 +50,21 @@ import { useAuth } from '@/context/AuthContext'
 
 import type { MapDatastreamRow } from '../lib/mapDatastreamRows'
 
+// h-6 w-6 buttons with gap-1 between them.
+const ACTION_ICON_PITCH = 28
+
+/**
+ * All action tooltips open right of the whole icon group: Actions is the last
+ * column, so they cover no other cell. A tooltip stays open while the pointer
+ * is on it, so one above an icon covered the row above and one beside it
+ * covered the next icon.
+ */
+const actionTooltipProps = (iconsToTheRight: number) => ({
+  placement: 'right' as const,
+  offset: 8 + iconsToTheRight * ACTION_ICON_PITCH,
+  closeDelay: 0,
+})
+
 dayjs.extend(duration)
 dayjs.extend(utc)
 dayjs.extend(relativeTime)
@@ -443,7 +458,11 @@ export default function DatastreamTable({
         case 'actions':
           return (
             <div className="flex items-center justify-center gap-1">
-              <Tooltip color="primary" content={t('general.details')}>
+              <Tooltip
+                color="primary"
+                content={t('general.details')}
+                {...actionTooltipProps(isVersioningEnabled ? 3 : 2)}
+              >
                 <Button
                   isIconOnly
                   className="h-6 w-6 min-w-6"
@@ -459,6 +478,7 @@ export default function DatastreamTable({
               {isVersioningEnabled && (
                 <Tooltip
                   color="primary"
+                  {...actionTooltipProps(2)}
                   content={t('from_to.table.row_history_tooltip', {
                     name: String(item?.name ?? ''),
                   })}
@@ -491,6 +511,7 @@ export default function DatastreamTable({
                   permission state during hydration. */}
               <Tooltip
                 color={locked ? 'foreground' : 'primary'}
+                {...actionTooltipProps(1)}
                 content={lockedReason ?? t('general.edit')}
               >
                 <span className={locked ? 'cursor-not-allowed' : undefined}>
@@ -510,6 +531,7 @@ export default function DatastreamTable({
               </Tooltip>
               <Tooltip
                 color={locked ? 'foreground' : 'danger'}
+                {...actionTooltipProps(0)}
                 content={lockedReason ?? t('general.delete')}
               >
                 <span className={locked ? 'cursor-not-allowed' : undefined}>
