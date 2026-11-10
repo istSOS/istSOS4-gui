@@ -238,6 +238,7 @@ export default function DatastreamTable({
     uid: DatastreamColumnKey
     sortable: boolean
     align: 'start' | 'center' | 'end'
+    width?: number
   }> = useMemo(
     () => [
       { name: 'ID', uid: 'id', sortable: true, align: 'start' },
@@ -275,7 +276,13 @@ export default function DatastreamTable({
         sortable: true,
         align: 'center',
       },
-      { name: t('general.last'), uid: 'last', sortable: true, align: 'start' },
+      {
+        name: t('general.last'),
+        uid: 'last',
+        sortable: true,
+        align: 'start',
+        width: 150,
+      },
       {
         name: t('general.last_value'),
         uid: 'lastValue',
@@ -299,6 +306,7 @@ export default function DatastreamTable({
         uid: 'actions',
         sortable: false,
         align: 'center',
+        width: 130,
       },
     ],
     [isMapTable, t]

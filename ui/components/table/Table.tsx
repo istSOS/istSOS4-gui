@@ -35,12 +35,26 @@ import { tableStyles } from './tableStyles'
 const BROWSE_ROW_HEIGHT = 36
 const BROWSE_TABLE_HEIGHT = 380
 const BROWSE_PAGE_SIZE = 25
+const CELL_PADDING = 24
+
+const noopSubscribe = () => () => {}
+
+const textOf = (node: ReactNode): string => {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join('')
+  if (React.isValidElement<{ children?: ReactNode }>(node))
+    return textOf(node.props.children)
+  return ''
+}
 
 type TableColumn<TColumnKey extends string = string> = {
   name: ReactNode
   uid: TColumnKey
   sortable?: boolean
   align?: 'start' | 'center' | 'end'
+  /** Fixed width in px; otherwise it is measured from the column's text. */
+  width?: number
 }
 
 type TableProps<TItem, TColumnKey extends string = string> = {
@@ -351,6 +365,38 @@ export default function TableComponent<
         ]
       : headerColumns
 
+  const isClient = React.useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false
+  )
+  const columnWidths = React.useMemo(() => {
+    const widths: Record<string, number> = {}
+    const ctx = isClient
+      ? document.createElement('canvas').getContext('2d')
+      : null
+    if (!ctx) return widths
+    const fontFamily = getComputedStyle(document.body).fontFamily
+    for (const column of columns) {
+      if (column.width) {
+        widths[column.uid] = column.width
+        continue
+      }
+      ctx.font = `600 10px ${fontFamily}`
+      let max =
+        ctx.measureText(textOf(column.name)).width + (column.sortable ? 16 : 0)
+      ctx.font = `400 12px ${fontFamily}`
+      for (const item of items) {
+        max = Math.max(
+          max,
+          ctx.measureText(textOf(renderCell(item, column.uid))).width
+        )
+      }
+      widths[column.uid] = Math.ceil(max) + CELL_PADDING
+    }
+    return widths
+  }, [isClient, columns, items, renderCell])
+
   const topContent =
     enableSearch ||
     topLeft ||
@@ -463,6 +509,7 @@ export default function TableComponent<
               }
               allowsSorting={Boolean(column.sortable)}
               align={column.align ?? 'start'}
+              width={columnWidths[column.uid]}
             >
               {column.name}
             </TableColumn>
