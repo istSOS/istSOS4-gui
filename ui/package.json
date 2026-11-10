@@ -13,7 +13,7 @@
     "test:versioning": "node --test config/versioning.test.cjs server/as-of/snapshot.test.cjs features/as-of/hooks/cancellation.test.cjs",
     "test:data-sources": "node --test app/api/data-sources/inspect/route.test.cjs services/things.test.cjs",
     "test:map": "node --test features/map/lib/mapFilters.test.cjs",
-    "test:observations": "node --test lib/phenomenonTime.test.cjs features/observations/lib/qualityDetails.test.cjs features/observations/components/ObservationGraph.test.cjs features/home/hooks/useChartState.test.cjs features/observations/lib/seriesAppearance.test.cjs"
+    "test:observations": "node --test lib/phenomenonTime.test.cjs features/observations/lib/qualityDetails.test.cjs features/observations/components/ObservationGraph.test.cjs features/home/hooks/useChartState.test.cjs features/observations/lib/seriesAppearance.test.cjs features/observations/lib/timeAxisTicks.test.cjs"
   },
   "dependencies": {
     "@heroui/accordion": "2.2.27",

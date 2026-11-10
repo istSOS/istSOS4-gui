@@ -156,6 +156,11 @@ export default function ChartModal({
   const { t } = useTranslation()
   const seriesStyles = useSeriesAppearances()
   const [utcOffset, setUtcOffset] = useState(0)
+  // From/To show the readings' own range when the chart fits them (≤ 7 days).
+  const [dataRange, setDataRange] = useState<{
+    start: number
+    end: number
+  } | null>(null)
   useEffect(() => {
     let mounted = true
     // Read the browser after hydration; the server can use a different zone.
@@ -528,8 +533,20 @@ export default function ChartModal({
           <div className="flex h-full min-h-0 flex-col">
             <div className="mb-2 shrink-0 space-y-2 border-b border-default-200 pb-2">
               <ObservationTimeRange
-                start={isComparingSnapshots && compareAligned ? null : start}
-                end={isComparingSnapshots && compareAligned ? null : end}
+                start={
+                  isComparingSnapshots && compareAligned
+                    ? null
+                    : dataRange
+                      ? new Date(dataRange.start).toISOString()
+                      : start
+                }
+                end={
+                  isComparingSnapshots && compareAligned
+                    ? null
+                    : dataRange
+                      ? new Date(dataRange.end).toISOString()
+                      : end
+                }
                 utcOffset={utcOffset}
                 onOffsetChange={setUtcOffset}
                 onApply={onApplyRange}
@@ -761,6 +778,7 @@ export default function ChartModal({
                 snapshotMarkers={snapshotMarkers}
                 windowStart={axisWindow.start}
                 windowEnd={axisWindow.end}
+                onDataRangeChange={setDataRange}
                 alignedAxis={isComparingSnapshots && compareAligned}
                 isCompare={isComparingSnapshots}
                 changeRegions={compareDiff.regions}

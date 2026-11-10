@@ -49,6 +49,7 @@ import {
   seriesAxisScales,
   syncLaneGridToPlotGrid,
   timeAxisDisplay,
+  visibleTimeExtent,
   visibleTimeSpan,
 } from '../lib/observationGraphOptions'
 import {
@@ -72,6 +73,7 @@ import {
   EMPTY_APPEARANCES,
   type SeriesAppearances,
 } from '../lib/seriesAppearance'
+import { calendarTicks, initialTimeRange } from '../lib/timeAxisTicks'
 
 const EMPTY_OBSERVATIONS: Observation[] = []
 const EMPTY_SERIES: SeriesSource[] = []
@@ -95,6 +97,8 @@ type ObservationGraphProps = {
     bytes: ArrayBuffer
   } | null>
   height?: number | string
+  /** The readings' own range when the axis fits them (up to 7 days), else null. */
+  onDataRangeChange?: (range: { start: number; end: number } | null) => void
   className?: string
   /** Amber dashed vertical lines — the snapshot(s) this chart is about. */
   snapshotMarkers?: SnapshotMarker[]
@@ -132,6 +136,7 @@ export default function ObservationGraph({
   onDownloadAllDatastreams,
   className = '',
   height = '100%',
+  onDataRangeChange,
   snapshotMarkers = EMPTY_MARKERS,
   windowStart = null,
   windowEnd = null,
@@ -398,6 +403,50 @@ export default function ObservationGraph({
     })
     if (!open) chart.dispatchAction({ type: 'hideTip' })
   }, [])
+  // The aligned (Δt) axis is relative time, so the window does not apply there.
+  const timeRange = useMemo(
+    () =>
+      alignedAxis
+        ? {
+            axisStart: windowStart,
+            axisEnd: windowEnd,
+            zoom: null,
+            fromData: false,
+          }
+        : initialTimeRange(
+            tableRows.map((item) => item.x),
+            windowStart,
+            windowEnd
+          ),
+    [alignedAxis, tableRows, windowStart, windowEnd]
+  )
+  useEffect(() => {
+    onDataRangeChange?.(
+      timeRange.fromData &&
+        timeRange.axisStart != null &&
+        timeRange.axisEnd != null
+        ? { start: timeRange.axisStart, end: timeRange.axisEnd }
+        : null
+    )
+  }, [timeRange, onDataRangeChange])
+  const laneCount = qualityLanes.length
+  // Recomputed on every zoom: the tick step follows the visible span.
+  const applyCalendarTicks = useCallback(
+    (utcOffsetMinutes: number) => {
+      const chart = chartRef.current
+      if (!chart || chart.isDisposed() || !chartHasSeriesRef.current) return
+      if (alignedAxis) return
+      const extent = visibleTimeExtent(chart)
+      if (!extent) return
+      const ticks = calendarTicks(extent[0], extent[1], utcOffsetMinutes)
+      const custom = {
+        axisTick: { customValues: ticks },
+        axisLabel: { customValues: ticks },
+      }
+      chart.setOption({ xAxis: laneCount ? [custom, custom] : [custom] })
+    },
+    [alignedAxis, laneCount]
+  )
   const resetZoom = useCallback(() => {
     chartRef.current?.dispatchAction({ type: 'dataZoom', start: 0, end: 100 })
   }, [])
@@ -575,8 +624,8 @@ export default function ObservationGraph({
       onResetZoom: resetZoom,
       onZoomToSelection: zoomToSelection,
       snapshotMarkers,
-      windowStart,
-      windowEnd,
+      windowStart: timeRange.axisStart,
+      windowEnd: timeRange.axisEnd,
       alignedAxis,
       isCompare,
       changeRegions,
@@ -598,6 +647,12 @@ export default function ObservationGraph({
     // a strip starts under the reading it describes.
     syncLaneGridToPlotGrid(chart)
     chartHasSeriesRef.current = true
+
+    chart.off('datazoom')
+    chart.on('datazoom', () => applyCalendarTicks(utcOffsetRef.current))
+    if (timeRange.zoom)
+      chart.dispatchAction({ type: 'dataZoom', ...timeRange.zoom })
+    else applyCalendarTicks(utcOffsetRef.current)
 
     selectionToolRef.current = false
     chart.off('globalcursortaken')
@@ -654,6 +709,7 @@ export default function ObservationGraph({
         chart.off('brush')
         chart.off('brushEnd')
         chart.off('globalcursortaken')
+        chart.off('datazoom')
       }
     }
 
@@ -675,8 +731,7 @@ export default function ObservationGraph({
     resetZoom,
     zoomToSelection,
     snapshotMarkers,
-    windowStart,
-    windowEnd,
+    timeRange,
     alignedAxis,
     isCompare,
     changeRegions,
@@ -688,6 +743,7 @@ export default function ObservationGraph({
     renderTooltip,
     getVisibleTimeSpan,
     tooltipRoot,
+    applyCalendarTicks,
     t,
   ])
 
@@ -726,7 +782,15 @@ export default function ObservationGraph({
         ? [{ axisPointer: display.axisPointer }, display]
         : [display],
     })
-  }, [utcOffset, alignedAxis, qualityLanes, seriesEntries, getVisibleTimeSpan])
+    applyCalendarTicks(utcOffset)
+  }, [
+    utcOffset,
+    alignedAxis,
+    qualityLanes,
+    seriesEntries,
+    getVisibleTimeSpan,
+    applyCalendarTicks,
+  ])
 
   /**
    * Move the marker line to the selected reading.

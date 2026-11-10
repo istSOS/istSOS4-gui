@@ -502,6 +502,14 @@ export function buildLaneSnapSeries(
 
 /** Read the zoomed UTC span when labels render, without changing the chart view. */
 export function visibleTimeSpan(chart: echarts.EChartsType | null): number {
+  const extent = visibleTimeExtent(chart)
+  return extent ? Math.abs(extent[1] - extent[0]) : Infinity
+}
+
+/** The x range currently on screen, after zoom, or null before a layout. */
+export function visibleTimeExtent(
+  chart: echarts.EChartsType | null
+): [number, number] | null {
   const model = (
     chart as unknown as {
       getModel?: () => {
@@ -513,7 +521,7 @@ export function visibleTimeSpan(chart: echarts.EChartsType | null): number {
     } | null
   )?.getModel?.()
   const extent = model?.getComponent('xAxis', 0)?.axis?.scale?.getExtent()
-  return extent ? Math.abs(extent[1] - extent[0]) : Infinity
+  return extent ? [extent[0], extent[1]] : null
 }
 
 /** Display-only patches preserve the UTC axis coordinates and current zoom. */

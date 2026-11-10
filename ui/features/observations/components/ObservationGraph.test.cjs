@@ -438,19 +438,23 @@ test('Both/A/B filters preserve zoom and selection; graph selection reveals matc
   assert.deepEqual(extent(app.chart), before)
 })
 
-test('Reset zoom restores the full queried window, including empty margins, on both plot and quality axes', (context) => {
-  const start = Date.parse(observations[0].phenomenonTime) - 86400000,
-    end = Date.parse(observations.at(-1).phenomenonTime) + 86400000
-  const app = mount(context, { windowStart: start, windowEnd: end })
+test('Reset zoom restores the readings extent within a week, on both plot and quality axes', (context) => {
+  // Under 7 days of readings the axis spans the readings, not the query window.
+  const first = Date.parse(observations[0].phenomenonTime),
+    last = Date.parse(observations.at(-1).phenomenonTime)
+  const app = mount(context, {
+    windowStart: first - 86400000,
+    windowEnd: last + 86400000,
+  })
   app.table().onSelect([app.table().rows[40].key])
   app.render()
   app.press('observations.zoom_selection')
-  assert.ok(extent(app.chart)[0] > start)
+  assert.ok(extent(app.chart)[0] > first)
   app.press('observations.reset_zoom')
-  assert.deepEqual(extent(app.chart), [start, end])
+  assert.deepEqual(extent(app.chart), [first, last])
   assert.deepEqual(
     app.chart.getModel().getComponent('xAxis', 1).axis.scale.getExtent(),
-    [start, end]
+    [first, last]
   )
   assert.equal(app.table().selected.length, 1)
   assert.equal(app.chart.getOption().toolbox[0].feature.dataZoom, undefined)
