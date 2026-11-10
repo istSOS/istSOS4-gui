@@ -13,6 +13,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 
 import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
@@ -444,7 +445,7 @@ export default function ImportFromFileButton({
       >
         {t('import.actions.import_from_file')}
       </Button>
-      {importReport ? (
+      {importReport ? createPortal(
         <Card
           role="dialog"
           aria-modal="true"
@@ -631,7 +632,8 @@ export default function ImportFromFileButton({
               </div>
             </div>
           </CardBody>
-        </Card>
+        </Card>,
+        document.body
       ) : null}
     </>
   )
